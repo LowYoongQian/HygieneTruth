@@ -1,0 +1,106 @@
+import 'package:flutter/material.dart';
+
+class WireframeBox extends StatelessWidget {
+  final double height;
+  final double width;
+  final IconData? icon;
+  final String? label;
+  final String? sublabel;
+  final VoidCallback? onTap;
+
+  const WireframeBox({
+    super.key,
+    this.height = 160,
+    this.width = double.infinity,
+    this.icon,
+    this.label,
+    this.sublabel,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: height,
+        width: width,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _WireframePainter(),
+              ),
+            ),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, size: 28, color: const Color(0xFF64748B)),
+                      const SizedBox(height: 4),
+                    ],
+                    if (label != null)
+                      Text(
+                        label!,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF334155),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    if (sublabel != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        sublabel!,
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        textAlign: TextAlign.center,
+                      ),
+                    ]
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WireframePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFCBD5E1).withValues(alpha: 0.6)
+      ..strokeWidth = 1.0;
+
+    // Draw X cross lines
+    canvas.drawLine(const Offset(0, 0), Offset(size.width, size.height), paint);
+    canvas.drawLine(Offset(size.width, 0), Offset(0, size.height), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
