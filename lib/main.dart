@@ -60,6 +60,7 @@ import 'owner/screens/mark_issue_resolved_screen.dart';
 import 'owner/screens/final_report_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const RestaurantHygieneApp());
 }
 

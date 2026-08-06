@@ -29,17 +29,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         .toList();
 
     return Scaffold(
-      appBar: CustomAppBar(
+      appBar: const CustomAppBar(
         title: 'Notice List',
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, AppRoutes.splashRoleSelect);
-            },
-          ),
-        ],
       ),
       body: Column(
         children: [

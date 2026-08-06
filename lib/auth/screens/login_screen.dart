@@ -46,6 +46,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final targetRoute = args?['targetRoute'] as String? ?? AppRoutes.userDashboard;
+
     setState(() {
       _isLoading = true;
       _isTraditionalLoading = true;
@@ -58,12 +61,13 @@ class _LoginScreenState extends State<LoginScreen> {
         _isLoading = false;
         _isTraditionalLoading = false;
       });
-      Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
+      Navigator.pushReplacementNamed(context, targetRoute);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).primaryColor;
     final fullButtonWidth = MediaQuery.of(context).size.width - 48;
 
     return Scaffold(
@@ -73,10 +77,10 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Icon(
+            Icon(
               Icons.storefront,
               size: 72,
-              color: Color(0xFF0284C7),
+              color: primaryColor,
             ),
             const SizedBox(height: 12),
             const Text(
@@ -91,107 +95,6 @@ class _LoginScreenState extends State<LoginScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 28),
-
-            // Animated Google Sign-In Button (Finite Width Lerp)
-            Center(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                width: _isGoogleLoading ? 54 : fullButtonWidth,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(_isGoogleLoading ? 27 : 10),
-                  border: Border.all(color: Colors.grey.shade400, width: 1.2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: InkWell(
-                  onTap: _isLoading ? null : _handleGoogleSignIn,
-                  borderRadius: BorderRadius.circular(_isGoogleLoading ? 27 : 10),
-                  child: Center(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: _isGoogleLoading
-                          ? const SizedBox(
-                              key: ValueKey('google_spinner'),
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFF0284C7),
-                              ),
-                            )
-                          : SingleChildScrollView(
-                              key: const ValueKey('google_text_row'),
-                              scrollDirection: Axis.horizontal,
-                              physics: const NeverScrollableScrollPhysics(),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const SizedBox(width: 16),
-                                  Container(
-                                    width: 22,
-                                    height: 22,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        'G',
-                                        style: TextStyle(
-                                          color: Color(0xFF4285F4),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  const Text(
-                                    'Sign in with Google',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                ],
-                              ),
-                            ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // "OR" Divider
-            Row(
-              children: [
-                Expanded(child: Divider(color: Colors.grey.shade400, thickness: 1)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'OR',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                Expanded(child: Divider(color: Colors.grey.shade400, thickness: 1)),
-              ],
-            ),
-            const SizedBox(height: 24),
 
             // Email Field
             TextField(
@@ -234,15 +137,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: () {
                   Navigator.pushNamed(context, AppRoutes.resetPassword);
                 },
-                child: const Text(
+                child: Text(
                   'Forgot password?',
-                  style: TextStyle(color: Color(0xFF0284C7)),
+                  style: TextStyle(color: primaryColor, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
             const SizedBox(height: 16),
 
-            // Animated Log In Button (Finite Width Lerp)
+            // Animated Log In Button (Styled in Brand Theme Color)
             Center(
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
@@ -256,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(_isTraditionalLoading ? 27 : 12),
                     ),
-                    backgroundColor: const Color(0xFF0284C7),
+                    backgroundColor: primaryColor,
                     foregroundColor: Colors.white,
                     elevation: 2,
                   ),
@@ -306,16 +209,118 @@ class _LoginScreenState extends State<LoginScreen> {
                   onTap: () {
                     Navigator.pushNamed(context, AppRoutes.register);
                   },
-                  child: const Text(
+                  child: Text(
                     'Register',
                     style: TextStyle(
-                      color: Color(0xFF0284C7),
+                      color: primaryColor,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+
+            // "OR" Divider Line
+            Row(
+              children: [
+                Expanded(child: Divider(color: Colors.grey.shade400, thickness: 1)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'OR',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                Expanded(child: Divider(color: Colors.grey.shade400, thickness: 1)),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Animated Google Sign-In Button
+            Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                width: _isGoogleLoading ? 54 : fullButtonWidth,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(_isGoogleLoading ? 27 : 10),
+                  border: Border.all(color: Colors.grey.shade400, width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: InkWell(
+                  onTap: _isLoading ? null : _handleGoogleSignIn,
+                  borderRadius: BorderRadius.circular(_isGoogleLoading ? 27 : 10),
+                  child: Center(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: _isGoogleLoading
+                          ? SizedBox(
+                              key: const ValueKey('google_spinner'),
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: primaryColor,
+                              ),
+                            )
+                          : SingleChildScrollView(
+                              key: const ValueKey('google_text_row'),
+                              scrollDirection: Axis.horizontal,
+                              physics: const NeverScrollableScrollPhysics(),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(width: 16),
+                                  Container(
+                                    width: 22,
+                                    height: 22,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Center(
+                                      child: Text(
+                                        'G',
+                                        style: TextStyle(
+                                          color: Color(0xFF4285F4),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Text(
+                                    'Sign in with Google',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                ],
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),

@@ -15,22 +15,22 @@ class RoleBadge extends StatelessWidget {
     switch (role) {
       case UserRole.user:
         bg = const Color(0xFF0284C7);
-        label = 'Public User';
+        label = 'Customer';
         icon = Icons.person;
         break;
       case UserRole.admin:
         bg = Colors.purple;
-        label = 'System Admin';
+        label = 'Admin';
         icon = Icons.admin_panel_settings;
         break;
       case UserRole.government:
         bg = Colors.blueGrey;
-        label = 'Officer';
+        label = 'Government';
         icon = Icons.security;
         break;
       case UserRole.owner:
         bg = const Color(0xFFD97706);
-        label = 'Owner';
+        label = 'Restaurant Owner';
         icon = Icons.storefront;
         break;
     }
@@ -50,9 +50,9 @@ class RoleBadge extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
               color: bg,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
             ),
           ),
         ],

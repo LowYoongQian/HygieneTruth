@@ -62,13 +62,6 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, AppRoutes.splashRoleSelect);
-            },
-          ),
         ],
       ),
       body: _buildUserTabContent(_selectedBottomTabIndex),
@@ -462,15 +455,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Portal'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, AppRoutes.splashRoleSelect);
-            },
-          ),
-        ],
+        actions: const [],
       ),
       drawer: _buildAdminDrawer(context),
       body: SingleChildScrollView(
@@ -636,15 +621,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Officer Portal'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, AppRoutes.splashRoleSelect);
-            },
-          ),
-        ],
+        actions: const [],
       ),
       drawer: _buildGovernmentDrawer(context),
       body: SingleChildScrollView(

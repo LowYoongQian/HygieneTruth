@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Wireframe UI Mockup Palette
-  static const Color primaryColor = Color(0xFF0284C7); // Electric Sky Blue
+  // Brand Palette matching "Hygiene Truth" Logo
+  static const Color primaryColor = Color(0xFF00A88F); // Vibrant Teal from logo
+  static const Color navyColor = Color(0xFF0C2340); // Deep Navy from logo "HT" monogram
+  static const Color accentColor = Color(0xFF80EE98); // Mint Sparkle Accent
+
   static const Color backgroundColor = Color(0xFFF8FAFC); // Slate Soft Background
   static const Color surfaceColor = Colors.white;
   static const Color borderColor = Color(0xFFE2E8F0);
-  static const Color textColor = Color(0xFF0F172A);
+  static const Color textColor = Color(0xFF0C2340);
   static const Color subtitleColor = Color(0xFF64748B);
 
   // Status Indicator Colors
@@ -20,6 +23,7 @@ class AppTheme {
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryColor,
         primary: primaryColor,
+        secondary: navyColor,
         surface: surfaceColor,
         error: highRiskColor,
       ),
@@ -66,24 +70,6 @@ class AppTheme {
           ),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: borderColor, width: 1.2),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: borderColor, width: 1.2),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: primaryColor, width: 1.8),
         ),
       ),
     );
