@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/customer_store_service.dart';
+import '../../core/services/remember_me_service.dart';
 import '../../core/widgets/custom_app_bar.dart';
+import '../../core/widgets/google_sign_in_button.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,14 +13,30 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(text: 'user@example.com');
-  final _passwordController = TextEditingController(text: 'password123');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
   bool _rememberMe = false; // State for Remember Me Checkbox
   bool _isLoading = false;
   bool _isTraditionalLoading = false;
   bool _isGoogleLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedCredentials();
+  }
+
+  Future<void> _loadRememberedCredentials() async {
+    final data = await RememberMeService.getRememberedUser();
+    if (data['rememberMe'] == true && mounted) {
+      setState(() {
+        _rememberMe = true;
+        _emailController.text = data['email'] ?? '';
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -33,21 +51,19 @@ class _LoginScreenState extends State<LoginScreen> {
       _isGoogleLoading = true;
     });
 
-    await CustomerStoreService.loginCustomer(
-      email: 'google_user@example.com',
-      password: 'google_oauth_pass',
-      rememberMe: _rememberMe,
-    );
+    final result = await CustomerStoreService.signInWithGoogle();
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Google Sign-In successful! Customer data synced.')),
+        SnackBar(content: Text(result.message)),
       );
       setState(() {
         _isLoading = false;
         _isGoogleLoading = false;
       });
-      Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
+      if (result.success) {
+        Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
+      }
     }
   }
 
@@ -59,6 +75,11 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
       _isTraditionalLoading = true;
     });
+
+    await RememberMeService.saveRememberedUser(
+      rememberMe: _rememberMe,
+      email: _emailController.text,
+    );
 
     // Authenticate with Supabase & CustomerStoreService
     final result = await CustomerStoreService.loginCustomer(
@@ -100,25 +121,49 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Log In'),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Icon(
-              Icons.storefront,
-              size: 72,
-              color: primaryColor,
+            const SizedBox(height: 16),
+
+            // Top App Logo Icon Accent Frame
+            Center(
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.storefront,
+                  size: 40,
+                  color: primaryColor,
+                ),
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+
+            // Header Title
             const Text(
               'Hygiene Portal',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.5,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
+
+            // Subtitle
             Text(
               'Sign in to track hygiene updates & reports',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 28),
@@ -163,24 +208,31 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 // Far Left: Remember Me Checkbox & Label
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Checkbox(
-                      value: _rememberMe,
-                      activeColor: primaryColor,
-                      visualDensity: VisualDensity.compact,
-                      onChanged: (val) {
-                        setState(() {
-                          _rememberMe = val ?? false;
-                        });
-                      },
-                    ),
-                    const Text(
-                      'Remember me',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                    ),
-                  ],
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _rememberMe = !_rememberMe;
+                    });
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Checkbox(
+                        value: _rememberMe,
+                        activeColor: primaryColor,
+                        visualDensity: VisualDensity.compact,
+                        onChanged: (val) {
+                          setState(() {
+                            _rememberMe = val ?? false;
+                          });
+                        },
+                      ),
+                      const Text(
+                        'Remember me',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
                 ),
 
                 // Far Right: Forgot Password Link
@@ -284,60 +336,11 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 20),
 
             // Google Sign-In Button
-            Center(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                width: _isGoogleLoading ? 54 : fullButtonWidth,
-                height: 52,
-                child: OutlinedButton(
-                  onPressed: _isLoading ? null : _handleGoogleSignIn,
-                  style: OutlinedButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(_isGoogleLoading ? 27 : 12),
-                    ),
-                    side: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: _isGoogleLoading
-                        ? const SizedBox(
-                            key: ValueKey('google_spinner'),
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : SingleChildScrollView(
-                            key: const ValueKey('google_text_row'),
-                            scrollDirection: Axis.horizontal,
-                            physics: const NeverScrollableScrollPhysics(),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Image.network(
-                                  'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg',
-                                  height: 22,
-                                  width: 22,
-                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata, size: 28, color: Colors.red),
-                                ),
-                                const SizedBox(width: 10),
-                                const Text(
-                                  'Sign in with Google',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                  ),
-                ),
-              ),
+            GoogleSignInButton(
+              text: 'Sign in with Google',
+              isLoading: _isGoogleLoading,
+              width: fullButtonWidth,
+              onPressed: _isLoading ? null : _handleGoogleSignIn,
             ),
           ],
         ),

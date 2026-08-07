@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../core/models/user_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/customer_store_service.dart';
 import '../../core/widgets/custom_app_bar.dart';
+import '../../core/widgets/google_sign_in_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -38,21 +40,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _isGoogleLoading = true;
     });
 
-    await CustomerStoreService.registerCustomer(
-      name: 'Google Customer',
-      email: 'google_user@example.com',
-      password: 'google_oauth_pass',
-    );
+    final result = await CustomerStoreService.signInWithGoogle();
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Google Registration successful! Customer account saved.')),
+        SnackBar(content: Text(result.message)),
       );
       setState(() {
         _isLoading = false;
         _isGoogleLoading = false;
       });
-      Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
+      if (result.success) {
+        Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
+      }
     }
   }
 
@@ -74,6 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       name: _nameController.text,
       email: _emailController.text,
       password: _passController.text,
+      role: UserRole.user,
     );
 
     if (mounted) {
@@ -239,21 +240,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : SingleChildScrollView(
-                            key: const ValueKey('reg_text_row'),
-                            scrollDirection: Axis.horizontal,
-                            physics: const NeverScrollableScrollPhysics(),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(Icons.check_circle_outline, size: 20),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Register Account',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
+                        : const Text(
+                            'Register Account',
+                            key: ValueKey('reg_text_row'),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                   ),
                 ),
@@ -296,60 +286,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 20),
 
             // Google Registration Button
-            Center(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                width: _isGoogleLoading ? 54 : fullButtonWidth,
-                height: 52,
-                child: OutlinedButton(
-                  onPressed: _isLoading ? null : _handleGoogleRegistration,
-                  style: OutlinedButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(_isGoogleLoading ? 27 : 12),
-                    ),
-                    side: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: _isGoogleLoading
-                        ? const SizedBox(
-                            key: ValueKey('google_reg_spinner'),
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : SingleChildScrollView(
-                            key: const ValueKey('google_reg_text_row'),
-                            scrollDirection: Axis.horizontal,
-                            physics: const NeverScrollableScrollPhysics(),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Image.network(
-                                  'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg',
-                                  height: 22,
-                                  width: 22,
-                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata, size: 28, color: Colors.red),
-                                ),
-                                const SizedBox(width: 10),
-                                const Text(
-                                  'Register with Google',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                  ),
-                ),
-              ),
+            GoogleSignInButton(
+              text: 'Register with Google',
+              isLoading: _isGoogleLoading,
+              width: fullButtonWidth,
+              onPressed: _isLoading ? null : _handleGoogleRegistration,
             ),
           ],
         ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/routes/app_routes.dart';
+import '../../core/services/customer_store_service.dart';
+import '../../core/services/user_settings_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_manager.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -26,6 +28,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     {'code': 'ms', 'name': 'Bahasa Melayu', 'flag': '🇲🇾'},
     {'code': 'zh', 'name': '中文 (Chinese)', 'flag': '🇨🇳'},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserSettings();
+  }
+
+  Future<void> _loadUserSettings() async {
+    final user = CustomerStoreService.currentCustomer;
+    final userId = user?.id ?? 'guest_default';
+    final settings = await UserSettingsService.loadUserSettings(userId);
+    if (mounted) {
+      setState(() {
+        _enablePushNotifications = settings.enablePushNotifications;
+        _hygieneRiskAlerts = settings.hygieneRiskAlerts;
+        _complaintStatusAlerts = settings.complaintStatusAlerts;
+        _inspectionUpdates = settings.inspectionUpdates;
+        _selectedLanguage = settings.selectedLanguage;
+      });
+    }
+  }
+
+  void _saveSettingBool(String key, bool val) {
+    final user = CustomerStoreService.currentCustomer;
+    final userId = user?.id ?? 'guest_default';
+    UserSettingsService.saveBool(userId, key, val);
+  }
+
+  void _saveSettingString(String key, String val) {
+    final user = CustomerStoreService.currentCustomer;
+    final userId = user?.id ?? 'guest_default';
+    UserSettingsService.saveString(userId, key, val);
+  }
 
   void _showLanguageSelector() {
     showModalBottomSheet(
@@ -65,6 +100,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         setState(() {
                           _selectedLanguage = lang['name']!;
                         });
+                        _saveSettingString('language', lang['name']!);
                         Navigator.pop(context);
                       },
                     ),
@@ -143,6 +179,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   setState(() {
                     _enablePushNotifications = val;
                   });
+                  _saveSettingBool('enable_push', val);
                 },
               ),
               if (_enablePushNotifications) ...[
@@ -152,7 +189,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: const Text('Hygiene Risk Alerts', style: TextStyle(fontSize: 14)),
                   subtitle: const Text('High risk changes near your location', style: TextStyle(fontSize: 12)),
                   value: _hygieneRiskAlerts,
-                  onChanged: (val) => setState(() => _hygieneRiskAlerts = val),
+                  onChanged: (val) {
+                    setState(() => _hygieneRiskAlerts = val);
+                    _saveSettingBool('risk_alerts', val);
+                  },
                 ),
                 const Divider(height: 1),
                 SwitchListTile(
@@ -160,7 +200,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: const Text('Complaint Status Updates', style: TextStyle(fontSize: 14)),
                   subtitle: const Text('Official inspection and ticket progress', style: TextStyle(fontSize: 12)),
                   value: _complaintStatusAlerts,
-                  onChanged: (val) => setState(() => _complaintStatusAlerts = val),
+                  onChanged: (val) {
+                    setState(() => _complaintStatusAlerts = val);
+                    _saveSettingBool('complaint_alerts', val);
+                  },
                 ),
                 const Divider(height: 1),
                 SwitchListTile(
@@ -168,7 +211,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: const Text('Inspection Notice Updates', style: TextStyle(fontSize: 14)),
                   subtitle: const Text('Enforcement notices and resolution reports', style: TextStyle(fontSize: 12)),
                   value: _inspectionUpdates,
-                  onChanged: (val) => setState(() => _inspectionUpdates = val),
+                  onChanged: (val) {
+                    setState(() => _inspectionUpdates = val);
+                    _saveSettingBool('inspection_updates', val);
+                  },
                 ),
               ],
             ]),

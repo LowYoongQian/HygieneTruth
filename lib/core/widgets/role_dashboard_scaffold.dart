@@ -260,12 +260,6 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
                 label: 'Report',
                 onTap: () => Navigator.pushNamed(context, AppRoutes.submitComplaint),
               ),
-              _roundActionBtn(
-                icon: Icons.add_business,
-                color: const Color(0xFFF59E0B),
-                label: 'Add Outlet',
-                onTap: () => Navigator.pushNamed(context, AppRoutes.addRestaurant),
-              ),
             ],
           ),
           const SizedBox(height: 20),

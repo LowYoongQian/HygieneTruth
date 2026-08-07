@@ -44,7 +44,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             ),
             const SizedBox(height: 24),
             CustomButton(
-              label: 'Send Reset Link (Demo)',
+              label: 'Send Reset Link',
               onPressed: () {
                 // TODO: Implement password reset token email logic
                 ScaffoldMessenger.of(context).showSnackBar(

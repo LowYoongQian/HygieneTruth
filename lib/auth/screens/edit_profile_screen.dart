@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/services/customer_store_service.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_button.dart';
@@ -24,12 +23,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    final customer = CustomerStoreService.currentCustomer ?? MockSeedData.users.first;
-    _nameCtrl = TextEditingController(text: customer.name);
-    _phoneCtrl = TextEditingController(text: customer.phone);
-    _selectedGender = (customer.gender != null && _genderOptions.contains(customer.gender)) ? customer.gender! : 'Male';
-    _selectedCountry = (customer.country != null && _countryOptions.contains(customer.country)) ? customer.country! : 'Malaysia 🇲🇾';
-    _stateCtrl = TextEditingController(text: customer.state ?? '');
+    final customer = CustomerStoreService.currentCustomer;
+    _nameCtrl = TextEditingController(text: customer?.name ?? '');
+    _phoneCtrl = TextEditingController(text: customer?.phone ?? '');
+    _selectedGender = (customer?.gender != null && _genderOptions.contains(customer!.gender)) ? customer.gender! : 'Male';
+    _selectedCountry = (customer?.country != null && _countryOptions.contains(customer!.country)) ? customer.country! : 'Malaysia 🇲🇾';
+    _stateCtrl = TextEditingController(text: customer?.state ?? '');
   }
 
   @override

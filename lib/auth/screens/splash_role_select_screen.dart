@@ -5,14 +5,6 @@ import '../../core/widgets/custom_button.dart';
 class SplashRoleSelectScreen extends StatelessWidget {
   const SplashRoleSelectScreen({super.key});
 
-  void _navigateToLogin(BuildContext context, String targetRoute) {
-    Navigator.pushNamed(
-      context,
-      AppRoutes.login,
-      arguments: {'targetRoute': targetRoute},
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     const navyColor = Color(0xFF0C2340);
@@ -84,28 +76,21 @@ class SplashRoleSelectScreen extends StatelessWidget {
                       label: 'Customer',
                       icon: Icons.person_outline,
                       backgroundColor: tealColor,
-                      onPressed: () => _navigateToLogin(context, AppRoutes.userDashboard),
+                      onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
                     ),
                     const SizedBox(height: 10),
                     CustomButton(
-                      label: 'Restaurant Owner',
+                      label: 'Restaurant Owner (Business)',
                       icon: Icons.storefront,
                       backgroundColor: const Color(0xFFD97706),
-                      onPressed: () => _navigateToLogin(context, AppRoutes.ownerDashboard),
+                      onPressed: () => Navigator.pushNamed(context, AppRoutes.ownerLogin),
                     ),
                     const SizedBox(height: 10),
                     CustomButton(
-                      label: 'Government',
-                      icon: Icons.verified_user_outlined,
-                      backgroundColor: const Color(0xFF00897B),
-                      onPressed: () => _navigateToLogin(context, AppRoutes.governmentDashboard),
-                    ),
-                    const SizedBox(height: 10),
-                    CustomButton(
-                      label: 'Admin',
+                      label: 'Official Staff (Admin / Gov)',
                       icon: Icons.admin_panel_settings_outlined,
                       backgroundColor: navyColor,
-                      onPressed: () => _navigateToLogin(context, AppRoutes.adminDashboard),
+                      onPressed: () => Navigator.pushNamed(context, AppRoutes.adminGovLogin),
                     ),
                     const SizedBox(height: 16),
                     const Divider(height: 1),

@@ -4,6 +4,9 @@ class AppRoutes {
   static const String splashRoleSelect = '/role-select';
   static const String login = '/login';
   static const String register = '/register';
+  static const String ownerLogin = '/owner-login';
+  static const String ownerRegister = '/owner-register';
+  static const String adminGovLogin = '/admin-gov-login';
   static const String resetPassword = '/reset-password';
   static const String profile = '/profile';
   static const String editProfile = '/edit-profile';

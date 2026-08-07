@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/models/mock_seed_data.dart';
+import '../../core/models/user_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/customer_store_service.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -33,11 +33,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final customer = CustomerStoreService.currentCustomer;
-    final fallbackUser = MockSeedData.users.first;
 
-    final userName = customer?.name ?? fallbackUser.name;
-    final userEmail = customer?.email ?? fallbackUser.email;
-    final avatarUrl = customer?.avatarUrl ?? fallbackUser.avatarUrl;
+    final userName = customer?.name ?? 'User Profile';
+    final userEmail = customer?.email ?? '';
+    final avatarUrl = customer?.avatarUrl ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200';
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? const Color(0xFFF3F4F6) : const Color(0xFF0F172A);
@@ -148,20 +147,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       )
                                     : null,
                               ),
-                              // Verified Badge Pin Icon
+                              // Online Status Indicator Dot
                               Positioned(
                                 right: 2,
                                 bottom: 2,
                                 child: Container(
-                                  padding: const EdgeInsets.all(3),
+                                  padding: const EdgeInsets.all(2.5),
                                   decoration: BoxDecoration(
                                     color: Theme.of(context).cardColor,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(
-                                    Icons.verified,
-                                    color: Color(0xFF0284C7),
-                                    size: 20,
+                                  child: Container(
+                                    width: 16,
+                                    height: 16,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF10B981), // Active Online Green Dot
+                                      shape: BoxShape.circle,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -179,24 +181,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),
                     child: Column(
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              userName,
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: textColor,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Icon(
-                              Icons.verified,
-                              color: Color(0xFF0284C7),
-                              size: 20,
-                            ),
-                          ],
+                        Text(
+                          userName,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -207,7 +198,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        RoleBadge(role: fallbackUser.role),
+                        RoleBadge(role: customer?.role ?? UserRole.user),
                         const SizedBox(height: 24),
 
                         // Section 1: Personal Details
@@ -235,6 +226,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 const Divider(height: 20),
                                 _buildDetailRow(context, Icons.email_outlined, 'Email Address', userEmail, textColor, subtitleTextColor),
                                 const Divider(height: 20),
+                                InkWell(
+                                  onTap: () {
+                                    final isGoogleLinked = CustomerStoreService.isGoogleLinked();
+                                    final googleEmail = CustomerStoreService.getGoogleLinkedEmail();
+                                    _showLinkedConnectionBottomSheet(context, isGoogleLinked, googleEmail.isNotEmpty ? googleEmail : userEmail);
+                                  },
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 2),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.link, color: Color(0xFF0284C7), size: 22),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Linked Connection',
+                                                style: TextStyle(fontSize: 12, color: subtitleTextColor),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                    CustomerStoreService.isGoogleLinked() ? 'Google Account Linked' : 'Not Linked',
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: CustomerStoreService.isGoogleLinked() ? Colors.green.shade700 : textColor,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  if (CustomerStoreService.isGoogleLinked())
+                                                    const Icon(Icons.check_circle, size: 16, color: Colors.green),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const Divider(height: 20),
                                 _buildDetailRow(context, Icons.phone_outlined, 'Phone Number', customer?.phone ?? 'Not set (Tap edit to set)', textColor, subtitleTextColor),
                                 const Divider(height: 20),
                                 _buildDetailRow(context, Icons.wc_outlined, 'Gender', customer?.gender ?? 'Not set (Tap edit to set)', textColor, subtitleTextColor),
@@ -243,7 +280,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 const Divider(height: 20),
                                 _buildDetailRow(context, Icons.location_city_outlined, 'State / City', customer?.state ?? 'Not set (Tap edit to set)', textColor, subtitleTextColor),
                                 const Divider(height: 20),
-                                _buildDetailRow(context, Icons.calendar_today_outlined, 'Member Since', customer?.joinedDate ?? 'Jan 2024', textColor, subtitleTextColor),
+                                _buildDetailRow(context, Icons.calendar_today_outlined, 'Member Since', (customer?.joinedDate != null && customer!.joinedDate!.isNotEmpty) ? customer.joinedDate! : 'Recently Joined', textColor, subtitleTextColor),
                               ],
                             ),
                           ),
@@ -285,6 +322,136 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showLinkedConnectionBottomSheet(BuildContext context, bool isLinked, String email) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: const [
+                    Icon(Icons.link, color: Color(0xFF0284C7), size: 24),
+                    SizedBox(width: 8),
+                    Text(
+                      'Linked Connection Status',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Google Connection Card
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: isLinked ? Colors.green.shade300 : Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isLinked ? Colors.green.shade50 : Colors.grey.shade100,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.g_mobiledata,
+                          size: 30,
+                          color: isLinked ? Colors.green.shade700 : Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Google Account',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: isLinked ? Colors.green.shade100 : Colors.grey.shade200,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    isLinked ? 'Linked' : 'Not Linked',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: isLinked ? Colors.green.shade800 : Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              isLinked ? email : 'No Google account connected',
+                              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  isLinked
+                      ? '✓ Your Google email ($email) is successfully linked to this account for 1-click authentication.'
+                      : 'ℹ️ No Google account is linked to this profile. You can sign in using your email and password.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.4),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text(
+                      'Close',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

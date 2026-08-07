@@ -10,6 +10,7 @@ import 'auth/screens/onboarding_screen.dart';
 import 'auth/screens/splash_role_select_screen.dart';
 import 'auth/screens/login_screen.dart';
 import 'auth/screens/register_screen.dart';
+import 'auth/screens/admin_gov_login_screen.dart';
 import 'auth/screens/reset_password_screen.dart';
 import 'auth/screens/profile_screen.dart';
 import 'auth/screens/edit_profile_screen.dart';
@@ -17,6 +18,9 @@ import 'auth/screens/settings_screen.dart';
 import 'auth/screens/activity_history_screen.dart';
 import 'auth/screens/manage_user_accounts_screen.dart';
 import 'auth/screens/account_detail_screen.dart';
+
+import 'owner/screens/owner_login_screen.dart';
+import 'owner/screens/owner_register_screen.dart';
 
 // GPS & Restaurant Info Module (gps)
 import 'gps/screens/restaurant_search_screen.dart';
@@ -95,6 +99,15 @@ class RestaurantHygieneApp extends StatelessWidget {
             themeMode: themeManager.themeMode,
             themeAnimationDuration: const Duration(milliseconds: 400),
             themeAnimationCurve: Curves.easeInOutCubic,
+            builder: (context, child) {
+              return SafeArea(
+                top: false,
+                bottom: true,
+                left: true,
+                right: true,
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
             initialRoute: AppRoutes.onboarding,
         routes: {
           // Onboarding, Splash & Auth
@@ -102,6 +115,9 @@ class RestaurantHygieneApp extends StatelessWidget {
           AppRoutes.splashRoleSelect: (context) => const SplashRoleSelectScreen(),
           AppRoutes.login: (context) => const LoginScreen(),
           AppRoutes.register: (context) => const RegisterScreen(),
+          AppRoutes.ownerLogin: (context) => const OwnerLoginScreen(),
+          AppRoutes.ownerRegister: (context) => const OwnerRegisterScreen(),
+          AppRoutes.adminGovLogin: (context) => const AdminGovLoginScreen(),
           AppRoutes.resetPassword: (context) => const ResetPasswordScreen(),
           AppRoutes.profile: (context) => const ProfileScreen(),
           AppRoutes.editProfile: (context) => const EditProfileScreen(),

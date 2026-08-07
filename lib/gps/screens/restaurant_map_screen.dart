@@ -25,7 +25,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
   RestaurantModel? _focusedRestaurant;
   Position? _userPosition;
   bool _showHeatmap = true; // Toggle for Risk Heatmap Layer
-  MapType _currentMapType = MapType.hybrid; // Default Google Map Layer Type (Satellite Hybrid & Terrain)
+  MapType _currentMapType = MapType.normal; // Default 3D Vector Map with 3D Buildings & Tilt
   int _currentPageIndex = 0;
 
   String _filterRisk = 'All'; // 'All', 'Safe', 'Moderate', 'High Risk'
@@ -60,10 +60,10 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
 
   void _toggleMapType() {
     setState(() {
-      if (_currentMapType == MapType.hybrid) {
-        _currentMapType = MapType.terrain;
-      } else {
+      if (_currentMapType == MapType.normal) {
         _currentMapType = MapType.hybrid;
+      } else {
+        _currentMapType = MapType.normal;
       }
     });
   }
@@ -94,15 +94,16 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'Select Google Map Layer',
+                  'Select Google Map View',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
                 ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildMapTypeCard('Satellite', MapType.hybrid, Icons.satellite_alt),
-                    _buildMapTypeCard('Terrain', MapType.terrain, Icons.terrain),
+                    _buildMapTypeCard('3D Vector Map', MapType.normal, Icons.view_in_ar),
+                    _buildMapTypeCard('Satellite View', MapType.hybrid, Icons.satellite_alt),
+                    _buildMapTypeCard('Terrain View', MapType.terrain, Icons.terrain),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -411,7 +412,9 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
       CameraUpdate.newCameraPosition(
         CameraPosition(
           target: LatLng(lat, lng),
-          zoom: 16.0,
+          zoom: 17.5,
+          tilt: 60.0,
+          bearing: 45.0,
         ),
       ),
     );
@@ -603,8 +606,11 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
             mapType: _currentMapType,
             initialCameraPosition: CameraPosition(
               target: initialTarget,
-              zoom: 14.5,
+              zoom: 17.5,
+              tilt: 60.0,
+              bearing: 45.0,
             ),
+            buildingsEnabled: true,
             onMapCreated: (controller) {
               _mapController = controller;
             },
@@ -617,7 +623,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
 
           // 2. FLOATING SEARCH BAR WITH SPEECH-TO-TEXT & RISK LEGEND AT TOP
           Positioned(
-            top: widget.showAppBar ? 12 : 44,
+            top: widget.showAppBar ? 2 : 12,
             left: 16,
             right: 16,
             child: Column(
@@ -680,7 +686,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
 
                 // Floating Risk Heatmap Legend Bar
                 ClipRRect(

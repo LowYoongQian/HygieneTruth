@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/mock_seed_data.dart';
 import '../../core/models/complaint_model.dart';
 import '../../core/routes/app_routes.dart';
+import '../../core/services/customer_store_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/status_badge.dart';
@@ -18,10 +19,27 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   int _currentBottomTabIndex = 0;
   int _noticeTab = 0; // 0 = Active, 1 = Closed
 
-  // Mutable Owner Profile Data
-  String _ownerName = 'Chong Wei Meng';
-  final String _ownerEmail = 'owner@bistro.com';
-  String _ownerPhone = '+60 12-345 6789';
+  // Dynamic Owner Profile Data
+  String _ownerName = '';
+  String _ownerEmail = '';
+  String _ownerPhone = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOwnerSession();
+  }
+
+  Future<void> _loadOwnerSession() async {
+    final user = await CustomerStoreService.fetchActiveUserSession() ?? CustomerStoreService.currentCustomer;
+    if (user != null && mounted) {
+      setState(() {
+        _ownerName = user.name;
+        _ownerEmail = user.email;
+        _ownerPhone = user.phone ?? '';
+      });
+    }
+  }
 
   // Mutable Approved Restaurant Details Data
   String _restaurantName = 'Golden Dragon Noodle House';
@@ -1010,33 +1028,101 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   // TAB 4: OWNER BUSINESS PROFILE & SETTINGS
   // ==========================================
   Widget _buildProfilePanel() {
+    final customer = CustomerStoreService.currentCustomer;
+    final displayName = _ownerName.isNotEmpty ? _ownerName : (customer?.name ?? 'Business Owner');
+    final displayEmail = _ownerEmail.isNotEmpty ? _ownerEmail : (customer?.email ?? 'owner@restaurant.com');
+    final displayPhone = _ownerPhone.isNotEmpty ? _ownerPhone : (customer?.phone ?? '+60 12-345 6789');
+    final avatarUrl = customer?.avatarUrl ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Owner Profile Card
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          // 1. LUXURY GRADIENT BUSINESS OWNER PROFILE BANNER
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0C2340), Color(0xFF0F766E)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0C2340).withValues(alpha: 0.3),
+                  blurRadius: 15,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
+              padding: const EdgeInsets.all(20),
+              child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                    child: const Icon(Icons.business_center, size: 30, color: AppTheme.primaryColor),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_ownerName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
-                        Text('Restaurant Owner / Director', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                        const SizedBox(height: 4),
-                        Text(_ownerEmail, style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFF80EE98), width: 2),
+                        ),
+                        child: CircleAvatar(
+                          radius: 34,
+                          backgroundColor: Colors.white24,
+                          backgroundImage: NetworkImage(avatarUrl),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF80EE98).withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFF80EE98), width: 0.8),
+                              ),
+                              child: const Text(
+                                'Businessman / Restaurant Director',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF80EE98),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                const Icon(Icons.email_outlined, size: 13, color: Colors.white70),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    displayEmail,
+                                    style: const TextStyle(fontSize: 12, color: Colors.white70),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1044,65 +1130,147 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Business Account Settings Menu List
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          // 2. BUSINESS METRICS SUMMARY BAR
+          Row(
+            children: [
+              _buildMetricStatCard('Outlets', '1 Active', Icons.storefront, const Color(0xFF0F766E)),
+              const SizedBox(width: 10),
+              _buildMetricStatCard('Grade', 'Grade A', Icons.verified_user, const Color(0xFF10B981)),
+              const SizedBox(width: 10),
+              _buildMetricStatCard('Notices', '0 Pending', Icons.assignment_turned_in, const Color(0xFFD97706)),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // 3. SETTINGS & ACCOUNT ACTIONS LIST
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
-                  title: const Text('Edit Owner Name & Contact Profile', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: Text('Current: $_ownerName • $_ownerPhone'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                _buildActionTile(
+                  icon: Icons.edit_outlined,
+                  iconColor: const Color(0xFF0F766E),
+                  title: 'Edit Owner Name & Contact Profile',
+                  subtitle: 'Current: $displayName • $displayPhone',
                   onTap: _showChangeNameDialog,
                 ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.lock_reset, color: AppTheme.primaryColor),
-                  title: const Text('Change Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: const Text('Update commercial account password'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                _buildActionTile(
+                  icon: Icons.lock_reset_outlined,
+                  iconColor: const Color(0xFFD97706),
+                  title: 'Change Account Password',
+                  subtitle: 'Update commercial account security password',
                   onTap: _showChangePasswordDialog,
                 ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.storefront_outlined, color: AppTheme.primaryColor),
-                  title: const Text('Edit Approved Restaurant Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: Text('Premises: $_restaurantName'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                _buildActionTile(
+                  icon: Icons.storefront_outlined,
+                  iconColor: const Color(0xFF2563EB),
+                  title: 'Edit Approved Restaurant Details',
+                  subtitle: 'Premises: $_restaurantName',
                   onTap: _showEditRestaurantDetailsDialog,
                 ),
-                const Divider(height: 1),
+                const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
-                  leading: const Icon(Icons.notifications_active_outlined, color: AppTheme.primaryColor),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.notifications_active_outlined, color: Color(0xFF10B981), size: 20),
+                  ),
                   title: const Text('Commercial Alerts & Notifications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: const Text('Receive instant SMS/email alerts for inspection notices'),
+                  subtitle: const Text('Receive instant SMS/email alerts for inspection notices', style: TextStyle(fontSize: 12)),
                   trailing: Switch(
                     value: true,
                     onChanged: (val) {},
-                    activeThumbColor: AppTheme.primaryColor,
+                    activeThumbColor: const Color(0xFF0F766E),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
-          // Sign Out Button
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size.fromHeight(50),
-              backgroundColor: Colors.red.shade700,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          // 4. HIGH QUALITY SIGN OUT BUTTON
+          SizedBox(
+            height: 52,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              onPressed: () {
+                CustomerStoreService.logout();
+                Navigator.pushNamedAndRemoveUntil(context, AppRoutes.splashRoleSelect, (route) => false);
+              },
+              icon: const Icon(Icons.logout_rounded, size: 20),
+              label: const Text('Sign Out Business Account', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
             ),
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, AppRoutes.splashRoleSelect);
-            },
-            icon: const Icon(Icons.logout, color: Colors.white),
-            label: const Text('Sign Out Business Account', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
           ),
+          const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+
+  Widget _buildMetricStatCard(String title, String value, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(height: 6),
+            Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
+            Text(title, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionTile({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: iconColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: iconColor, size: 20),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+      onTap: onTap,
     );
   }
 }
