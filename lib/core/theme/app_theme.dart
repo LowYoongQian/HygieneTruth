@@ -6,11 +6,18 @@ class AppTheme {
   static const Color navyColor = Color(0xFF0C2340); // Deep Navy from logo "HT" monogram
   static const Color accentColor = Color(0xFF80EE98); // Mint Sparkle Accent
 
-  static const Color backgroundColor = Color(0xFFF8FAFC); // Slate Soft Background
+  static const Color backgroundColor = Color(0xFFF8FAFC); // Light Mode Slate Soft Background
   static const Color surfaceColor = Colors.white;
   static const Color borderColor = Color(0xFFE2E8F0);
   static const Color textColor = Color(0xFF0C2340);
   static const Color subtitleColor = Color(0xFF64748B);
+
+  // VS Code Inspired Ultra-Premium Dark Mode Palette
+  static const Color darkBackgroundColor = Color(0xFF181818); // VS Code Dark Background
+  static const Color darkSurfaceColor = Color(0xFF252526); // VS Code Sidebar/Card Surface
+  static const Color darkBorderColor = Color(0xFF3C3C3C); // VS Code Border Line
+  static const Color darkTextColor = Color(0xFFF3F4F6); // High-contrast White Text
+  static const Color darkSubtitleColor = Color(0xFF9CA3AF); // High-contrast Muted Text
 
   // Status Indicator Colors
   static const Color safeColor = Color(0xFF10B981);
@@ -20,14 +27,17 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      brightness: Brightness.light,
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryColor,
+        brightness: Brightness.light,
         primary: primaryColor,
         secondary: navyColor,
         surface: surfaceColor,
         error: highRiskColor,
       ),
       scaffoldBackgroundColor: backgroundColor,
+      cardColor: surfaceColor,
       appBarTheme: const AppBarTheme(
         elevation: 0,
         centerTitle: true,
@@ -49,6 +59,12 @@ class AppTheme {
         ),
         margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
       ),
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(color: textColor),
+        bodyMedium: TextStyle(color: textColor),
+        titleLarge: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+        titleMedium: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
@@ -65,6 +81,73 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: primaryColor,
           side: const BorderSide(color: primaryColor, width: 1.2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  static ThemeData get darkTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primaryColor,
+        brightness: Brightness.dark,
+        primary: primaryColor,
+        secondary: accentColor,
+        surface: darkSurfaceColor,
+        error: highRiskColor,
+      ),
+      scaffoldBackgroundColor: darkBackgroundColor,
+      cardColor: darkSurfaceColor,
+      appBarTheme: const AppBarTheme(
+        elevation: 0,
+        centerTitle: true,
+        backgroundColor: darkBackgroundColor,
+        foregroundColor: darkTextColor,
+        iconTheme: IconThemeData(color: darkTextColor),
+        titleTextStyle: TextStyle(
+          color: darkTextColor,
+          fontSize: 17,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: darkSurfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: darkBorderColor, width: 1.2),
+        ),
+        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+      ),
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(color: darkTextColor),
+        bodyMedium: TextStyle(color: darkTextColor),
+        titleLarge: TextStyle(color: darkTextColor, fontWeight: FontWeight.bold),
+        titleMedium: TextStyle(color: darkTextColor, fontWeight: FontWeight.bold),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: accentColor,
+          side: const BorderSide(color: accentColor, width: 1.2),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),

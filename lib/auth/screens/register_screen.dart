@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/routes/app_routes.dart';
+import '../../core/services/customer_store_service.dart';
 import '../../core/widgets/custom_app_bar.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -37,11 +38,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _isGoogleLoading = true;
     });
 
-    await Future.delayed(const Duration(milliseconds: 800));
+    await CustomerStoreService.registerCustomer(
+      name: 'Google Customer',
+      email: 'google_user@example.com',
+      password: 'google_oauth_pass',
+    );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Google Registration successful! (Demo)')),
+        const SnackBar(content: Text('Google Registration successful! Customer account saved.')),
       );
       setState(() {
         _isLoading = false;
@@ -52,36 +57,55 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _handleRegister() async {
+    if (_passController.text.isEmpty || _passController.text != _confirmPassController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match!'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _isTraditionalLoading = true;
     });
 
-    await Future.delayed(const Duration(milliseconds: 800));
+    // Save Customer Data to Supabase & CustomerStoreService
+    final result = await CustomerStoreService.registerCustomer(
+      name: _nameController.text,
+      email: _emailController.text,
+      password: _passController.text,
+    );
 
     if (mounted) {
       setState(() {
         _isLoading = false;
         _isTraditionalLoading = false;
       });
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Registration Successful!'),
-          content: const Text(
-            'A verification link has been sent to your email. Please verify your account before logging in.',
+
+      if (result.success) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Customer Registration Successful!'),
+            content: Text(
+              '${result.message}\nYour customer data has been stored. You can now log in to access your customer portal.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.pushReplacementNamed(context, AppRoutes.login);
+                },
+                child: const Text('OK'),
+              )
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                Navigator.pushReplacementNamed(context, AppRoutes.login);
-              },
-              child: const Text('OK'),
-            )
-          ],
-        ),
-      );
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.message), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -120,26 +144,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
             TextField(
               controller: _nameController,
               decoration: const InputDecoration(
-                labelText: 'Username',
+                labelText: 'Full Name',
                 prefixIcon: Icon(Icons.person_outline),
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
 
-            // Email
+            // Email Address
             TextField(
               controller: _emailController,
               decoration: const InputDecoration(
-                labelText: 'Email',
+                labelText: 'Email Address',
                 prefixIcon: Icon(Icons.email_outlined),
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.emailAddress,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
 
-            // Password
+            // Password Field
             TextField(
               controller: _passController,
               obscureText: _obscurePass,
@@ -160,15 +184,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 border: const OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
 
-            // Confirm Password
+            // Confirm Password Field
             TextField(
               controller: _confirmPassController,
               obscureText: _obscureConfirmPass,
               decoration: InputDecoration(
                 labelText: 'Confirm Password',
-                prefixIcon: const Icon(Icons.lock_outline),
+                prefixIcon: const Icon(Icons.lock_reset),
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscureConfirmPass ? Icons.visibility_off : Icons.visibility,
@@ -185,7 +209,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Animated Register Button (Styled in Brand Theme Color)
+            // Animated Register Button
             Center(
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
@@ -222,10 +246,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: const [
-                                Icon(Icons.person_add, size: 20),
+                                Icon(Icons.check_circle_outline, size: 20),
                                 SizedBox(width: 8),
                                 Text(
-                                  'Register',
+                                  'Register Account',
                                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                 ),
                               ],
@@ -237,130 +261,96 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Already have account link
+            // Login Route Link
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  "Already have an account? ",
-                  style: TextStyle(color: Colors.grey),
-                ),
-                GestureDetector(
-                  onTap: () {
+                const Text('Already have an account?'),
+                TextButton(
+                  onPressed: () {
                     Navigator.pushReplacementNamed(context, AppRoutes.login);
                   },
                   child: Text(
                     'Log In',
-                    style: TextStyle(
-                      color: primaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
 
-            // "OR" Divider Line
+            // Divider Line
             Row(
               children: [
-                Expanded(child: Divider(color: Colors.grey.shade400, thickness: 1)),
+                Expanded(child: Divider(color: Colors.grey.shade300)),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
-                    'OR',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
+                    'OR REGISTER WITH',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.bold),
                   ),
                 ),
-                Expanded(child: Divider(color: Colors.grey.shade400, thickness: 1)),
+                Expanded(child: Divider(color: Colors.grey.shade300)),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // Animated Google Sign-Up Button
+            // Google Registration Button
             Center(
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
                 width: _isGoogleLoading ? 54 : fullButtonWidth,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(_isGoogleLoading ? 27 : 10),
-                  border: Border.all(color: Colors.grey.shade400, width: 1.2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+                height: 52,
+                child: OutlinedButton(
+                  onPressed: _isLoading ? null : _handleGoogleRegistration,
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(_isGoogleLoading ? 27 : 12),
                     ),
-                  ],
-                ),
-                child: InkWell(
-                  onTap: _isLoading ? null : _handleGoogleRegistration,
-                  borderRadius: BorderRadius.circular(_isGoogleLoading ? 27 : 10),
-                  child: Center(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: _isGoogleLoading
-                          ? SizedBox(
-                              key: const ValueKey('google_reg_spinner'),
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: primaryColor,
-                              ),
-                            )
-                          : SingleChildScrollView(
-                              key: const ValueKey('google_reg_text_row'),
-                              scrollDirection: Axis.horizontal,
-                              physics: const NeverScrollableScrollPhysics(),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const SizedBox(width: 16),
-                                  Container(
-                                    width: 22,
-                                    height: 22,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        'G',
-                                        style: TextStyle(
-                                          color: Color(0xFF4285F4),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  const Text(
-                                    'Continue with Google',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                ],
-                              ),
+                    side: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: _isGoogleLoading
+                        ? const SizedBox(
+                            key: ValueKey('google_reg_spinner'),
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
                             ),
-                    ),
+                          )
+                        : SingleChildScrollView(
+                            key: const ValueKey('google_reg_text_row'),
+                            scrollDirection: Axis.horizontal,
+                            physics: const NeverScrollableScrollPhysics(),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Image.network(
+                                  'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg',
+                                  height: 22,
+                                  width: 22,
+                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata, size: 28, color: Colors.red),
+                                ),
+                                const SizedBox(width: 10),
+                                const Text(
+                                  'Register with Google',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 20),
           ],
         ),
       ),

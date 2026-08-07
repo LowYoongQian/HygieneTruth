@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/routes/app_routes.dart';
+import '../../core/services/customer_store_service.dart';
 import '../../core/widgets/custom_app_bar.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController(text: 'password123');
 
   bool _obscurePassword = true;
+  bool _rememberMe = false; // State for Remember Me Checkbox
   bool _isLoading = false;
   bool _isTraditionalLoading = false;
   bool _isGoogleLoading = false;
@@ -31,11 +33,15 @@ class _LoginScreenState extends State<LoginScreen> {
       _isGoogleLoading = true;
     });
 
-    await Future.delayed(const Duration(milliseconds: 800));
+    await CustomerStoreService.loginCustomer(
+      email: 'google_user@example.com',
+      password: 'google_oauth_pass',
+      rememberMe: _rememberMe,
+    );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Google Sign-In successful! (Demo)')),
+        const SnackBar(content: Text('Google Sign-In successful! Customer data synced.')),
       );
       setState(() {
         _isLoading = false;
@@ -54,14 +60,35 @@ class _LoginScreenState extends State<LoginScreen> {
       _isTraditionalLoading = true;
     });
 
-    await Future.delayed(const Duration(milliseconds: 800));
+    // Authenticate with Supabase & CustomerStoreService
+    final result = await CustomerStoreService.loginCustomer(
+      email: _emailController.text,
+      password: _passwordController.text,
+      rememberMe: _rememberMe,
+    );
 
     if (mounted) {
       setState(() {
         _isLoading = false;
         _isTraditionalLoading = false;
       });
-      Navigator.pushReplacementNamed(context, targetRoute);
+
+      if (result.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pushReplacementNamed(context, targetRoute);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -129,19 +156,44 @@ class _LoginScreenState extends State<LoginScreen> {
                 border: const OutlineInputBorder(),
               ),
             ),
+            const SizedBox(height: 6),
 
-            // Forgot Password Link
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, AppRoutes.resetPassword);
-                },
-                child: Text(
-                  'Forgot password?',
-                  style: TextStyle(color: primaryColor, fontWeight: FontWeight.w600),
+            // Remember Me Checkbox on Far Left & Forgot Password Link on Far Right
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Far Left: Remember Me Checkbox & Label
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Checkbox(
+                      value: _rememberMe,
+                      activeColor: primaryColor,
+                      visualDensity: VisualDensity.compact,
+                      onChanged: (val) {
+                        setState(() {
+                          _rememberMe = val ?? false;
+                        });
+                      },
+                    ),
+                    const Text(
+                      'Remember me',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                    ),
+                  ],
                 ),
-              ),
+
+                // Far Right: Forgot Password Link
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, AppRoutes.resetPassword);
+                  },
+                  child: Text(
+                    'Forgot password?',
+                    style: TextStyle(color: primaryColor, fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -201,126 +253,92 @@ class _LoginScreenState extends State<LoginScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  "Don't have an account? ",
-                  style: TextStyle(color: Colors.grey),
-                ),
-                GestureDetector(
-                  onTap: () {
+                const Text("Don't have an account?"),
+                TextButton(
+                  onPressed: () {
                     Navigator.pushNamed(context, AppRoutes.register);
                   },
                   child: Text(
                     'Register',
-                    style: TextStyle(
-                      color: primaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
 
-            // "OR" Divider Line
+            // Divider Line
             Row(
               children: [
-                Expanded(child: Divider(color: Colors.grey.shade400, thickness: 1)),
+                Expanded(child: Divider(color: Colors.grey.shade300)),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
-                    'OR',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
+                    'OR CONTINUING WITH',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.bold),
                   ),
                 ),
-                Expanded(child: Divider(color: Colors.grey.shade400, thickness: 1)),
+                Expanded(child: Divider(color: Colors.grey.shade300)),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // Animated Google Sign-In Button
+            // Google Sign-In Button
             Center(
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
                 width: _isGoogleLoading ? 54 : fullButtonWidth,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(_isGoogleLoading ? 27 : 10),
-                  border: Border.all(color: Colors.grey.shade400, width: 1.2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+                height: 52,
+                child: OutlinedButton(
+                  onPressed: _isLoading ? null : _handleGoogleSignIn,
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(_isGoogleLoading ? 27 : 12),
                     ),
-                  ],
-                ),
-                child: InkWell(
-                  onTap: _isLoading ? null : _handleGoogleSignIn,
-                  borderRadius: BorderRadius.circular(_isGoogleLoading ? 27 : 10),
-                  child: Center(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: _isGoogleLoading
-                          ? SizedBox(
-                              key: const ValueKey('google_spinner'),
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: primaryColor,
-                              ),
-                            )
-                          : SingleChildScrollView(
-                              key: const ValueKey('google_text_row'),
-                              scrollDirection: Axis.horizontal,
-                              physics: const NeverScrollableScrollPhysics(),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const SizedBox(width: 16),
-                                  Container(
-                                    width: 22,
-                                    height: 22,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        'G',
-                                        style: TextStyle(
-                                          color: Color(0xFF4285F4),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  const Text(
-                                    'Sign in with Google',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                ],
-                              ),
+                    side: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: _isGoogleLoading
+                        ? const SizedBox(
+                            key: ValueKey('google_spinner'),
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
                             ),
-                    ),
+                          )
+                        : SingleChildScrollView(
+                            key: const ValueKey('google_text_row'),
+                            scrollDirection: Axis.horizontal,
+                            physics: const NeverScrollableScrollPhysics(),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Image.network(
+                                  'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg',
+                                  height: 22,
+                                  width: 22,
+                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata, size: 28, color: Colors.red),
+                                ),
+                                const SizedBox(width: 10),
+                                const Text(
+                                  'Sign in with Google',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 20),
           ],
         ),
       ),

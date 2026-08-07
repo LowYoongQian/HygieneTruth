@@ -3,10 +3,12 @@ import '../models/mock_seed_data.dart';
 import '../models/restaurant_model.dart';
 import '../models/user_model.dart';
 import '../routes/app_routes.dart';
+import '../services/customer_store_service.dart';
 import '../../gps/widgets/restaurant_card.dart';
 import 'stat_card.dart';
 
 import '../../owner/screens/owner_dashboard_screen.dart';
+import '../../gps/screens/restaurant_map_screen.dart';
 
 class RoleDashboardScaffold extends StatefulWidget {
   final UserRole initialRole;
@@ -69,8 +71,8 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
         currentIndex: _selectedBottomTabIndex,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF0284C7),
-        unselectedItemColor: Colors.grey.shade600,
-        backgroundColor: Colors.white,
+        unselectedItemColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade600,
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 8,
         onTap: (index) {
           setState(() {
@@ -93,7 +95,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
       case 0:
         return 'Safe Food';
       case 1:
-        return 'Outlet Map';
+        return 'Map';
       case 2:
         return 'Submit Report';
       case 3:
@@ -315,34 +317,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
   }
 
   Widget _buildUserMapPanel(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.pin_drop, color: Color(0xFF0284C7)),
-              title: const Text('Outlet Map', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text('GPS outlets & risk heatmap'),
-            ),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.restaurantMap),
-            icon: const Icon(Icons.map),
-            label: const Text('Open Map'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.hygieneHeatmap),
-            icon: const Icon(Icons.local_fire_department, color: Colors.red),
-            label: const Text('View Heatmap'),
-          ),
-        ],
-      ),
-    );
+    return const RestaurantMapScreen(showAppBar: false);
   }
 
   Widget _buildUserReportPanel(BuildContext context) {
@@ -405,43 +380,245 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
   }
 
   Widget _buildUserProfilePanel(BuildContext context) {
+    final customer = CustomerStoreService.currentCustomer;
+    final userName = customer?.name ?? 'User Account';
+    final userEmail = customer?.email ?? 'user@example.com';
+    final avatarUrl = customer?.avatarUrl ?? '';
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      physics: const BouncingScrollPhysics(),
       child: Column(
         children: [
-          const CircleAvatar(
-            radius: 36,
-            backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=1'),
+          // 1. TOP QUALITY BANNER FRAME WITH OVERLAPPING AVATAR
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topCenter,
+            children: [
+              // Rich Aesthetic Gradient Banner Container
+              Container(
+                height: 140,
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0xFF0F172A), // Deep Navy
+                      Color(0xFF1E293B),
+                      Color(0xFF0284C7), // Ocean Blue accent
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    // Subtle background decorative circles
+                    Positioned(
+                      right: -20,
+                      top: -20,
+                      child: Container(
+                        width: 110,
+                        height: 110,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.08),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 20,
+                      bottom: 10,
+                      child: Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.05),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Overlapping Profile Avatar Frame Icon with Gold Ring Accent
+              Positioned(
+                top: 85,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 46,
+                        backgroundColor: const Color(0xFF0284C7).withValues(alpha: 0.15),
+                        backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                        child: avatarUrl.isEmpty
+                            ? Text(
+                                userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0284C7),
+                                ),
+                              )
+                            : null,
+                      ),
+                      // Verified Badge Pin Icon
+                      Positioned(
+                        right: 2,
+                        bottom: 2,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.verified,
+                            color: Color(0xFF0284C7),
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          const Text('User Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const Text('user@example.com', style: TextStyle(color: Colors.grey, fontSize: 13)),
-          const SizedBox(height: 20),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.person, color: Color(0xFF0284C7)),
-              title: const Text('Profile Details'),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-              onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+
+          // Spacing below overlapping banner avatar
+          const SizedBox(height: 55),
+
+          // 2. USER INFORMATION & STATUS BADGE
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: [
+                Text(
+                  userName,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  userEmail,
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF9CA3AF) : Colors.grey.shade600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.shield_outlined, size: 14, color: Color(0xFF0284C7)),
+                      SizedBox(width: 6),
+                      Text(
+                        'Verified Customer',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0284C7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // 3. ENHANCED PROFILE OPTIONS CARDS
+                Card(
+                  elevation: 1.5,
+                  shadowColor: Colors.black.withValues(alpha: 0.06),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.person_outline, color: Color(0xFF0284C7), size: 22),
+                    ),
+                    title: Text(
+                      'Profile Details',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A)),
+                    ),
+                    subtitle: const Text('Manage personal details & contact info', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                Card(
+                  elevation: 1.5,
+                  shadowColor: Colors.black.withValues(alpha: 0.06),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.history, color: Colors.amber, size: 22),
+                    ),
+                    title: Text(
+                      'Activity History',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A)),
+                    ),
+                    subtitle: const Text('View submitted reports & past reviews', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.activityHistory),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // 4. ENHANCED RED LOGOUT BUTTON
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFDC2626), // Premium vibrant red
+                      foregroundColor: Colors.white,
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.splashRoleSelect),
+                    icon: const Icon(Icons.logout, size: 20),
+                    label: const Text(
+                      'Logout',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
             ),
-          ),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.history, color: Color(0xFF0284C7)),
-              title: const Text('Activity History'),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-              onTap: () => Navigator.pushNamed(context, AppRoutes.activityHistory),
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-              minimumSize: const Size.fromHeight(46),
-            ),
-            onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.splashRoleSelect),
-            icon: const Icon(Icons.logout),
-            label: const Text('Logout'),
           ),
         ],
       ),

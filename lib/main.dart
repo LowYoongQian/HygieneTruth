@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_manager.dart';
 import 'core/routes/app_routes.dart';
 import 'core/models/user_model.dart';
 import 'core/widgets/role_dashboard_scaffold.dart';
@@ -12,6 +13,7 @@ import 'auth/screens/register_screen.dart';
 import 'auth/screens/reset_password_screen.dart';
 import 'auth/screens/profile_screen.dart';
 import 'auth/screens/edit_profile_screen.dart';
+import 'auth/screens/settings_screen.dart';
 import 'auth/screens/activity_history_screen.dart';
 import 'auth/screens/manage_user_accounts_screen.dart';
 import 'auth/screens/account_detail_screen.dart';
@@ -59,8 +61,20 @@ import 'owner/screens/notice_detail_screen.dart';
 import 'owner/screens/mark_issue_resolved_screen.dart';
 import 'owner/screens/final_report_screen.dart';
 
-void main() {
+import 'package:flutter/services.dart';
+import 'core/services/supabase_service.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SupabaseService.initialize();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
   runApp(const RestaurantHygieneApp());
 }
 
@@ -69,12 +83,19 @@ class RestaurantHygieneApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ScaffoldMessenger(
-      child: MaterialApp(
-        title: 'Restaurant Hygiene Monitoring System',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        initialRoute: AppRoutes.onboarding,
+    return ListenableBuilder(
+      listenable: themeManager,
+      builder: (context, _) {
+        return ScaffoldMessenger(
+          child: MaterialApp(
+            title: 'Restaurant Hygiene Monitoring System',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeManager.themeMode,
+            themeAnimationDuration: const Duration(milliseconds: 400),
+            themeAnimationCurve: Curves.easeInOutCubic,
+            initialRoute: AppRoutes.onboarding,
         routes: {
           // Onboarding, Splash & Auth
           AppRoutes.onboarding: (context) => const OnboardingScreen(),
@@ -84,6 +105,7 @@ class RestaurantHygieneApp extends StatelessWidget {
           AppRoutes.resetPassword: (context) => const ResetPasswordScreen(),
           AppRoutes.profile: (context) => const ProfileScreen(),
           AppRoutes.editProfile: (context) => const EditProfileScreen(),
+          AppRoutes.settings: (context) => const SettingsScreen(),
           AppRoutes.activityHistory: (context) => const ActivityHistoryScreen(),
           AppRoutes.manageUserAccounts: (context) => const ManageUserAccountsScreen(),
           AppRoutes.accountDetail: (context) => const AccountDetailScreen(),
@@ -139,5 +161,7 @@ class RestaurantHygieneApp extends StatelessWidget {
         },
       ),
     );
+  },
+);
   }
 }

@@ -7,6 +7,7 @@ class AppRoutes {
   static const String resetPassword = '/reset-password';
   static const String profile = '/profile';
   static const String editProfile = '/edit-profile';
+  static const String settings = '/settings';
   static const String activityHistory = '/activity-history';
   static const String manageUserAccounts = '/admin/manage-user-accounts';
   static const String accountDetail = '/admin/account-detail';
