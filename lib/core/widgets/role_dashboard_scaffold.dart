@@ -375,8 +375,8 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
 
   Widget _buildUserProfilePanel(BuildContext context) {
     final customer = CustomerStoreService.currentCustomer;
-    final userName = customer?.name ?? 'User Account';
-    final userEmail = customer?.email ?? 'user@example.com';
+    final userName = customer?.name ?? 'Guest User';
+    final userEmail = customer?.email ?? 'Not Signed In';
     final avatarUrl = customer?.avatarUrl ?? '';
 
     return SingleChildScrollView(

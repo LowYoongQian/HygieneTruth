@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/user_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/customer_store_service.dart';
+import '../../core/utils/input_validator.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/google_sign_in_button.dart';
 
@@ -17,6 +18,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passController = TextEditingController();
   final _confirmPassController = TextEditingController();
+
+  String? _nameError;
+  String? _emailError;
+  String? _passError;
+  String? _confirmPassError;
 
   bool _obscurePass = true;
   bool _obscureConfirmPass = true;
@@ -50,16 +56,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _isLoading = false;
         _isGoogleLoading = false;
       });
-      if (result.success) {
+      if (result.success && CustomerStoreService.currentCustomer != null) {
         Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
       }
     }
   }
 
   Future<void> _handleRegister() async {
-    if (_passController.text.isEmpty || _passController.text != _confirmPassController.text) {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final pass = _passController.text;
+    final confirmPass = _confirmPassController.text;
+
+    final nameErr = InputValidator.validateName(name, fieldName: 'your name');
+    final emailErr = InputValidator.validateEmail(email);
+    final passErr = InputValidator.validatePassword(pass);
+    final confirmErr = InputValidator.validateConfirmPassword(pass, confirmPass);
+
+    setState(() {
+      _nameError = nameErr;
+      _emailError = emailErr;
+      _passError = passErr;
+      _confirmPassError = confirmErr;
+    });
+
+    if (nameErr != null || emailErr != null || passErr != null || confirmErr != null) {
+      String firstError = nameErr ?? emailErr ?? passErr ?? confirmErr!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match!'), backgroundColor: Colors.red),
+        SnackBar(content: Text(firstError), backgroundColor: Colors.red),
       );
       return;
     }
@@ -71,9 +95,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     // Save Customer Data to Supabase & CustomerStoreService
     final result = await CustomerStoreService.registerCustomer(
-      name: _nameController.text,
-      email: _emailController.text,
-      password: _passController.text,
+      name: name,
+      email: email,
+      password: pass,
       role: UserRole.user,
     );
 
@@ -144,23 +168,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
             // Username / Full Name
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Full Name',
-                prefixIcon: Icon(Icons.person_outline),
-                border: OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.person_outline),
+                border: const OutlineInputBorder(),
+                errorText: _nameError,
               ),
+              onChanged: (_) {
+                if (_nameError != null) setState(() => _nameError = null);
+              },
             ),
             const SizedBox(height: 16),
 
             // Email Address
             TextField(
               controller: _emailController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Email Address',
-                prefixIcon: Icon(Icons.email_outlined),
-                border: OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.email_outlined),
+                border: const OutlineInputBorder(),
+                errorText: _emailError,
               ),
               keyboardType: TextInputType.emailAddress,
+              onChanged: (_) {
+                if (_emailError != null) setState(() => _emailError = null);
+              },
             ),
             const SizedBox(height: 16),
 
@@ -171,6 +203,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               decoration: InputDecoration(
                 labelText: 'Password',
                 prefixIcon: const Icon(Icons.lock_outline),
+                errorText: _passError,
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscurePass ? Icons.visibility_off : Icons.visibility,
@@ -184,6 +217,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 border: const OutlineInputBorder(),
               ),
+              onChanged: (_) {
+                if (_passError != null) setState(() => _passError = null);
+              },
             ),
             const SizedBox(height: 16),
 
@@ -194,6 +230,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               decoration: InputDecoration(
                 labelText: 'Confirm Password',
                 prefixIcon: const Icon(Icons.lock_reset),
+                errorText: _confirmPassError,
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscureConfirmPass ? Icons.visibility_off : Icons.visibility,
@@ -207,6 +244,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 border: const OutlineInputBorder(),
               ),
+              onChanged: (_) {
+                if (_confirmPassError != null) setState(() => _confirmPassError = null);
+              },
             ),
             const SizedBox(height: 24),
 

@@ -43,7 +43,7 @@ class MockSeedData {
     ),
   ];
 
-  static const List<RestaurantModel> restaurants = [
+  static List<RestaurantModel> restaurants = [
     RestaurantModel(
       id: 'rst_101',
       name: 'Golden Dragon Noodle House',

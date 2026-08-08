@@ -913,7 +913,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, visualDensity: VisualDensity.compact),
                 onPressed: () => Navigator.pushNamed(context, AppRoutes.addRestaurant),
                 icon: const Icon(Icons.add_business, size: 14, color: Colors.white),
-                label: const Text('+ Add New Premises', style: TextStyle(color: Colors.white, fontSize: 12)),
+                label: const Text('+ Add Restaurant', style: TextStyle(color: Colors.white, fontSize: 12)),
               ),
             ],
           ),

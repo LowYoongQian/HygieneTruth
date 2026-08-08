@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/customer_store_service.dart';
 import '../../core/services/remember_me_service.dart';
+import '../../core/utils/input_validator.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/google_sign_in_button.dart';
 
@@ -16,6 +17,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  String? _emailError;
+  String? _passwordError;
+
   bool _obscurePassword = true;
   bool _rememberMe = false; // State for Remember Me Checkbox
   bool _isLoading = false;
@@ -29,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _loadRememberedCredentials() async {
-    final data = await RememberMeService.getRememberedUser();
+    final data = await RememberMeService.getRememberedUser(portal: PortalType.customer);
     if (data['rememberMe'] == true && mounted) {
       setState(() {
         _rememberMe = true;
@@ -61,13 +65,39 @@ class _LoginScreenState extends State<LoginScreen> {
         _isLoading = false;
         _isGoogleLoading = false;
       });
-      if (result.success) {
+      if (result.success && CustomerStoreService.currentCustomer != null) {
         Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
       }
     }
   }
 
   Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    final emailErr = InputValidator.validateEmail(email);
+    final passErr = InputValidator.validatePassword(password);
+
+    setState(() {
+      _emailError = emailErr;
+      _passwordError = passErr;
+    });
+
+    if (emailErr != null || passErr != null) {
+      String msg;
+      if (email.isEmpty && password.isEmpty) {
+        msg = 'Please enter email and password';
+      } else if (emailErr != null) {
+        msg = emailErr;
+      } else {
+        msg = passErr!;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     final targetRoute = args?['targetRoute'] as String? ?? AppRoutes.userDashboard;
 
@@ -78,14 +108,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
     await RememberMeService.saveRememberedUser(
       rememberMe: _rememberMe,
-      email: _emailController.text,
+      email: email,
+      portal: PortalType.customer,
     );
 
     // Authenticate with Supabase & CustomerStoreService
     final result = await CustomerStoreService.loginCustomer(
-      email: _emailController.text,
-      password: _passwordController.text,
+      email: email,
+      password: password,
       rememberMe: _rememberMe,
+      portal: PortalType.customer,
     );
 
     if (mounted) {
@@ -171,12 +203,16 @@ class _LoginScreenState extends State<LoginScreen> {
             // Email Field
             TextField(
               controller: _emailController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Email Address',
-                prefixIcon: Icon(Icons.email_outlined),
-                border: OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.email_outlined),
+                border: const OutlineInputBorder(),
+                errorText: _emailError,
               ),
               keyboardType: TextInputType.emailAddress,
+              onChanged: (_) {
+                if (_emailError != null) setState(() => _emailError = null);
+              },
             ),
             const SizedBox(height: 16),
 
@@ -187,6 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
               decoration: InputDecoration(
                 labelText: 'Password',
                 prefixIcon: const Icon(Icons.lock_outline),
+                errorText: _passwordError,
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscurePassword ? Icons.visibility_off : Icons.visibility,
@@ -200,6 +237,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 border: const OutlineInputBorder(),
               ),
+              onChanged: (_) {
+                if (_passwordError != null) setState(() => _passwordError = null);
+              },
             ),
             const SizedBox(height: 6),
 

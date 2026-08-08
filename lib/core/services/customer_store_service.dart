@@ -23,21 +23,7 @@ class CustomerAuthResult {
 class CustomerStoreService {
   static UserModel? _currentCustomer;
 
-  static UserModel? get currentCustomer => _currentCustomer ?? _fallbackCustomer;
-
-  static final UserModel _fallbackCustomer = UserModel(
-    id: '00000000-0000-0000-0000-000000000001',
-    name: 'Verified Customer',
-    email: 'user@example.com',
-    phone: '+60 12-345 6789',
-    role: UserRole.user,
-    status: AccountStatus.active,
-    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
-    gender: null, // Null to reflect missing data until future implementation
-    country: null,
-    state: null,
-    joinedDate: 'Jan 2024',
-  );
+  static UserModel? get currentCustomer => _currentCustomer;
 
   static final Map<String, Map<String, String>> _registeredCustomers = {};
 
@@ -48,11 +34,12 @@ class CustomerStoreService {
       final sessionUser = supabase.auth.currentUser;
       
       if (sessionUser == null) {
-        return _currentCustomer;
+        _currentCustomer = null;
+        return null;
       }
 
       final String userId = sessionUser.id;
-      final String userEmail = sessionUser.email ?? 'user@example.com';
+      final String userEmail = sessionUser.email ?? '';
 
       // Query real user row from public.users table in Supabase
       final Map<String, dynamic>? data = await supabase
@@ -61,7 +48,7 @@ class CustomerStoreService {
           .eq('id', userId)
           .maybeSingle();
 
-      String name = sessionUser.userMetadata?['name'] as String? ?? userEmail.split('@').first;
+      String name = sessionUser.userMetadata?['name'] as String? ?? (userEmail.isNotEmpty ? userEmail.split('@').first : 'User');
       String? phone;
       String? gender;
       String? country;
@@ -120,70 +107,68 @@ class CustomerStoreService {
     return '';
   }
 
-  static void updateCustomerProfile({
-    required String name,
-    required String phone,
-    required String gender,
-    required String country,
-    required String state,
-  }) {
-    final base = _currentCustomer ?? _fallbackCustomer;
-    _currentCustomer = UserModel(
-      id: base.id,
-      name: name,
-      email: base.email,
-      phone: phone,
-      role: base.role,
-      status: base.status,
-      avatarUrl: base.avatarUrl,
-      gender: gender,
-      country: country,
-      state: state,
-      joinedDate: base.joinedDate,
-    );
-
-    // Persist profile update to Supabase users table async
-    try {
-      SupabaseService.client.from('users').upsert({
-        'id': base.id,
-        'name': name,
-        'phone': phone,
-        'gender': gender,
-        'country': country,
-        'state': state,
-      });
-    } catch (_) {}
+  /// Checks if current Supabase session is linked to a Google auth provider
+  static bool isGoogleLinked() {
+    final user = SupabaseService.client.auth.currentUser;
+    if (user == null) return false;
+    final provider = user.appMetadata['provider']?.toString();
+    if (provider == 'google') return true;
+    final identities = user.identities;
+    if (identities != null) {
+      return identities.any((id) => id.provider.toLowerCase() == 'google');
+    }
+    return false;
   }
 
-  static void updateOwnerRole(UserRole role) {
-    if (_currentCustomer != null) {
-      _currentCustomer = UserModel(
-        id: _currentCustomer!.id,
-        name: _currentCustomer!.name,
-        email: _currentCustomer!.email,
-        phone: _currentCustomer!.phone,
-        role: role,
-        status: _currentCustomer!.status,
-        avatarUrl: _currentCustomer!.avatarUrl,
-        gender: _currentCustomer!.gender,
-        country: _currentCustomer!.country,
-        state: _currentCustomer!.state,
-        joinedDate: _currentCustomer!.joinedDate,
-        memberTier: _currentCustomer!.memberTier,
-      );
-    } else {
-      _currentCustomer = UserModel(
-        id: UuidHelper.generateV4(),
-        name: role == UserRole.owner
-            ? 'Restaurant Owner'
-            : (role == UserRole.admin ? 'Administrator' : 'Government Officer'),
-        email: role == UserRole.owner
-            ? 'owner@restaurant.com'
-            : (role == UserRole.admin ? 'admin@hygiene.gov.my' : 'officer@hygiene.gov.my'),
-        role: role,
-        status: AccountStatus.active,
-        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
-      );
+  /// Returns linked Google account email address if available
+  static String getGoogleLinkedEmail() {
+    final user = SupabaseService.client.auth.currentUser;
+    if (user == null) return '';
+    if (isGoogleLinked()) {
+      return user.email ?? '';
+    }
+    return '';
+  }
+
+  /// Updates user profile details in Supabase database and active session
+  static Future<bool> updateCustomerProfile({
+    required String name,
+    String? email,
+    String? phone,
+    String? gender,
+    String? country,
+    String? state,
+  }) async {
+    try {
+      final supabase = SupabaseService.client;
+      final sessionUser = supabase.auth.currentUser;
+      if (sessionUser != null) {
+        await supabase.from('users').update({
+          'name': name.trim(),
+          'phone': phone?.trim(),
+          'gender': gender,
+          'country': country,
+          'state': state,
+        }).eq('id', sessionUser.id);
+      }
+      if (_currentCustomer != null) {
+        _currentCustomer = UserModel(
+          id: _currentCustomer!.id,
+          name: name.trim(),
+          email: _currentCustomer!.email,
+          phone: phone,
+          role: _currentCustomer!.role,
+          status: _currentCustomer!.status,
+          avatarUrl: _currentCustomer!.avatarUrl,
+          gender: gender,
+          country: country,
+          state: state,
+          joinedDate: _currentCustomer!.joinedDate,
+        );
+      }
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -191,122 +176,98 @@ class CustomerStoreService {
     required String name,
     required String email,
     required String password,
-    String? phone,
     UserRole role = UserRole.user,
   }) async {
     final cleanEmail = email.trim().toLowerCase();
-    final cleanName = name.trim();
-    final cleanPhone = (phone != null && phone.trim().isNotEmpty) ? phone.trim() : null;
-    final String roleStr = role == UserRole.owner
-        ? 'businessman'
-        : (role == UserRole.admin
-            ? 'admin'
-            : (role == UserRole.government ? 'government' : 'customer'));
 
-    if (cleanEmail.isEmpty || password.isEmpty || cleanName.isEmpty) {
+    if (name.trim().isEmpty || cleanEmail.isEmpty || password.isEmpty) {
       return const CustomerAuthResult(
         success: false,
-        message: 'Please fill in all required registration fields.',
+        message: 'Please fill in all fields.',
       );
     }
 
     final supabase = SupabaseService.client;
-    String? authUserId;
+    final String roleStr = role == UserRole.owner
+        ? 'owner'
+        : (role == UserRole.admin
+            ? 'admin'
+            : (role == UserRole.government ? 'government' : 'user'));
 
-    // 1. Try Supabase Auth signUp first
     try {
-      final AuthResponse res = await supabase.auth.signUp(
+      final res = await supabase.auth.signUp(
         email: cleanEmail,
         password: password,
-        data: {
-          'name': cleanName,
-          'phone': cleanPhone,
-          'role': roleStr,
-        },
+        data: {'name': name.trim()},
       );
-      if (res.user != null) {
-        authUserId = res.user!.id;
-      }
+
+      final String userId = res.user?.id ?? UuidHelper.generateV4();
+      final nowUtc = DateTime.now().toUtc();
+      final nowMsia = nowUtc.add(const Duration(hours: 8));
+      final String formattedJoinedDate = '${nowMsia.day} ${_monthName(nowMsia.month)} ${nowMsia.year}';
+      final String createdIso = nowUtc.toIso8601String();
+
+      try {
+        await supabase.from('users').upsert(
+          {
+            'id': userId,
+            'name': name.trim(),
+            'email': cleanEmail,
+            'role': roleStr,
+            'status': 'active',
+            'created_at': createdIso,
+          },
+          onConflict: 'email',
+        );
+      } catch (_) {}
+
+      _currentCustomer = UserModel(
+        id: userId,
+        name: name.trim(),
+        email: cleanEmail,
+        phone: null,
+        role: role,
+        status: AccountStatus.active,
+        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
+        joinedDate: formattedJoinedDate,
+      );
+
+      await RememberMeService.saveRememberedUser(
+        rememberMe: true,
+        email: cleanEmail,
+      );
+
+      await themeManager.loadThemeForUser(_currentCustomer!.id);
+
+      return CustomerAuthResult(
+        success: true,
+        message: 'Registration successful! Account created as ${roleStr.toUpperCase()}.',
+        user: _currentCustomer,
+      );
     } catch (e) {
       if (kDebugMode) {
-        print('Supabase Auth signUp info: $e');
+        print('Supabase signUp info: $e');
       }
-      try {
-        final res = await supabase.auth.signInWithPassword(
-          email: cleanEmail,
-          password: password,
-        );
-        if (res.user != null) {
-          authUserId = res.user!.id;
-        }
-      } catch (_) {}
     }
 
-    // 2. Generate valid RFC-4122 v4 UUID if Auth ID is not returned
-    final String validId = (authUserId != null && authUserId.isNotEmpty)
-        ? authUserId
-        : UuidHelper.generateV4();
-
+    final String validId = UuidHelper.generateV4();
     final nowUtc = DateTime.now().toUtc();
     final nowMsia = nowUtc.add(const Duration(hours: 8));
     final String formattedJoinedDate = '${nowMsia.day} ${_monthName(nowMsia.month)} ${nowMsia.year}';
-    final String createdIso = nowUtc.toIso8601String();
 
-    // 3. Guarantee direct insertion into public.users table in Supabase
-    try {
-      await supabase.from('users').upsert(
-        {
-          'id': validId,
-          'name': cleanName,
-          'email': cleanEmail,
-          'phone': cleanPhone,
-          'role': roleStr,
-          'status': 'active',
-          'avatar_url': 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
-          'created_at': createdIso,
-        },
-        onConflict: 'email',
-      );
-      if (kDebugMode) {
-        print('User successfully inserted/updated in Supabase users table with ID: $validId and role: $roleStr');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Supabase users table insert error: $e');
-      }
-      try {
-        await supabase.from('users').insert({
-          'id': validId,
-          'name': cleanName,
-          'email': cleanEmail,
-          'phone': cleanPhone,
-          'role': roleStr,
-          'status': 'active',
-          'avatar_url': 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
-          'created_at': createdIso,
-        });
-      } catch (err2) {
-        if (kDebugMode) {
-          print('Direct insert error: $err2');
-        }
-      }
-    }
-
-    // 4. Update Local Session State
     _registeredCustomers[cleanEmail] = {
       'id': validId,
-      'name': cleanName,
+      'name': name.trim(),
       'email': cleanEmail,
-      'phone': cleanPhone ?? '',
       'password': password,
       'role': roleStr,
     };
 
     _currentCustomer = UserModel(
       id: validId,
-      name: cleanName,
+      name: name.trim(),
       email: cleanEmail,
-      phone: cleanPhone,
+      phone: null,
       role: role,
       status: AccountStatus.active,
       avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
@@ -317,7 +278,7 @@ class CustomerStoreService {
 
     return CustomerAuthResult(
       success: true,
-      message: 'Registration successful! Account created as ${roleStr.toUpperCase()}.',
+      message: 'Registration successful!',
       user: _currentCustomer,
     );
   }
@@ -326,6 +287,7 @@ class CustomerStoreService {
     required String email,
     required String password,
     bool rememberMe = false,
+    PortalType portal = PortalType.customer,
   }) async {
     final cleanEmail = email.trim().toLowerCase();
 
@@ -361,6 +323,7 @@ class CustomerStoreService {
         await RememberMeService.saveRememberedUser(
           rememberMe: rememberMe,
           email: cleanEmail,
+          portal: portal,
         );
 
         await themeManager.loadThemeForUser(_currentCustomer!.id);
@@ -412,6 +375,7 @@ class CustomerStoreService {
         await RememberMeService.saveRememberedUser(
           rememberMe: rememberMe,
           email: cleanEmail,
+          portal: portal,
         );
 
         await themeManager.loadThemeForUser(_currentCustomer!.id);
@@ -441,6 +405,7 @@ class CustomerStoreService {
         await RememberMeService.saveRememberedUser(
           rememberMe: rememberMe,
           email: cleanEmail,
+          portal: portal,
         );
 
         await themeManager.loadThemeForUser(_currentCustomer!.id);
@@ -460,7 +425,7 @@ class CustomerStoreService {
 
     return const CustomerAuthResult(
       success: false,
-      message: 'Invalid credentials. User account not found. Please register first.',
+      message: 'Account not found or wrong password.',
     );
   }
 
@@ -479,7 +444,7 @@ class CustomerStoreService {
       );
 
       // 2. Prompt native Android / iOS "Choose an account" dialog
-      final GoogleSignInAccount googleUser = await googleSignIn.authenticate();
+      final googleUser = await googleSignIn.authenticate();
 
       // 3. Obtain authentication ID Token from native Google SDK
       final googleAuth = googleUser.authentication;
@@ -516,7 +481,6 @@ class CustomerStoreService {
             'email': gEmail,
             'role': 'customer',
             'status': 'active',
-            'avatar_url': gAvatar,
             'created_at': createdIso,
           },
           onConflict: 'email',
@@ -551,25 +515,30 @@ class CustomerStoreService {
         print('Native Google Sign-In error: $e');
       }
 
-      // Fallback to Supabase OAuth redirect if native channel is uninitialized
-      try {
-        final supabase = SupabaseService.client;
-        final bool oauthStarted = await supabase.auth.signInWithOAuth(
-          OAuthProvider.google,
-          redirectTo: kIsWeb ? null : 'io.supabase.colab://login-callback',
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('cancel') || errStr.contains('abort') || errStr.contains('closed')) {
+        return const CustomerAuthResult(
+          success: false,
+          message: 'Google Sign-In was cancelled.',
         );
+      }
 
-        if (oauthStarted) {
-          return const CustomerAuthResult(
+      // Check if user is already authenticated via active Supabase session
+      final sessionUser = SupabaseService.client.auth.currentUser;
+      if (sessionUser != null) {
+        final activeUser = await fetchActiveUserSession();
+        if (activeUser != null) {
+          return CustomerAuthResult(
             success: true,
-            message: 'Redirecting to Google Account Sign-In...',
+            message: 'Signed in as ${activeUser.email}',
+            user: activeUser,
           );
         }
-      } catch (_) {}
+      }
 
-      return CustomerAuthResult(
+      return const CustomerAuthResult(
         success: false,
-        message: 'Google Sign-In failed: ${e.toString()}',
+        message: 'Google Sign-In was cancelled or failed.',
       );
     }
   }
@@ -582,40 +551,22 @@ class CustomerStoreService {
     themeManager.resetToSystemTheme();
   }
 
-  static bool isGoogleLinked() {
-    try {
-      final sessionUser = SupabaseService.client.auth.currentUser;
-      if (sessionUser == null) {
-        return _currentCustomer?.email.endsWith('@gmail.com') ?? false;
-      }
-
-      final provider = sessionUser.appMetadata['provider'];
-      if (provider == 'google') return true;
-
-      final identities = sessionUser.identities;
-      if (identities != null) {
-        for (final identity in identities) {
-          if (identity.provider.toLowerCase() == 'google') {
-            return true;
-          }
-        }
-      }
-
-      if (sessionUser.email != null && sessionUser.email!.toLowerCase().contains('gmail.com')) {
-        return true;
-      }
-
-      return false;
-    } catch (_) {
-      return _currentCustomer?.email.toLowerCase().contains('gmail.com') ?? false;
+  /// Override active role for switching between Customer, Owner, Admin & Government Official
+  static void updateOwnerRole(UserRole newRole) {
+    if (_currentCustomer != null) {
+      _currentCustomer = UserModel(
+        id: _currentCustomer!.id,
+        name: _currentCustomer!.name,
+        email: _currentCustomer!.email,
+        phone: _currentCustomer!.phone,
+        role: newRole,
+        status: _currentCustomer!.status,
+        avatarUrl: _currentCustomer!.avatarUrl,
+        gender: _currentCustomer!.gender,
+        country: _currentCustomer!.country,
+        state: _currentCustomer!.state,
+        joinedDate: _currentCustomer!.joinedDate,
+      );
     }
-  }
-
-  static String getGoogleLinkedEmail() {
-    final sessionUser = SupabaseService.client.auth.currentUser;
-    if (sessionUser?.email != null && sessionUser!.email!.isNotEmpty) {
-      return sessionUser.email!;
-    }
-    return _currentCustomer?.email ?? '';
   }
 }

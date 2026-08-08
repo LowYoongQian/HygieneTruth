@@ -3,6 +3,7 @@ import '../../core/models/user_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/customer_store_service.dart';
 import '../../core/services/remember_me_service.dart';
+import '../../core/utils/input_validator.dart';
 import '../../core/widgets/custom_app_bar.dart';
 
 class OwnerLoginScreen extends StatefulWidget {
@@ -15,6 +16,10 @@ class OwnerLoginScreen extends StatefulWidget {
 class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
+  String? _emailError;
+  String? _passwordError;
+
   bool _obscurePassword = true;
   bool _rememberMe = false;
   bool _isLoading = false;
@@ -26,7 +31,7 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
   }
 
   Future<void> _loadRememberedCredentials() async {
-    final data = await RememberMeService.getRememberedUser();
+    final data = await RememberMeService.getRememberedUser(portal: PortalType.owner);
     if (data['rememberMe'] == true && mounted) {
       setState(() {
         _rememberMe = true;
@@ -43,19 +48,45 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
   }
 
   Future<void> _handleOwnerLogin() async {
-    if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    final emailErr = InputValidator.validateEmail(email);
+    final passErr = InputValidator.validatePassword(password);
+
+    setState(() {
+      _emailError = emailErr;
+      _passwordError = passErr;
+    });
+
+    if (emailErr != null || passErr != null) {
+      String msg;
+      if (email.isEmpty && password.isEmpty) {
+        msg = 'Please enter email and password';
+      } else if (emailErr != null) {
+        msg = emailErr;
+      } else {
+        msg = passErr!;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your business email and password.')),
+        SnackBar(content: Text(msg), backgroundColor: Colors.red),
       );
       return;
     }
 
     setState(() => _isLoading = true);
 
-    final result = await CustomerStoreService.loginCustomer(
-      email: _emailController.text,
-      password: _passwordController.text,
+    await RememberMeService.saveRememberedUser(
       rememberMe: _rememberMe,
+      email: email,
+      portal: PortalType.owner,
+    );
+
+    final result = await CustomerStoreService.loginCustomer(
+      email: email,
+      password: password,
+      rememberMe: _rememberMe,
+      portal: PortalType.owner,
     );
 
     if (mounted) {
@@ -117,11 +148,15 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
             TextField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Business Email',
-                prefixIcon: Icon(Icons.business_center_outlined),
-                border: OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.business_center_outlined),
+                border: const OutlineInputBorder(),
+                errorText: _emailError,
               ),
+              onChanged: (_) {
+                if (_emailError != null) setState(() => _emailError = null);
+              },
             ),
             const SizedBox(height: 16),
 
@@ -131,6 +166,7 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
               decoration: InputDecoration(
                 labelText: 'Password',
                 prefixIcon: const Icon(Icons.lock_outline),
+                errorText: _passwordError,
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscurePassword ? Icons.visibility_off : Icons.visibility,
@@ -140,6 +176,9 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
                 ),
                 border: const OutlineInputBorder(),
               ),
+              onChanged: (_) {
+                if (_passwordError != null) setState(() => _passwordError = null);
+              },
             ),
             const SizedBox(height: 10),
 
