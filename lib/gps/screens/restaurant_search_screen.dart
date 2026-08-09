@@ -5,7 +5,9 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
+import '../../core/services/language_manager.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../widgets/restaurant_card.dart';
 
@@ -439,12 +441,15 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: const CustomAppBar(title: 'Search Outlets'),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        behavior: HitTestBehavior.opaque,
-        child: Column(
+    return ListenableBuilder(
+      listenable: languageManager,
+      builder: (context, _) {
+        return Scaffold(
+          appBar: CustomAppBar(title: t('search_outlets').split('.').first),
+          body: GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            behavior: HitTestBehavior.opaque,
+            child: Column(
           children: [
           // Search Input Bar with Speech-to-Text Mic and Custom Equalizer Filter Icon at Far Right
           Padding(
@@ -645,9 +650,11 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
                     },
                   ),
           ),
-        ],
-      ),
-    ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -17,6 +17,8 @@ class RestaurantModel {
   final String lastUpdated;
   final String ownerId;
   final String ownerName;
+  final String operatingHours;
+  final String? businessRegNo;
 
   const RestaurantModel({
     required this.id,
@@ -33,5 +35,7 @@ class RestaurantModel {
     required this.lastUpdated,
     this.ownerId = 'own_001',
     this.ownerName = 'Chong Wei Meng',
+    this.operatingHours = '10:00 AM - 10:00 PM (Daily)',
+    this.businessRegNo,
   });
 }

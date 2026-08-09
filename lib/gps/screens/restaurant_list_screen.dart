@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/models/mock_seed_data.dart';
+import '../../core/services/language_manager.dart';
+import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/skeleton_loader.dart';
 import '../widgets/restaurant_card.dart';
@@ -31,10 +33,13 @@ class _RestaurantListScreenState extends State<RestaurantListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final restaurants = MockSeedData.restaurants;
+    return ListenableBuilder(
+      listenable: languageManager,
+      builder: (context, _) {
+        final restaurants = MockSeedData.restaurants;
 
-    return Scaffold(
-      appBar: const CustomAppBar(title: 'All Outlets'),
+        return Scaffold(
+          appBar: CustomAppBar(title: t('top_rated_safe')),
       body: SkeletonScreenWrapper(
         isLoading: _isLoading,
         skeletonView: const SkeletonListLoader(itemCount: 5),
@@ -48,7 +53,9 @@ class _RestaurantListScreenState extends State<RestaurantListScreen> {
             },
           ),
         ),
-      ),
+        ),
+        );
+      },
     );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/models/user_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/customer_store_service.dart';
+import '../../core/services/language_manager.dart';
+import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../widgets/role_badge.dart';
 
@@ -32,35 +34,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final customer = CustomerStoreService.currentCustomer;
+    return ListenableBuilder(
+      listenable: languageManager,
+      builder: (context, _) {
+        final customer = CustomerStoreService.currentCustomer;
 
-    final userName = customer?.name ?? 'User Profile';
-    final userEmail = customer?.email ?? '';
-    final avatarUrl = customer?.avatarUrl ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200';
+        final userName = (customer?.name != null && customer!.name.isNotEmpty) ? customer.name : 'User';
+        final userEmail = (customer?.email != null && customer!.email.isNotEmpty) ? customer.email : 'Not set';
+        final avatarUrl = customer?.avatarUrl ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200';
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? const Color(0xFFF3F4F6) : const Color(0xFF0F172A);
-    final subtitleTextColor = isDark ? const Color(0xFF9CA3AF) : Colors.grey.shade600;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final textColor = isDark ? const Color(0xFFF3F4F6) : const Color(0xFF0F172A);
+        final subtitleTextColor = isDark ? const Color(0xFF9CA3AF) : Colors.grey.shade600;
 
-    return Scaffold(
-      appBar: CustomAppBar(
-        title: 'My Profile',
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history),
-            tooltip: 'Activity History',
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.activityHistory),
+        return Scaffold(
+          appBar: CustomAppBar(
+            title: t('my_profile'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.history),
+                tooltip: t('activity_history'),
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.activityHistory),
+              ),
+              IconButton(
+                icon: const Icon(Icons.settings_outlined),
+                tooltip: t('settings'),
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Settings',
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
-          ),
-        ],
-      ),
-      body: _isLoadingSession
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+          body: _isLoadingSession
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -293,6 +298,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+        );
+      },
     );
   }
 

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
+import '../../core/services/language_manager.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/wireframe_box.dart';
 import '../widgets/complaint_step_tracker.dart';
@@ -631,12 +633,15 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canProceed = _canProceedCurrentStep();
+    return ListenableBuilder(
+      listenable: languageManager,
+      builder: (context, _) {
+        final canProceed = _canProceedCurrentStep();
 
-    return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'Report Hygiene Issue',
-      ),
+        return Scaffold(
+          appBar: CustomAppBar(
+            title: t('submit_hygiene_report'),
+          ),
       body: Column(
         children: [
           // Horizontal Step Process Header Tracker
@@ -722,5 +727,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
         ],
       ),
     );
-  }
+  },
+);
+}
 }

@@ -98,7 +98,7 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Welcome to Restaurant Owner Portal!'),
+            content: Text('Welcome to Businessman Portal!'),
             backgroundColor: Colors.amber,
           ),
         );
@@ -133,7 +133,7 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Restaurant Owner Portal',
+              'Businessman Portal',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),

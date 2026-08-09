@@ -31,6 +31,8 @@ class _ShimmerEffectState extends State<ShimmerEffect>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -38,11 +40,17 @@ class _ShimmerEffectState extends State<ShimmerEffect>
           blendMode: BlendMode.srcATop,
           shaderCallback: (bounds) {
             return LinearGradient(
-              colors: const [
-                Color(0xFFE2E8F0),
-                Color(0xFFF8FAFC),
-                Color(0xFFE2E8F0),
-              ],
+              colors: isDark
+                  ? const [
+                      Color(0xFF1E293B),
+                      Color(0xFF334155),
+                      Color(0xFF1E293B),
+                    ]
+                  : const [
+                      Color(0xFFE2E8F0),
+                      Color(0xFFF8FAFC),
+                      Color(0xFFE2E8F0),
+                    ],
               stops: const [0.0, 0.5, 1.0],
               begin: const Alignment(-1.0, -0.3),
               end: const Alignment(1.0, 0.3),
@@ -84,12 +92,14 @@ class SkeletonBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: width,
       height: height,
       margin: margin,
       decoration: BoxDecoration(
-        color: const Color(0xFFE2E8F0),
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
         borderRadius: BorderRadius.circular(borderRadius),
       ),
     );

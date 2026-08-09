@@ -30,7 +30,7 @@ class RoleBadge extends StatelessWidget {
         break;
       case UserRole.owner:
         bg = const Color(0xFFD97706);
-        label = 'Restaurant Owner';
+        label = 'Businessman';
         icon = Icons.storefront;
         break;
     }

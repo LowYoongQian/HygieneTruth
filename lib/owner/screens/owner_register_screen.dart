@@ -42,7 +42,7 @@ class _OwnerRegisterScreenState extends State<OwnerRegisterScreen> {
     final pass = _passController.text;
     final confirmPass = _confirmPassController.text;
 
-    final nameErr = InputValidator.validateName(name, fieldName: 'owner name');
+    final nameErr = InputValidator.validateName(name, fieldName: 'businessman name');
     final emailErr = InputValidator.validateEmail(email);
     final passErr = InputValidator.validatePassword(pass);
     final confirmErr = InputValidator.validateConfirmPassword(pass, confirmPass);
@@ -77,23 +77,16 @@ class _OwnerRegisterScreenState extends State<OwnerRegisterScreen> {
       if (result.success) {
         CustomerStoreService.updateOwnerRole(UserRole.owner);
 
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Business Account Registered!'),
-            content: const Text(
-              'Your business account has been successfully created. You can now access your Restaurant Owner portal.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.pushReplacementNamed(context, AppRoutes.ownerDashboard);
-                },
-                child: const Text('Go to Owner Dashboard'),
-              ),
-            ],
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Business Registration Successful! Welcome, ${result.user?.name ?? name}!'),
+            backgroundColor: Colors.green,
           ),
+        );
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.ownerDashboard,
+          (route) => false,
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -117,7 +110,7 @@ class _OwnerRegisterScreenState extends State<OwnerRegisterScreen> {
             const Icon(Icons.add_business_outlined, size: 54, color: ownerColor),
             const SizedBox(height: 12),
             const Text(
-              'Register Restaurant Account',
+              'Register Businessman Account',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
@@ -132,7 +125,7 @@ class _OwnerRegisterScreenState extends State<OwnerRegisterScreen> {
             TextField(
               controller: _ownerNameController,
               decoration: InputDecoration(
-                labelText: 'Owner / Manager Full Name',
+                labelText: 'Businessman / Manager Full Name',
                 prefixIcon: const Icon(Icons.person_outline),
                 border: const OutlineInputBorder(),
                 errorText: _nameError,

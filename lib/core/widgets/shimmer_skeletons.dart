@@ -124,3 +124,113 @@ class DashboardSkeleton extends StatelessWidget {
     );
   }
 }
+
+/// Premium Map View Skeleton Loader
+class MapSkeletonLoader extends StatelessWidget {
+  const MapSkeletonLoader({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Stack(
+      children: [
+        // 1. Shimmering Background Map Canvas
+        const BaseSkeleton(
+          width: double.infinity,
+          height: double.infinity,
+          borderRadius: 0,
+        ),
+
+        // 2. Top Floating Search Bar & Risk Legend Shimmer
+        const Positioned(
+          top: 16,
+          left: 16,
+          right: 16,
+          child: Column(
+            children: [
+              // Search Input Bar Shimmer
+              BaseSkeleton(
+                width: double.infinity,
+                height: 52,
+                borderRadius: 28,
+              ),
+              SizedBox(height: 8),
+              // Risk Legend Bar Shimmer
+              BaseSkeleton(
+                width: double.infinity,
+                height: 34,
+                borderRadius: 20,
+              ),
+            ],
+          ),
+        ),
+
+        // 3. Right Floating Map Controls FAB Shimmer
+        const Positioned(
+          right: 16,
+          bottom: 260,
+          child: Column(
+            children: [
+              BaseSkeleton(width: 44, height: 44, borderRadius: 22),
+              SizedBox(height: 12),
+              BaseSkeleton(width: 44, height: 44, borderRadius: 22),
+              SizedBox(height: 12),
+              BaseSkeleton(width: 44, height: 44, borderRadius: 22),
+            ],
+          ),
+        ),
+
+        // 4. Bottom Restaurant Card Carousel Shimmer Preview
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: 20,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                BaseSkeleton(
+                  width: double.infinity,
+                  height: 140,
+                  borderRadius: 16,
+                ),
+                SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    BaseSkeleton(width: 180, height: 20, borderRadius: 6),
+                    BaseSkeleton(width: 50, height: 20, borderRadius: 10),
+                  ],
+                ),
+                SizedBox(height: 8),
+                BaseSkeleton(width: 220, height: 14, borderRadius: 4),
+                SizedBox(height: 12),
+                Row(
+                  children: [
+                    BaseSkeleton(width: 90, height: 24, borderRadius: 12),
+                    SizedBox(width: 8),
+                    BaseSkeleton(width: 110, height: 24, borderRadius: 12),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

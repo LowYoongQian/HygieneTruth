@@ -7,8 +7,11 @@ import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/gps_service.dart';
+import '../../core/services/language_manager.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
+import '../../core/widgets/shimmer_skeletons.dart';
 
 class RestaurantMapScreen extends StatefulWidget {
   final bool showAppBar;
@@ -40,6 +43,8 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
 
   static const LatLng _defaultCenter = LatLng(3.1466, 101.6958);
 
+  bool _isMapLoading = true;
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +52,15 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
     _initMapMarkersAndHeatmap();
     _fetchUserLocation();
     _initSpeechState();
+
+    // High quality shimmer load simulation during map rasterization & marker placement
+    Future.delayed(const Duration(milliseconds: 900), () {
+      if (mounted) {
+        setState(() {
+          _isMapLoading = false;
+        });
+      }
+    });
   }
 
   @override
@@ -512,15 +526,15 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Filter Outlets by Hygiene Tier',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                        Text(
+                          t('filter_by_hygiene'),
+                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
                         ),
                         TextButton(
                           onPressed: () {
                             setSheetState(() => tempFilter = 'All');
                           },
-                          child: const Text('Reset', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                          child: Text(t('reset'), style: const TextStyle(color: Colors.grey, fontSize: 13)),
                         ),
                       ],
                     ),
@@ -530,15 +544,22 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: ['All', 'Safe', 'Moderate', 'High Risk'].map((filter) {
-                        final isSelected = tempFilter == filter;
+                      children: [
+                        {'raw': 'All', 'label': t('all')},
+                        {'raw': 'Safe', 'label': t('safe')},
+                        {'raw': 'Moderate', 'label': t('moderate')},
+                        {'raw': 'High Risk', 'label': t('high_risk')},
+                      ].map((item) {
+                        final filterKey = item['raw']!;
+                        final displayLabel = item['label']!;
+                        final isSelected = tempFilter == filterKey;
                         Color chipColor = AppTheme.primaryColor;
-                        if (filter == 'Safe') chipColor = const Color(0xFF10B981);
-                        if (filter == 'Moderate') chipColor = const Color(0xFFF59E0B);
-                        if (filter == 'High Risk') chipColor = const Color(0xFFEF4444);
+                        if (filterKey == 'Safe') chipColor = const Color(0xFF10B981);
+                        if (filterKey == 'Moderate') chipColor = const Color(0xFFF59E0B);
+                        if (filterKey == 'High Risk') chipColor = const Color(0xFFEF4444);
 
                         return ChoiceChip(
-                          label: Text(filter),
+                          label: Text(displayLabel),
                           selected: isSelected,
                           selectedColor: chipColor,
                           backgroundColor: Colors.grey.shade100,
@@ -548,7 +569,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                           ),
                           onSelected: (val) {
                             if (val) {
-                              setSheetState(() => tempFilter = filter);
+                              setSheetState(() => tempFilter = filterKey);
                             }
                           },
                         );
@@ -573,9 +594,9 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                           });
                           Navigator.pop(ctx);
                         },
-                        child: const Text(
-                          'Apply Filter',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                        child: Text(
+                          t('apply_filter'),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
                         ),
                       ),
                     ),
@@ -591,136 +612,146 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final initialTarget = _focusedRestaurant != null
-        ? LatLng(_focusedRestaurant!.latitude, _focusedRestaurant!.longitude)
-        : (_userPosition != null
-            ? LatLng(_userPosition!.latitude, _userPosition!.longitude)
-            : _defaultCenter);
+    return ListenableBuilder(
+      listenable: languageManager,
+      builder: (context, _) {
+        if (_isMapLoading) {
+          return Scaffold(
+            appBar: widget.showAppBar ? CustomAppBar(title: t('map')) : null,
+            body: const MapSkeletonLoader(),
+          );
+        }
 
-    return Scaffold(
-      appBar: widget.showAppBar ? const CustomAppBar(title: 'Map') : null,
-      body: Stack(
-        children: [
-          // 1. FULL-SCREEN GOOGLE MAP BACKGROUND
-          GoogleMap(
-            mapType: _currentMapType,
-            initialCameraPosition: CameraPosition(
-              target: initialTarget,
-              zoom: 17.5,
-              tilt: 60.0,
-              bearing: 45.0,
-            ),
-            buildingsEnabled: true,
-            onMapCreated: (controller) {
-              _mapController = controller;
-            },
-            markers: _markers,
-            circles: _showHeatmap ? _heatmapCircles : {},
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-          ),
+        final initialTarget = _focusedRestaurant != null
+            ? LatLng(_focusedRestaurant!.latitude, _focusedRestaurant!.longitude)
+            : (_userPosition != null
+                ? LatLng(_userPosition!.latitude, _userPosition!.longitude)
+                : _defaultCenter);
 
-          // 2. FLOATING SEARCH BAR WITH SPEECH-TO-TEXT & RISK LEGEND AT TOP
-          Positioned(
-            top: widget.showAppBar ? 2 : 12,
-            left: 16,
-            right: 16,
-            child: Column(
-              children: [
-                // Floating Search Input Bar with Speech-to-Text Mic Icon in front of Filter Button
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(28),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.88),
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.10),
-                            blurRadius: 14,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: TextField(
-                        controller: _listSearchCtrl,
-                        onChanged: (_) => _filterRestaurantList(),
-                        decoration: InputDecoration(
-                          hintText: 'Try "Spicy noodles or Cozy Dates..."',
-                          hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-                          prefixIcon: const Icon(Icons.search, color: AppTheme.navyColor),
-                          suffixIcon: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (_listSearchCtrl.text.isNotEmpty)
-                                IconButton(
-                                  icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
-                                  onPressed: () {
-                                    _listSearchCtrl.clear();
-                                    _filterRestaurantList();
-                                  },
-                                ),
-                              IconButton(
-                                icon: Icon(
-                                  _isListening ? Icons.mic : Icons.mic_none,
-                                  color: _isListening ? Colors.red : AppTheme.primaryColor,
-                                ),
-                                tooltip: 'Voice Search',
-                                onPressed: _startVoiceSearch,
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.tune, color: AppTheme.primaryColor),
-                                tooltip: 'Filter Outlets',
-                                onPressed: _showFilterBottomSheet,
+        return Scaffold(
+          appBar: widget.showAppBar ? CustomAppBar(title: t('map')) : null,
+          body: Stack(
+            children: [
+              // 1. FULL-SCREEN GOOGLE MAP BACKGROUND
+              GoogleMap(
+                mapType: _currentMapType,
+                initialCameraPosition: CameraPosition(
+                  target: initialTarget,
+                  zoom: 17.5,
+                  tilt: 60.0,
+                  bearing: 45.0,
+                ),
+                buildingsEnabled: true,
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                },
+                markers: _markers,
+                circles: _showHeatmap ? _heatmapCircles : {},
+                myLocationEnabled: true,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+              ),
+
+              // 2. FLOATING SEARCH BAR WITH SPEECH-TO-TEXT & RISK LEGEND AT TOP
+              Positioned(
+                top: widget.showAppBar ? 2 : 12,
+                left: 16,
+                right: 16,
+                child: Column(
+                  children: [
+                    // Floating Search Input Bar with Speech-to-Text Mic Icon in front of Filter Button
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(28),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.88),
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.10),
+                                blurRadius: 14,
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                          child: TextField(
+                            controller: _listSearchCtrl,
+                            onChanged: (_) => _filterRestaurantList(),
+                            decoration: InputDecoration(
+                              hintText: t('search_map_hint'),
+                              hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                              prefixIcon: const Icon(Icons.search, color: AppTheme.navyColor),
+                              suffixIcon: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_listSearchCtrl.text.isNotEmpty)
+                                    IconButton(
+                                      icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                                      onPressed: () {
+                                        _listSearchCtrl.clear();
+                                        _filterRestaurantList();
+                                      },
+                                    ),
+                                  IconButton(
+                                    icon: Icon(
+                                      _isListening ? Icons.mic : Icons.mic_none,
+                                      color: _isListening ? Colors.red : AppTheme.primaryColor,
+                                    ),
+                                    tooltip: 'Voice Search',
+                                    onPressed: _startVoiceSearch,
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.tune, color: AppTheme.primaryColor),
+                                    tooltip: 'Filter Outlets',
+                                    onPressed: _showFilterBottomSheet,
+                                  ),
+                                ],
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 4),
+                    const SizedBox(height: 4),
 
-                // Floating Risk Heatmap Legend Bar
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.88),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                    // Floating Risk Heatmap Legend Bar
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.88),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildLegendDot('Safe', Colors.green),
-                          _buildLegendDot('Moderate', Colors.amber),
-                          _buildLegendDot('High Risk', Colors.red),
-                        ],
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildLegendDot(t('safe'), Colors.green),
+                              _buildLegendDot(t('moderate'), Colors.amber),
+                              _buildLegendDot(t('high_risk'), Colors.red),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
 
           // 3. MAP CONTROLS: GOOGLE SATELLITE LAYER, HEATMAP TOGGLE & MY LOCATION BUTTONS
           Positioned(
@@ -951,7 +982,9 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
         ],
       ),
     );
-  }
+  },
+);
+}
 
   Widget _buildCardTag(String label, Color bg, Color text) {
     return Container(

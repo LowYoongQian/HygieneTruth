@@ -80,7 +80,7 @@ class SplashRoleSelectScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     CustomButton(
-                      label: 'Restaurant Owner (Business)',
+                      label: 'Businessman (Business)',
                       icon: Icons.storefront,
                       backgroundColor: const Color(0xFFD97706),
                       onPressed: () => Navigator.pushNamed(context, AppRoutes.ownerLogin),

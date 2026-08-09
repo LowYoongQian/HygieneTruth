@@ -40,28 +40,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  Future<void> _handleGoogleRegistration() async {
-    setState(() {
-      _isLoading = true;
-      _isGoogleLoading = true;
-    });
 
-    final result = await CustomerStoreService.signInWithGoogle();
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message)),
-      );
-      setState(() {
-        _isLoading = false;
-        _isGoogleLoading = false;
-      });
-      if (result.success && CustomerStoreService.currentCustomer != null) {
-        Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
-      }
-    }
-  }
-
+  // --- TRADITIONAL REGISTRATION FLOW ---
   Future<void> _handleRegister() async {
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
@@ -80,20 +61,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _confirmPassError = confirmErr;
     });
 
-    if (nameErr != null || emailErr != null || passErr != null || confirmErr != null) {
-      String firstError = nameErr ?? emailErr ?? passErr ?? confirmErr!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(firstError), backgroundColor: Colors.red),
-      );
-      return;
-    }
-
     setState(() {
       _isLoading = true;
       _isTraditionalLoading = true;
     });
 
-    // Save Customer Data to Supabase & CustomerStoreService
     final result = await CustomerStoreService.registerCustomer(
       name: name,
       email: email,
@@ -108,23 +80,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
 
       if (result.success) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Customer Registration Successful!'),
-            content: Text(
-              '${result.message}\nYour customer data has been stored. You can now log in to access your customer portal.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.pushReplacementNamed(context, AppRoutes.login);
-                },
-                child: const Text('OK'),
-              )
-            ],
-          ),
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.userDashboard,
+          (route) => false,
+          arguments: {'showProfileSetupDialog': true},
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.message), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // --- GOOGLE SIGN UP FLOW ---
+  Future<void> _handleGoogleRegistration() async {
+    setState(() {
+      _isLoading = true;
+      _isGoogleLoading = true;
+    });
+
+    final result = await CustomerStoreService.signInWithGoogle();
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _isGoogleLoading = false;
+      });
+
+      if (result.success && CustomerStoreService.currentCustomer != null) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.userDashboard,
+          (route) => false,
+          arguments: {'showProfileSetupDialog': true},
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

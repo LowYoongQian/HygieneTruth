@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'core/services/language_manager.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_manager.dart';
 import 'core/routes/app_routes.dart';
@@ -88,12 +89,13 @@ class RestaurantHygieneApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: themeManager,
+      listenable: Listenable.merge([themeManager, languageManager]),
       builder: (context, _) {
         return ScaffoldMessenger(
           child: MaterialApp(
             title: 'Restaurant Hygiene Monitoring System',
             debugShowCheckedModeBanner: false,
+            locale: languageManager.locale,
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: themeManager.themeMode,

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/models/mock_seed_data.dart';
+import '../../core/models/restaurant_model.dart';
 import '../../core/models/complaint_model.dart';
 import '../../core/routes/app_routes.dart';
+import '../../core/services/audit_log_service.dart';
 import '../../core/services/customer_store_service.dart';
+import '../../core/services/supabase_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/status_badge.dart';
@@ -41,12 +44,25 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     }
   }
 
-  // Mutable Approved Restaurant Details Data
-  String _restaurantName = 'Golden Dragon Noodle House';
-  String _businessRegNo = 'SSM-2024-009481-X';
-  String _operatingHours = '10:00 AM - 10:00 PM (Daily)';
-  String _restaurantAddress = '12 Jalan Petaling, City Centre, 50000 Kuala Lumpur';
-  final bool _isPremisesApproved = true;
+  /// Returns ONLY restaurants registered by/tied to the currently logged in businessman account UUID
+  List<RestaurantModel> get _myRegisteredRestaurants {
+    final String? currentUserId = CustomerStoreService.currentCustomer?.id ?? SupabaseService.client.auth.currentUser?.id;
+    final String? currentUserEmail = CustomerStoreService.currentCustomer?.email ?? SupabaseService.client.auth.currentUser?.email;
+
+    if (currentUserId == null || currentUserId.isEmpty) {
+      return MockSeedData.restaurants.where((r) => r.ownerId == 'own_001').toList();
+    }
+
+    final filtered = MockSeedData.restaurants.where((r) {
+      return r.ownerId == currentUserId ||
+             (currentUserEmail != null && r.ownerId == currentUserEmail) ||
+             (currentUserId == 'own_001' && r.ownerId == 'own_001');
+    }).toList();
+
+    return filtered;
+  }
+
+
 
   // Mock Reviews Data with Owner Responses for Analytics Monitoring
   final List<Map<String, String>> _ownerReviews = [
@@ -113,9 +129,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     _ownerName = nameCtrl.text.trim();
                     _ownerPhone = phoneCtrl.text.trim();
                   });
+
+                  AuditLogService.logAction(
+                    actionType: 'NAME_CHANGE',
+                    category: 'Account Modification',
+                    title: 'User Name Changed',
+                    description: 'Updated businessman account name to "${nameCtrl.text.trim()}"',
+                  );
+
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Owner profile updated successfully!')),
+                    const SnackBar(content: Text('Businessman profile updated successfully!')),
                   );
                 }
               },
@@ -171,6 +195,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   );
                   return;
                 }
+
+                AuditLogService.logAction(
+                  actionType: 'PASSWORD_CHANGE',
+                  category: 'Account Modification',
+                  title: 'Password Changed',
+                  description: 'Updated account login password',
+                );
+
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Business account password updated!'), backgroundColor: AppTheme.primaryColor),
@@ -184,18 +216,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
-  void _showEditRestaurantDetailsDialog() {
-    final nameCtrl = TextEditingController(text: _restaurantName);
-    final regNoCtrl = TextEditingController(text: _businessRegNo);
-    final hoursCtrl = TextEditingController(text: _operatingHours);
-    final addrCtrl = TextEditingController(text: _restaurantAddress);
+  void _showEditRestaurantDetailsDialogFor(RestaurantModel rst) {
+    final nameCtrl = TextEditingController(text: rst.name);
+    final hoursCtrl = TextEditingController(text: rst.operatingHours);
+    final addrCtrl = TextEditingController(text: rst.address);
 
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Edit Approved Premises Details', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+          title: const Text('Edit Premises Details', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -203,11 +234,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 TextField(
                   controller: nameCtrl,
                   decoration: const InputDecoration(labelText: 'Restaurant Premises Name', prefixIcon: Icon(Icons.storefront)),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: regNoCtrl,
-                  decoration: const InputDecoration(labelText: 'Business Reg No (SSM)', prefixIcon: Icon(Icons.card_membership)),
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -229,19 +255,36 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
               onPressed: () {
                 if (nameCtrl.text.trim().isNotEmpty) {
-                  setState(() {
-                    _restaurantName = nameCtrl.text.trim();
-                    _businessRegNo = regNoCtrl.text.trim();
-                    _operatingHours = hoursCtrl.text.trim();
-                    _restaurantAddress = addrCtrl.text.trim();
-                  });
+                  final idx = MockSeedData.restaurants.indexWhere((r) => r.id == rst.id);
+                  if (idx != -1) {
+                    setState(() {
+                      MockSeedData.restaurants[idx] = RestaurantModel(
+                        id: rst.id,
+                        name: nameCtrl.text.trim(),
+                        address: addrCtrl.text.trim(),
+                        category: rst.category,
+                        latitude: rst.latitude,
+                        longitude: rst.longitude,
+                        hygieneRiskScore: rst.hygieneRiskScore,
+                        riskCategory: rst.riskCategory,
+                        status: rst.status,
+                        violationCount: rst.violationCount,
+                        imageUrl: rst.imageUrl,
+                        lastUpdated: rst.lastUpdated,
+                        ownerId: rst.ownerId,
+                        ownerName: rst.ownerName,
+                        operatingHours: hoursCtrl.text.trim(),
+                        businessRegNo: rst.businessRegNo,
+                      );
+                    });
+                  }
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Approved restaurant details updated!'), backgroundColor: AppTheme.primaryColor),
+                    const SnackBar(content: Text('Premises details updated!'), backgroundColor: AppTheme.primaryColor),
                   );
                 }
               },
-              child: const Text('Save Premises', style: TextStyle(color: Colors.white)),
+              child: const Text('Save Changes', style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -315,7 +358,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), activeIcon: Icon(Icons.dashboard), label: 'Overview'),
           BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), activeIcon: Icon(Icons.analytics), label: 'Analytics'),
           BottomNavigationBarItem(icon: Icon(Icons.assignment_late_outlined), activeIcon: Icon(Icons.assignment_late), label: 'Notices'),
-          BottomNavigationBarItem(icon: Icon(Icons.storefront_outlined), activeIcon: Icon(Icons.storefront), label: 'Outlets'),
+          BottomNavigationBarItem(icon: Icon(Icons.storefront_outlined), activeIcon: Icon(Icons.storefront), label: 'My Restaurants'),
           BottomNavigationBarItem(icon: Icon(Icons.business_center_outlined), activeIcon: Icon(Icons.business_center), label: 'Profile'),
         ],
       ),
@@ -325,17 +368,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   String _getTabTitle(int index) {
     switch (index) {
       case 0:
-        return 'Commercial Dashboard';
+        return 'Dashboard Overview';
       case 1:
-        return 'Self-Monitoring & Analytics';
+        return 'Reviews & Performance';
       case 2:
-        return 'Compliance Notices';
+        return 'Inspection Warnings & Fixes';
       case 3:
-        return 'Approved Premises';
+        return 'My Restaurants';
       case 4:
-        return 'Business Profile';
+        return 'Profile & Settings';
       default:
-        return 'Owner Portal';
+        return 'Businessman Portal';
     }
   }
 
@@ -357,7 +400,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   // ==========================================
-  // TAB 0: COMMERCIAL OVERVIEW PANEL
+  // TAB 0: OVERVIEW PANEL (SIMPLE TERMS)
   // ==========================================
   Widget _buildOverviewPanel() {
     return SingleChildScrollView(
@@ -365,16 +408,23 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Commercial Premises Status Header
+          // Restaurant Status Header Card
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF0C2340), Color(0xFF1E3A8A)],
+                colors: [Color(0xFF0C2340), Color(0xFF0F766E)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0C2340).withValues(alpha: 0.25),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -386,41 +436,45 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.green.shade600,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.verified, size: 14, color: Colors.white),
+                          Icon(Icons.storefront_rounded, size: 13, color: Colors.white),
                           SizedBox(width: 4),
-                          Text('APPROVED PREMISES', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          Text('REGISTERED RESTAURANT', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),
-                    Text(
-                      'License: MHK-KL-88241',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11),
-                    ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text(_restaurantName, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                Text('Owner: $_ownerName • Reg: $_businessRegNo', style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12)),
+                const SizedBox(height: 14),
+                Text(
+                  _myRegisteredRestaurants.isNotEmpty ? _myRegisteredRestaurants.first.name : 'No Restaurant Registered Yet',
+                  style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold, letterSpacing: -0.3),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Businessman: $_ownerName',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 16),
 
-          // Commercial KPI Metric Cards Grid
-          const Text('Commercial Performance Metrics', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+          // Quick Summary Metrics Grid
+          const Text('Quick Summary', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: _buildMetricCard('Hygiene Risk', '12.5 (SAFE)', '-15.9 pts drop', Icons.shield, Colors.green),
+                child: _buildMetricCard('Hygiene Risk', '12.5 (Safe)', 'Low Risk Level', Icons.shield, Colors.green),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _buildMetricCard('Avg Rating', '4.8 ★', '+14% vs last mo', Icons.star, Colors.amber),
+                child: _buildMetricCard('Customer Rating', '4.8 ★', 'Great Rating', Icons.star, Colors.amber),
               ),
             ],
           ),
@@ -428,36 +482,36 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           Row(
             children: [
               Expanded(
-                child: _buildMetricCard('Total Reviews', '128 Reviews', '+12 new', Icons.comment, Colors.blue),
+                child: _buildMetricCard('Total Reviews', '128 Reviews', '+12 new this month', Icons.comment, Colors.blue),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _buildMetricCard('Active Notices', '1 Notice', '1 Pending Fix', Icons.warning_amber, Colors.orange),
+                child: _buildMetricCard('Inspection Notices', '1 Warning', 'Needs photo fix', Icons.warning_amber, Colors.orange),
               ),
             ],
           ),
           const SizedBox(height: 20),
 
-          // Quick Action Commercial Buttons
-          const Text('Commercial Actions', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+          // Quick Action Buttons
+          const Text('Quick Actions', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
           const SizedBox(height: 10),
           Card(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: Column(
               children: [
                 ListTile(
-                  leading: const CircleAvatar(backgroundColor: Color(0xFFE0F2FE), child: Icon(Icons.check_circle_outline, color: Color(0xFF0284C7))),
-                  title: const Text('Submit Rectification Proof', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: const Text('Upload resolution photo evidence for open notices'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                  leading: const CircleAvatar(backgroundColor: Color(0xFFE0F2FE), child: Icon(Icons.add_a_photo_outlined, color: Color(0xFF0284C7))),
+                  title: const Text('Submit Fix Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: const Text('Upload photo proof after fixing inspection issues'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.pushNamed(context, AppRoutes.markIssueResolved),
                 ),
                 const Divider(height: 1),
                 ListTile(
                   leading: const CircleAvatar(backgroundColor: Color(0xFFDCFCE7), child: Icon(Icons.article_outlined, color: Colors.green)),
-                  title: const Text('View Official Health Certificate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: const Text('Download government hygiene compliance report'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                  title: const Text('View Health Report', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: const Text('View official government hygiene report'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.pushNamed(context, AppRoutes.finalReport),
                 ),
               ],
@@ -470,13 +524,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   Widget _buildMetricCard(String label, String value, String subtext, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 3)),
         ],
       ),
       child: Column(
@@ -485,21 +539,38 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600)),
-              Icon(icon, color: color, size: 18),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              CircleAvatar(
+                radius: 15,
+                backgroundColor: color.withValues(alpha: 0.12),
+                child: Icon(icon, color: color, size: 16),
+              ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
-          const SizedBox(height: 2),
-          Text(subtext, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+          Text(value, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(subtext, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
     );
   }
 
   // ==========================================
-  // TAB 1: SELF-MONITORING & ANALYTICS COMPARISON PANEL
+  // TAB 1: REVIEWS & PERFORMANCE PANEL (SIMPLE TERMS)
   // ==========================================
   Widget _buildAnalyticsPanel() {
     return SingleChildScrollView(
@@ -508,16 +579,16 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Self-Monitoring Performance Comparison',
+            'Restaurant Reviews & Performance',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
           ),
           Text(
-            'Compare rating trends, risk score changes, and monitor customer comments.',
+            'See customer ratings, hygiene scores, and reply to comments.',
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 16),
 
-          // 1. Rating Comparison Card (Current Month vs Previous Month)
+          // 1. Rating Comparison Card
           Card(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
@@ -528,7 +599,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Rating Comparison', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.navyColor)),
+                      const Text('Rating Trend', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.navyColor)),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
@@ -543,7 +614,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                       Expanded(
                         child: Column(
                           children: const [
-                            Text('Current (Jul 2026)', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                            Text('Current Month', style: TextStyle(fontSize: 11, color: Colors.grey)),
                             SizedBox(height: 4),
                             Text('4.8 ★', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
                             Text('128 Reviews', style: TextStyle(fontSize: 10, color: Colors.grey)),
@@ -554,7 +625,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                       Expanded(
                         child: Column(
                           children: const [
-                            Text('Previous (Jun 2026)', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                            Text('Last Month', style: TextStyle(fontSize: 11, color: Colors.grey)),
                             SizedBox(height: 4),
                             Text('4.2 ★', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.amber)),
                             Text('94 Reviews', style: TextStyle(fontSize: 10, color: Colors.grey)),
@@ -565,11 +636,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Comparison Progress Visual
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('30-Day Rating Improvement: +0.6 Stars', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      const Text('Rating Improvement: +0.6 Stars', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 6),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
@@ -588,7 +658,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           ),
           const SizedBox(height: 16),
 
-          // 2. Risk Score Trend Comparison Card
+          // 2. Hygiene Score Summary Card
           Card(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
@@ -599,11 +669,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Hygiene Risk Comparison', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.navyColor)),
+                      const Text('Hygiene Score Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.navyColor)),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
-                        child: const Text('Risk Reduced', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                        child: const Text('Low Risk', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -617,16 +687,16 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                           Text('Current Score', style: TextStyle(fontSize: 11, color: Colors.grey)),
                           SizedBox(height: 4),
                           Text('12.5', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green)),
-                          Text('SAFE TIER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+                          Text('SAFE LEVEL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
                         ],
                       ),
                       const Icon(Icons.arrow_forward, color: Colors.green, size: 24),
                       Column(
                         children: const [
-                          Text('Previous Quarter', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          Text('Last Quarter', style: TextStyle(fontSize: 11, color: Colors.grey)),
                           SizedBox(height: 4),
                           Text('28.4', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.amber)),
-                          Text('MODERATE TIER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber)),
+                          Text('MEDIUM RISK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber)),
                         ],
                       ),
                     ],
@@ -637,8 +707,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           ),
           const SizedBox(height: 20),
 
-          // 3. Customer Comment & Feedback Monitor Section
-          const Text('Customer Feedback & Comment Monitor', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+          // 3. Customer Reviews Section
+          const Text('Customer Reviews & Comments', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
           const SizedBox(height: 10),
 
           ..._ownerReviews.asMap().entries.map((entry) {
@@ -691,7 +761,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                'Official Owner Reply: ${r['ownerReply']}',
+                                'My Reply: ${r['ownerReply']}',
                                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.navyColor),
                               ),
                             ),
@@ -707,7 +777,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                         style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                         onPressed: () => _showOwnerReplyDialog(idx),
                         icon: const Icon(Icons.reply, size: 14),
-                        label: Text(r['ownerReply']!.isEmpty ? 'Respond to Comment' : 'Edit Response', style: const TextStyle(fontSize: 11)),
+                        label: Text(r['ownerReply']!.isEmpty ? 'Reply to Customer' : 'Edit Reply', style: const TextStyle(fontSize: 11)),
                       ),
                     ),
                   ],
@@ -721,7 +791,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   // ==========================================
-  // TAB 2: COMPLIANCE NOTICES PANEL
+  // TAB 2: NOTICES & WARNINGS PANEL (SIMPLE TERMS)
   // ==========================================
   Widget _buildNoticesPanel() {
     final activeNotices = MockSeedData.complaints.where((c) => c.status != ComplaintStatus.resolved && c.status != ComplaintStatus.rejected).toList();
@@ -736,14 +806,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               ChoiceChip(
-                label: const Text('Active Notices'),
+                label: const Text('Active Warnings'),
                 selected: _noticeTab == 0,
                 onSelected: (val) {
                   if (val) setState(() => _noticeTab = 0);
                 },
               ),
               ChoiceChip(
-                label: const Text('Closed Cases'),
+                label: const Text('Completed Fixes'),
                 selected: _noticeTab == 1,
                 onSelected: (val) {
                   if (val) setState(() => _noticeTab = 1);
@@ -761,7 +831,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   Widget _buildActiveList(List<ComplaintModel> list) {
     if (list.isEmpty) {
-      return const Center(child: Text('No active notices'));
+      return const Center(child: Text('No active inspection warnings'));
     }
     return ListView.builder(
       padding: const EdgeInsets.all(12),
@@ -776,7 +846,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Category: ${c.category}'),
-                Text('ID: ${c.id}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                Text('Warning ID: ${c.id}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 const SizedBox(height: 6),
                 Row(
                   children: [
@@ -787,7 +857,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 ),
               ],
             ),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+            trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () {
               Navigator.pushNamed(context, AppRoutes.noticeDetail, arguments: c);
             },
@@ -799,7 +869,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   Widget _buildClosedList(List<ComplaintModel> list) {
     if (list.isEmpty) {
-      return const Center(child: Text('No closed cases'));
+      return const Center(child: Text('No completed fixes'));
     }
     return ListView.builder(
       padding: const EdgeInsets.all(12),
@@ -813,12 +883,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Category: ${c.category}'),
-                Text('ID: ${c.id}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                Text('Warning ID: ${c.id}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 const SizedBox(height: 6),
                 StatusBadge.fromStatus(c.status.name),
               ],
             ),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+            trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () {
               Navigator.pushNamed(context, AppRoutes.noticeDetail, arguments: c);
             },
@@ -841,28 +911,23 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               Icon(Icons.warning_amber_rounded, color: Colors.red),
               SizedBox(width: 8),
               Text(
-                'Request Premises Deletion',
+                'Request Restaurant Deletion',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.navyColor),
               ),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Submitting a request to delete your approved restaurant premises will notify government health admins for review.',
-                style: TextStyle(fontSize: 12, color: Colors.black87),
-              ),
+              const Text('Please state the reason for requesting restaurant deletion from system records:'),
               const SizedBox(height: 12),
               TextField(
                 controller: reasonCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Reason for Deletion Request',
-                  hintText: 'e.g. Permanent closure, business sale, relocation...',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
                 maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'e.g., Outlet closed down / change of location...',
+                  border: OutlineInputBorder(),
+                ),
               ),
             ],
           ),
@@ -896,111 +961,153 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   // ==========================================
-  // TAB 3: APPROVED PREMISES DETAILS PANEL
+  // TAB 3: MY RESTAURANTS PANEL (SIMPLE TERMS)
   // ==========================================
   Widget _buildOutletsPanel() {
+    final restaurantsList = _myRegisteredRestaurants;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Row with Add New Premises Button & Title
+          // Header Row with Add Restaurant Button
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('My Approved Premises', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+              const Text('My Registered Restaurants', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, visualDensity: VisualDensity.compact),
-                onPressed: () => Navigator.pushNamed(context, AppRoutes.addRestaurant),
-                icon: const Icon(Icons.add_business, size: 14, color: Colors.white),
+                onPressed: () async {
+                  await Navigator.pushNamed(context, AppRoutes.addRestaurant);
+                  setState(() {});
+                },
+                icon: const Icon(Icons.add, size: 14, color: Colors.white),
                 label: const Text('+ Add Restaurant', style: TextStyle(color: Colors.white, fontSize: 12)),
               ),
             ],
           ),
           const SizedBox(height: 12),
 
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        backgroundColor: Color(0xFFDCFCE7),
-                        child: Icon(Icons.storefront, color: Colors.green),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+          if (restaurantsList.isEmpty)
+            Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(
+                  child: Text('No registered restaurants yet. Click "+ Add Restaurant" to add your restaurant.', style: TextStyle(color: Colors.grey)),
+                ),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: restaurantsList.length,
+              itemBuilder: (ctx, idx) {
+                final rst = restaurantsList[idx];
+                final bool isApproved = (rst.status == RestaurantStatus.approved);
+
+                final String ssmRegNoDisplay = isApproved
+                    ? (rst.businessRegNo ?? 'SSM-2026-${rst.id.replaceAll('rst_', '').padRight(6, '0').substring(0, 6).toUpperCase()}-X')
+                    : 'Pending Admin Approval (Generated upon approval)';
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Text(_restaurantName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                const Icon(Icons.verified, size: 14, color: Colors.green),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _isPremisesApproved ? 'Approved & Certified Premises' : 'Under Review',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green),
-                                ),
-                              ],
+                            CircleAvatar(
+                              backgroundColor: isApproved ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                              child: Icon(
+                                isApproved ? Icons.storefront : Icons.hourglass_top_rounded,
+                                color: isApproved ? Colors.green : const Color(0xFFD97706),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(rst.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        isApproved ? Icons.verified : Icons.hourglass_bottom,
+                                        size: 14,
+                                        color: isApproved ? Colors.green : const Color(0xFFD97706),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        isApproved ? 'Approved Restaurant' : 'Pending Admin Approval',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: isApproved ? Colors.green : const Color(0xFFD97706),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 10),
+                        const SizedBox(height: 16),
+                        const Divider(),
+                        const SizedBox(height: 10),
 
-                  _buildDetailRow('Business Reg No (SSM):', _businessRegNo),
-                  _buildDetailRow('License Cert Number:', 'MHK-KL-88241'),
-                  _buildDetailRow('Operating Hours:', _operatingHours),
-                  _buildDetailRow('Premises Address:', _restaurantAddress),
-                  _buildDetailRow('Seating Capacity:', '85 Seats (Indoor & Alfresco)'),
-                  _buildDetailRow('Last Health Inspection:', '2026-07-15 (Grade A - 96/100)'),
+                        _buildDetailRow('SSM Business Reg No:', ssmRegNoDisplay),
+                        _buildDetailRow('Operating Hours:', rst.operatingHours),
+                        _buildDetailRow('Restaurant Address:', rst.address),
+                        _buildDetailRow('Last Health Inspection:', 'No record yet'),
 
-                  const SizedBox(height: 14),
-                  const Divider(),
-                  const SizedBox(height: 10),
+                        if (isApproved) ...[
+                          const SizedBox(height: 14),
+                          const Divider(),
+                          const SizedBox(height: 10),
 
-                  // Action Buttons Row inside Premises Card (Edit Details + Request Premises Deletion)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppTheme.primaryColor),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          // Action Buttons Row (ONLY shown when restaurant is approved)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: AppTheme.primaryColor),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  onPressed: () => _showEditRestaurantDetailsDialogFor(rst),
+                                  icon: const Icon(Icons.edit, size: 16, color: AppTheme.primaryColor),
+                                  label: const Text('Edit Details', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: Colors.red),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  onPressed: _showRequestDeleteRestaurantDialog,
+                                  icon: const Icon(Icons.delete_forever_outlined, size: 16, color: Colors.red),
+                                  label: const Text('Delete Restaurant', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
+                                ),
+                              ),
+                            ],
                           ),
-                          onPressed: _showEditRestaurantDetailsDialog,
-                          icon: const Icon(Icons.edit, size: 16, color: AppTheme.primaryColor),
-                          label: const Text('Edit Details', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.red),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          onPressed: _showRequestDeleteRestaurantDialog,
-                          icon: const Icon(Icons.delete_forever_outlined, size: 16, color: Colors.red),
-                          label: const Text('Request Deletion', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
-                        ),
-                      ),
-                    ],
+                        ],
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                );
+              },
             ),
-          ),
         ],
       ),
     );
@@ -1025,11 +1132,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   // ==========================================
-  // TAB 4: OWNER BUSINESS PROFILE & SETTINGS
+  // TAB 4: PROFILE & SETTINGS (SIMPLE TERMS)
   // ==========================================
   Widget _buildProfilePanel() {
     final customer = CustomerStoreService.currentCustomer;
-    final displayName = _ownerName.isNotEmpty ? _ownerName : (customer?.name ?? 'Business Owner');
+    final displayName = _ownerName.isNotEmpty ? _ownerName : (customer?.name ?? 'Businessman Account');
     final displayEmail = _ownerEmail.isNotEmpty ? _ownerEmail : (customer?.email ?? 'owner@restaurant.com');
     final displayPhone = _ownerPhone.isNotEmpty ? _ownerPhone : (customer?.phone ?? '+60 12-345 6789');
     final avatarUrl = customer?.avatarUrl ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200';
@@ -1039,7 +1146,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. LUXURY GRADIENT BUSINESS OWNER PROFILE BANNER
+          // Profile Banner Card
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
@@ -1097,7 +1204,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                 border: Border.all(color: const Color(0xFF80EE98), width: 0.8),
                               ),
                               child: const Text(
-                                'Businessman / Restaurant Director',
+                                'Businessman Account',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -1130,19 +1237,19 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           ),
           const SizedBox(height: 16),
 
-          // 2. BUSINESS METRICS SUMMARY BAR
+          // Business Summary Bar
           Row(
             children: [
-              _buildMetricStatCard('Outlets', '1 Active', Icons.storefront, const Color(0xFF0F766E)),
+              _buildMetricStatCard('My Restaurants', '${_myRegisteredRestaurants.length} Active', Icons.storefront, const Color(0xFF0F766E)),
               const SizedBox(width: 10),
-              _buildMetricStatCard('Grade', 'Grade A', Icons.verified_user, const Color(0xFF10B981)),
+              _buildMetricStatCard('Health Grade', 'Grade A', Icons.verified_user, const Color(0xFF10B981)),
               const SizedBox(width: 10),
-              _buildMetricStatCard('Notices', '0 Pending', Icons.assignment_turned_in, const Color(0xFFD97706)),
+              _buildMetricStatCard('Warnings', '0 Pending', Icons.assignment_turned_in, const Color(0xFFD97706)),
             ],
           ),
           const SizedBox(height: 16),
 
-          // 3. SETTINGS & ACCOUNT ACTIONS LIST
+          // Settings List Tiles
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -1161,7 +1268,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 _buildActionTile(
                   icon: Icons.edit_outlined,
                   iconColor: const Color(0xFF0F766E),
-                  title: 'Edit Owner Name & Contact Profile',
+                  title: 'Edit Name & Phone Number',
                   subtitle: 'Current: $displayName • $displayPhone',
                   onTap: _showChangeNameDialog,
                 ),
@@ -1169,17 +1276,21 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 _buildActionTile(
                   icon: Icons.lock_reset_outlined,
                   iconColor: const Color(0xFFD97706),
-                  title: 'Change Account Password',
-                  subtitle: 'Update commercial account security password',
+                  title: 'Change Password',
+                  subtitle: 'Update your account login password',
                   onTap: _showChangePasswordDialog,
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 _buildActionTile(
                   icon: Icons.storefront_outlined,
                   iconColor: const Color(0xFF2563EB),
-                  title: 'Edit Approved Restaurant Details',
-                  subtitle: 'Premises: $_restaurantName',
-                  onTap: _showEditRestaurantDetailsDialog,
+                  title: 'Edit Restaurant Details',
+                  subtitle: 'Restaurant: ${_myRegisteredRestaurants.isNotEmpty ? _myRegisteredRestaurants.first.name : "My Restaurant"}',
+                  onTap: () {
+                    if (_myRegisteredRestaurants.isNotEmpty) {
+                      _showEditRestaurantDetailsDialogFor(_myRegisteredRestaurants.first);
+                    }
+                  },
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
@@ -1192,8 +1303,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     ),
                     child: const Icon(Icons.notifications_active_outlined, color: Color(0xFF10B981), size: 20),
                   ),
-                  title: const Text('Commercial Alerts & Notifications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: const Text('Receive instant SMS/email alerts for inspection notices', style: TextStyle(fontSize: 12)),
+                  title: const Text('Notifications & SMS Alerts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: const Text('Receive instant alerts for inspection warnings', style: TextStyle(fontSize: 12)),
                   trailing: Switch(
                     value: true,
                     onChanged: (val) {},
@@ -1205,7 +1316,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           ),
           const SizedBox(height: 24),
 
-          // 4. HIGH QUALITY SIGN OUT BUTTON
+          // Log Out Button
           SizedBox(
             height: 52,
             child: ElevatedButton.icon(
@@ -1220,7 +1331,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 Navigator.pushNamedAndRemoveUntil(context, AppRoutes.splashRoleSelect, (route) => false);
               },
               icon: const Icon(Icons.logout_rounded, size: 20),
-              label: const Text('Sign Out Business Account', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              label: const Text('Log Out Account', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
             ),
           ),
           const SizedBox(height: 16),

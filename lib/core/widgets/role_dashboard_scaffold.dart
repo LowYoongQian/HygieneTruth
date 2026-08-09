@@ -4,11 +4,15 @@ import '../models/restaurant_model.dart';
 import '../models/user_model.dart';
 import '../routes/app_routes.dart';
 import '../services/customer_store_service.dart';
+import '../services/language_manager.dart';
+import '../utils/translations.dart';
 import '../../gps/widgets/restaurant_card.dart';
 import 'stat_card.dart';
 
 import '../../owner/screens/owner_dashboard_screen.dart';
 import '../../gps/screens/restaurant_map_screen.dart';
+
+import 'profile_setup_focus_dialog.dart';
 
 class RoleDashboardScaffold extends StatefulWidget {
   final UserRole initialRole;
@@ -27,6 +31,7 @@ class RoleDashboardScaffold extends StatefulWidget {
 class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
   late UserRole _currentRole;
   late int _selectedBottomTabIndex;
+  bool _hasCheckedProfileSetup = false;
 
   @override
   void initState() {
@@ -36,16 +41,37 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (_currentRole == UserRole.user) {
-      return _buildUserShell(context);
-    } else if (_currentRole == UserRole.admin) {
-      return _buildAdminShell(context);
-    } else if (_currentRole == UserRole.owner) {
-      return const OwnerDashboardScreen();
-    } else {
-      return _buildGovernmentShell(context);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasCheckedProfileSetup) {
+      _hasCheckedProfileSetup = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map && args['showProfileSetupDialog'] == true) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ProfileSetupFocusDialog.show(context);
+          }
+        });
+      }
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: languageManager,
+      builder: (context, _) {
+        if (_currentRole == UserRole.user) {
+          return _buildUserShell(context);
+        } else if (_currentRole == UserRole.admin) {
+          return _buildAdminShell(context);
+        } else if (_currentRole == UserRole.owner) {
+          return const OwnerDashboardScreen();
+        } else {
+          return _buildGovernmentShell(context);
+        }
+      },
+    );
   }
 
   // ==========================================
@@ -79,12 +105,12 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
             _selectedBottomTabIndex = index;
           });
         },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: 'Map'),
-          BottomNavigationBarItem(icon: Icon(Icons.add_alert_outlined), label: 'Report'),
-          BottomNavigationBarItem(icon: Icon(Icons.verified_outlined), label: 'Safe Food'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
+        items: [
+          BottomNavigationBarItem(icon: const Icon(Icons.home_outlined), label: t('home')),
+          BottomNavigationBarItem(icon: const Icon(Icons.map_outlined), label: t('map')),
+          BottomNavigationBarItem(icon: const Icon(Icons.add_alert_outlined), label: t('report')),
+          BottomNavigationBarItem(icon: const Icon(Icons.verified_outlined), label: t('safe_food')),
+          BottomNavigationBarItem(icon: const Icon(Icons.person_outline), label: t('my_profile')),
         ],
       ),
     );
@@ -93,17 +119,17 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
   String _getUserTabTitle(int index) {
     switch (index) {
       case 0:
-        return 'Safe Food';
+        return t('safe_food');
       case 1:
-        return 'Map';
+        return t('map');
       case 2:
-        return 'Submit Report';
+        return t('submit_hygiene_report');
       case 3:
-        return 'Risk Rankings';
+        return t('risk_rankings');
       case 4:
-        return 'My Profile';
+        return t('my_profile');
       default:
-        return 'Hygiene App';
+        return t('app_title');
     }
   }
 
@@ -149,13 +175,13 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
                   ),
                 ],
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.search, color: Color(0xFF0284C7)),
-                  SizedBox(width: 10),
+                  const Icon(Icons.search, color: Color(0xFF0284C7)),
+                  const SizedBox(width: 10),
                   Text(
-                    'Search outlets...',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                    t('search_outlets'),
+                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
                   ),
                 ],
               ),
@@ -168,12 +194,12 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _cuisineChip('🍜 Noodles', context),
-                _cuisineChip('🍚 Rice', context),
-                _cuisineChip('🍣 Seafood', context),
-                _cuisineChip('🍔 Fast Food', context),
-                _cuisineChip('🥗 Healthy', context),
-                _cuisineChip('🧋 Drinks', context),
+                _cuisineChip('🍜 ${t('noodles')}', context),
+                _cuisineChip('🍚 ${t('rice')}', context),
+                _cuisineChip('🍣 ${t('seafood')}', context),
+                _cuisineChip('🍔 ${t('fast_food')}', context),
+                _cuisineChip('🥗 ${t('healthy')}', context),
+                _cuisineChip('🧋 ${t('drinks')}', context),
               ],
             ),
           ),
@@ -237,27 +263,25 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
           const SizedBox(height: 20),
 
           // Quick Action Round Buttons Grid
-          const Text('Quick Actions', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _roundActionBtn(
                 icon: Icons.search,
                 color: const Color(0xFF0284C7),
-                label: 'Search',
+                label: t('search_outlets').split(' ').first,
                 onTap: () => Navigator.pushNamed(context, AppRoutes.restaurantSearch),
               ),
               _roundActionBtn(
                 icon: Icons.pin_drop,
                 color: const Color(0xFF10B981),
-                label: 'Map',
+                label: t('map'),
                 onTap: () => Navigator.pushNamed(context, AppRoutes.restaurantMap),
               ),
               _roundActionBtn(
                 icon: Icons.report_problem,
                 color: const Color(0xFFEF4444),
-                label: 'Report',
+                label: t('report'),
                 onTap: () => Navigator.pushNamed(context, AppRoutes.submitComplaint),
               ),
             ],
@@ -268,7 +292,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Safe Eats', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              Text(t('top_rated_safe'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
               TextButton(
                 onPressed: () => Navigator.pushNamed(context, AppRoutes.restaurantList),
                 child: const Text('View All'),
@@ -467,20 +491,17 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
                               )
                             : null,
                       ),
-                      // Verified Badge Pin Icon
+                      // Online Indicator Status Dot
                       Positioned(
                         right: 2,
                         bottom: 2,
                         child: Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981), // Emerald green online indicator
                             shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.verified,
-                            color: Color(0xFF0284C7),
-                            size: 20,
+                            border: Border.all(color: Colors.white, width: 3),
                           ),
                         ),
                       ),
@@ -556,7 +577,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
                       child: const Icon(Icons.person_outline, color: Color(0xFF0284C7), size: 22),
                     ),
                     title: Text(
-                      'Profile Details',
+                      t('my_profile'),
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A)),
                     ),
                     subtitle: const Text('Manage personal details & contact info', style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -581,10 +602,10 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
                       child: const Icon(Icons.history, color: Colors.amber, size: 22),
                     ),
                     title: Text(
-                      'Activity History',
+                      t('activity_history'),
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A)),
                     ),
-                    subtitle: const Text('View submitted reports & past reviews', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    subtitle: const Text('View account session logs & audit history', style: TextStyle(fontSize: 12, color: Colors.grey)),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
                     onTap: () => Navigator.pushNamed(context, AppRoutes.activityHistory),
                   ),
@@ -602,11 +623,14 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
                       elevation: 2,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
-                    onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.splashRoleSelect),
+                    onPressed: () {
+                      CustomerStoreService.logout();
+                      Navigator.pushReplacementNamed(context, AppRoutes.splashRoleSelect);
+                    },
                     icon: const Icon(Icons.logout, size: 20),
-                    label: const Text(
-                      'Logout',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    label: Text(
+                      t('logout'),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),

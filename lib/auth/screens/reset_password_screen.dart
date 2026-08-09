@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/services/audit_log_service.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_button.dart';
 
@@ -46,7 +47,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             CustomButton(
               label: 'Send Reset Link',
               onPressed: () {
-                // TODO: Implement password reset token email logic
+                AuditLogService.logAction(
+                  actionType: 'PASSWORD_CHANGE',
+                  category: 'Account Modification',
+                  title: 'Password Reset Requested',
+                  description: 'Requested password reset link for ${_emailController.text.trim()}',
+                );
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Password reset link sent to email.')),
                 );

@@ -34,7 +34,7 @@ class MockSeedData {
     ),
     UserModel(
       id: 'own_001',
-      name: 'Restaurant Owner',
+      name: 'Businessman Account',
       email: 'owner@bistro.com',
       phone: '+6013-9988776',
       role: UserRole.owner,
@@ -57,6 +57,9 @@ class MockSeedData {
       violationCount: 0,
       imageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600',
       lastUpdated: '2026-07-15',
+      ownerId: 'own_001',
+      ownerName: 'Chong Wei Meng',
+      businessRegNo: 'SSM-2024-009481-X',
     ),
     RestaurantModel(
       id: 'rst_102',
@@ -71,6 +74,9 @@ class MockSeedData {
       violationCount: 4,
       imageUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=600',
       lastUpdated: '2026-08-01',
+      ownerId: 'own_002',
+      ownerName: 'Ahmad Zakaria',
+      businessRegNo: 'SSM-2024-010200-X',
     ),
     RestaurantModel(
       id: 'rst_103',
@@ -85,6 +91,9 @@ class MockSeedData {
       violationCount: 2,
       imageUrl: 'https://images.unsplash.com/photo-1543007630-9710e4a00a20?q=80&w=600',
       lastUpdated: '2026-06-20',
+      ownerId: 'own_003',
+      ownerName: 'Ramasamy Muthu',
+      businessRegNo: 'SSM-2024-088123-X',
     ),
     RestaurantModel(
       id: 'rst_104',
@@ -99,6 +108,8 @@ class MockSeedData {
       violationCount: 1,
       imageUrl: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?q=80&w=600',
       lastUpdated: '2026-07-28',
+      ownerId: 'own_004',
+      ownerName: 'Tan Kah Kee',
     ),
     RestaurantModel(
       id: 'rst_105',
@@ -113,6 +124,9 @@ class MockSeedData {
       violationCount: 6,
       imageUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=600',
       lastUpdated: '2026-08-04',
+      ownerId: 'own_005',
+      ownerName: 'Samuel Jackson',
+      businessRegNo: 'SSM-2024-099554-X',
     ),
   ];
 

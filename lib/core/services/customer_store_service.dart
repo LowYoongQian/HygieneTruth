@@ -1,3 +1,4 @@
+import 'package:bcrypt/bcrypt.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -5,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
 import '../theme/theme_manager.dart';
 import '../utils/uuid_helper.dart';
+import 'audit_log_service.dart';
+import 'language_manager.dart';
 import 'remember_me_service.dart';
 import 'supabase_service.dart';
 
@@ -34,8 +37,7 @@ class CustomerStoreService {
       final sessionUser = supabase.auth.currentUser;
       
       if (sessionUser == null) {
-        _currentCustomer = null;
-        return null;
+        return _currentCustomer;
       }
 
       final String userId = sessionUser.id;
@@ -53,12 +55,23 @@ class CustomerStoreService {
       String? gender;
       String? country;
       String? state;
+      String avatarUrl = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200';
+
       if (data != null) {
         name = data['name']?.toString() ?? name;
         phone = data['phone']?.toString();
         gender = data['gender']?.toString();
         country = data['country']?.toString();
         state = data['state']?.toString();
+        if (data['avatar_url'] != null && data['avatar_url'].toString().trim().isNotEmpty) {
+          avatarUrl = data['avatar_url'].toString().trim();
+        }
+        if (data['language'] != null) {
+          final langIdx = int.tryParse(data['language'].toString());
+          if (langIdx != null) {
+            languageManager.updateLanguageFromDatabase(langIdx);
+          }
+        }
       }
 
       String? joinedDate;
@@ -83,7 +96,7 @@ class CustomerStoreService {
         phone: phone,
         role: UserRole.user,
         status: AccountStatus.active,
-        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
+        avatarUrl: avatarUrl,
         gender: gender,
         country: country,
         state: state,
@@ -138,19 +151,25 @@ class CustomerStoreService {
     String? gender,
     String? country,
     String? state,
+    String? avatarUrl,
   }) async {
     try {
       final supabase = SupabaseService.client;
       final sessionUser = supabase.auth.currentUser;
       if (sessionUser != null) {
-        await supabase.from('users').update({
+        final Map<String, dynamic> updateData = {
           'name': name.trim(),
           'phone': phone?.trim(),
           'gender': gender,
           'country': country,
           'state': state,
-        }).eq('id', sessionUser.id);
+        };
+        if (avatarUrl != null && avatarUrl.isNotEmpty) {
+          updateData['avatar_url'] = avatarUrl;
+        }
+        await supabase.from('users').update(updateData).eq('id', sessionUser.id);
       }
+      bool nameChanged = (_currentCustomer != null && _currentCustomer!.name != name.trim());
       if (_currentCustomer != null) {
         _currentCustomer = UserModel(
           id: _currentCustomer!.id,
@@ -159,13 +178,31 @@ class CustomerStoreService {
           phone: phone,
           role: _currentCustomer!.role,
           status: _currentCustomer!.status,
-          avatarUrl: _currentCustomer!.avatarUrl,
+          avatarUrl: (avatarUrl != null && avatarUrl.isNotEmpty) ? avatarUrl : _currentCustomer!.avatarUrl,
           gender: gender,
           country: country,
           state: state,
           joinedDate: _currentCustomer!.joinedDate,
         );
       }
+
+      // Record audit log entry in Supabase & local history
+      if (nameChanged) {
+        AuditLogService.logAction(
+          actionType: 'NAME_CHANGE',
+          category: 'Account Modification',
+          title: 'User Name Changed',
+          description: 'Updated account full name to "${name.trim()}"',
+        );
+      } else {
+        AuditLogService.logAction(
+          actionType: 'PROFILE_UPDATE',
+          category: 'Account Modification',
+          title: 'Profile Updated',
+          description: 'Updated personal profile details',
+        );
+      }
+
       return true;
     } catch (_) {
       return false;
@@ -177,6 +214,9 @@ class CustomerStoreService {
     required String email,
     required String password,
     UserRole role = UserRole.user,
+    String? gender,
+    String? country,
+    String? state,
   }) async {
     final cleanEmail = email.trim().toLowerCase();
 
@@ -189,74 +229,66 @@ class CustomerStoreService {
 
     final supabase = SupabaseService.client;
     final String roleStr = role == UserRole.owner
-        ? 'owner'
+        ? 'businessman'
         : (role == UserRole.admin
             ? 'admin'
-            : (role == UserRole.government ? 'government' : 'user'));
+            : (role == UserRole.government ? 'government' : 'customer'));
 
+    // Hash password with BCrypt (logRounds: 6 matching $2a$06$ format)
+    final String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt(logRounds: 6));
+
+    String? userId;
     try {
       final res = await supabase.auth.signUp(
         email: cleanEmail,
         password: password,
         data: {'name': name.trim()},
       );
-
-      final String userId = res.user?.id ?? UuidHelper.generateV4();
-      final nowUtc = DateTime.now().toUtc();
-      final nowMsia = nowUtc.add(const Duration(hours: 8));
-      final String formattedJoinedDate = '${nowMsia.day} ${_monthName(nowMsia.month)} ${nowMsia.year}';
-      final String createdIso = nowUtc.toIso8601String();
-
-      try {
-        await supabase.from('users').upsert(
-          {
-            'id': userId,
-            'name': name.trim(),
-            'email': cleanEmail,
-            'role': roleStr,
-            'status': 'active',
-            'created_at': createdIso,
-          },
-          onConflict: 'email',
-        );
-      } catch (_) {}
-
-      _currentCustomer = UserModel(
-        id: userId,
-        name: name.trim(),
-        email: cleanEmail,
-        phone: null,
-        role: role,
-        status: AccountStatus.active,
-        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
-        joinedDate: formattedJoinedDate,
-      );
-
-      await RememberMeService.saveRememberedUser(
-        rememberMe: true,
-        email: cleanEmail,
-      );
-
-      await themeManager.loadThemeForUser(_currentCustomer!.id);
-
-      return CustomerAuthResult(
-        success: true,
-        message: 'Registration successful! Account created as ${roleStr.toUpperCase()}.',
-        user: _currentCustomer,
-      );
+      userId = res.user?.id;
     } catch (e) {
       if (kDebugMode) {
-        print('Supabase signUp info: $e');
+        print('Supabase auth.signUp info: $e');
       }
     }
 
-    final String validId = UuidHelper.generateV4();
+    userId ??= UuidHelper.generateV4();
     final nowUtc = DateTime.now().toUtc();
     final nowMsia = nowUtc.add(const Duration(hours: 8));
     final String formattedJoinedDate = '${nowMsia.day} ${_monthName(nowMsia.month)} ${nowMsia.year}';
 
+    final Map<String, dynamic> userPayload = {
+      'id': userId,
+      'name': name.trim(),
+      'email': cleanEmail,
+      'user_password': hashedPassword,
+      'role': roleStr,
+      'status': 'active',
+    };
+
+    if (gender != null && gender.trim().isNotEmpty) {
+      userPayload['gender'] = gender.trim();
+    }
+    if (country != null && country.trim().isNotEmpty) {
+      userPayload['country'] = country.trim();
+    }
+    if (state != null && state.trim().isNotEmpty) {
+      userPayload['state'] = state.trim();
+    }
+
+    // Guaranteed Upsert into public.users table in Supabase with BCrypt Hashed Password
+    try {
+      await supabase.from('users').upsert(
+        userPayload,
+        onConflict: 'email',
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error upserting user to Supabase users table: $e');
+      }
+    }
+
     _registeredCustomers[cleanEmail] = {
-      'id': validId,
+      'id': userId,
       'name': name.trim(),
       'email': cleanEmail,
       'password': password,
@@ -264,21 +296,29 @@ class CustomerStoreService {
     };
 
     _currentCustomer = UserModel(
-      id: validId,
+      id: userId,
       name: name.trim(),
       email: cleanEmail,
       phone: null,
       role: role,
       status: AccountStatus.active,
       avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
+      gender: gender?.trim(),
+      country: country?.trim(),
+      state: state?.trim(),
       joinedDate: formattedJoinedDate,
+    );
+
+    await RememberMeService.saveRememberedUser(
+      rememberMe: true,
+      email: cleanEmail,
     );
 
     await themeManager.loadThemeForUser(_currentCustomer!.id);
 
     return CustomerAuthResult(
       success: true,
-      message: 'Registration successful!',
+      message: 'Registration successful! Account created as ${roleStr.toUpperCase()}.',
       user: _currentCustomer,
     );
   }
@@ -299,8 +339,10 @@ class CustomerStoreService {
     }
 
     final supabase = SupabaseService.client;
+    final String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt(logRounds: 6));
+    String targetRoleStr = portal == PortalType.owner ? 'businessman' : 'customer';
 
-    // 1. Supabase Auth Sign In
+    // 1. Supabase Auth Sign In (authenticates against auth.users)
     try {
       final res = await supabase.auth.signInWithPassword(
         email: cleanEmail,
@@ -308,16 +350,67 @@ class CustomerStoreService {
       );
 
       if (res.user != null) {
+        final String authId = res.user!.id;
         final fullName = res.user!.userMetadata?['name'] as String? ?? cleanEmail.split('@').first;
 
+        // Fetch existing public.users record to preserve existing role/details
+        Map<String, dynamic>? existingDbUser;
+        try {
+          existingDbUser = await supabase
+              .from('users')
+              .select()
+              .eq('email', cleanEmail)
+              .maybeSingle();
+        } catch (_) {}
+
+        if (existingDbUser != null && existingDbUser['role'] != null) {
+          targetRoleStr = existingDbUser['role'].toString();
+        } else if (portal == PortalType.owner) {
+          targetRoleStr = 'businessman';
+        }
+
+        final UserRole finalUserRole = (targetRoleStr == 'businessman' || targetRoleStr == 'owner')
+            ? UserRole.owner
+            : (targetRoleStr == 'admin'
+                ? UserRole.admin
+                : (targetRoleStr == 'government' ? UserRole.government : UserRole.user));
+
+        // Sync auth.users session ID to public.users table (tight 1-to-1 UUID link)
+        try {
+          await supabase.from('users').upsert(
+            {
+              'id': authId,
+              'name': fullName,
+              'email': cleanEmail,
+              'user_password': hashedPassword,
+              'role': targetRoleStr,
+              'status': 'active',
+            },
+            onConflict: 'email',
+          );
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error syncing public.users table during login: $e');
+          }
+        }
+
         _currentCustomer = UserModel(
-          id: res.user!.id,
-          name: fullName,
+          id: authId,
+          name: existingDbUser?['name']?.toString() ?? fullName,
           email: cleanEmail,
-          phone: null,
-          role: UserRole.user,
+          phone: existingDbUser?['phone']?.toString(),
+          role: finalUserRole,
           status: AccountStatus.active,
-          avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
+          avatarUrl: existingDbUser?['avatar_url']?.toString() ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
+        );
+
+        AuditLogService.logAction(
+          actionType: 'LOGIN',
+          category: 'Session Activity',
+          title: 'User Login Session',
+          description: 'Logged into account session successfully',
+          userId: authId,
+          userEmail: cleanEmail,
         );
 
         await RememberMeService.saveRememberedUser(
@@ -327,19 +420,6 @@ class CustomerStoreService {
         );
 
         await themeManager.loadThemeForUser(_currentCustomer!.id);
-
-        try {
-          await supabase.from('users').upsert(
-            {
-              'id': res.user!.id,
-              'name': fullName,
-              'email': cleanEmail,
-              'role': 'user',
-              'status': 'active',
-            },
-            onConflict: 'email',
-          );
-        } catch (_) {}
 
         return CustomerAuthResult(
           success: true,
@@ -353,7 +433,7 @@ class CustomerStoreService {
       }
     }
 
-    // 2. Direct DB table query check
+    // 2. Direct DB table query check with BCrypt verification fallback
     try {
       final Map<String, dynamic>? response = await supabase
           .from('users')
@@ -362,29 +442,58 @@ class CustomerStoreService {
           .maybeSingle();
 
       if (response != null) {
-        _currentCustomer = UserModel(
-          id: response['id']?.toString() ?? UuidHelper.generateV4(),
-          name: response['name']?.toString() ?? cleanEmail.split('@').first,
-          email: cleanEmail,
-          phone: response['phone']?.toString(),
-          role: UserRole.user,
-          status: AccountStatus.active,
-          avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
-        );
+        final storedPassword = response['user_password']?.toString() ?? '';
+        bool passwordMatches = false;
 
-        await RememberMeService.saveRememberedUser(
-          rememberMe: rememberMe,
-          email: cleanEmail,
-          portal: portal,
-        );
+        if (storedPassword.startsWith(r'$2a$') || storedPassword.startsWith(r'$2b$') || storedPassword.startsWith(r'$2y$')) {
+          try {
+            passwordMatches = BCrypt.checkpw(password, storedPassword);
+          } catch (_) {}
+        } else {
+          passwordMatches = (storedPassword == password);
+        }
 
-        await themeManager.loadThemeForUser(_currentCustomer!.id);
+        if (passwordMatches) {
+          final String dbRole = response['role']?.toString() ?? (portal == PortalType.owner ? 'businessman' : 'customer');
+          final UserRole finalUserRole = (dbRole == 'businessman' || dbRole == 'owner')
+              ? UserRole.owner
+              : (dbRole == 'admin'
+                  ? UserRole.admin
+                  : (dbRole == 'government' ? UserRole.government : UserRole.user));
 
-        return CustomerAuthResult(
-          success: true,
-          message: 'Login successful!',
-          user: _currentCustomer,
-        );
+          // If stored password was plain text, auto-upgrade it to BCrypt hash in DB!
+          if (!storedPassword.startsWith(r'$2a$')) {
+            try {
+              await supabase.from('users').update({
+                'user_password': hashedPassword,
+              }).eq('email', cleanEmail);
+            } catch (_) {}
+          }
+
+          _currentCustomer = UserModel(
+            id: response['id']?.toString() ?? UuidHelper.generateV4(),
+            name: response['name']?.toString() ?? cleanEmail.split('@').first,
+            email: cleanEmail,
+            phone: response['phone']?.toString(),
+            role: finalUserRole,
+            status: AccountStatus.active,
+            avatarUrl: response['avatar_url']?.toString() ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
+          );
+
+          await RememberMeService.saveRememberedUser(
+            rememberMe: rememberMe,
+            email: cleanEmail,
+            portal: portal,
+          );
+
+          await themeManager.loadThemeForUser(_currentCustomer!.id);
+
+          return CustomerAuthResult(
+            success: true,
+            message: 'Login successful!',
+            user: _currentCustomer,
+          );
+        }
       }
     } catch (_) {}
 
@@ -544,6 +653,16 @@ class CustomerStoreService {
   }
 
   static void logout() {
+    if (_currentCustomer != null) {
+      AuditLogService.logAction(
+        actionType: 'LOGOUT',
+        category: 'Session Activity',
+        title: 'User Logout Session',
+        description: 'Logged out of account session',
+        userId: _currentCustomer!.id,
+        userEmail: _currentCustomer!.email,
+      );
+    }
     try {
       SupabaseService.client.auth.signOut();
     } catch (_) {}
