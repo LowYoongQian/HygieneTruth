@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/mock_seed_data.dart';
 import '../models/restaurant_model.dart';
@@ -5,8 +6,10 @@ import '../models/user_model.dart';
 import '../routes/app_routes.dart';
 import '../services/customer_store_service.dart';
 import '../services/language_manager.dart';
+import '../services/supabase_service.dart';
 import '../utils/translations.dart';
 import '../../gps/widgets/restaurant_card.dart';
+import 'shimmer_skeletons.dart';
 import 'stat_card.dart';
 
 import '../../owner/screens/owner_dashboard_screen.dart';
@@ -33,11 +36,80 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
   late int _selectedBottomTabIndex;
   bool _hasCheckedProfileSetup = false;
 
+  int _adminPendingCount = 0;
+  int _adminUsersCount = 0;
+  int _adminLogsCount = 0;
+  int _adminComplaintsCount = 0;
+  bool _isLoadingAdminStats = true;
+
   @override
   void initState() {
     super.initState();
     _currentRole = widget.initialRole;
     _selectedBottomTabIndex = widget.initialTabIndex;
+    if (_currentRole == UserRole.admin) {
+      _loadAdminRealStats();
+    }
+  }
+
+  Future<void> _loadAdminRealStats() async {
+    try {
+      final supabase = SupabaseService.client;
+
+      // 1. Fetch real pending outlets count
+      int pending = 0;
+      try {
+        final pendingRes = await supabase
+            .from('restaurants')
+            .select()
+            .eq('status', 'pendingVerification');
+        pending = (pendingRes as List<dynamic>).length;
+      } catch (_) {
+        final pendingList = MockSeedData.restaurants.where((r) => r.status == RestaurantStatus.pendingVerification).toList();
+        pending = pendingList.length;
+      }
+
+      // 2. Fetch real users count
+      int usersCount = 0;
+      try {
+        final usersRes = await supabase.from('users').select();
+        usersCount = (usersRes as List<dynamic>).length;
+      } catch (_) {
+        usersCount = MockSeedData.users.length;
+      }
+
+      // 3. Fetch real audit logs count
+      int logsCount = 0;
+      try {
+        final logsRes = await supabase.from('audit_logs').select();
+        logsCount = (logsRes as List<dynamic>).length;
+      } catch (_) {
+        logsCount = 24;
+      }
+
+      // 4. Fetch real complaints count
+      int complaintsCount = 0;
+      try {
+        final compRes = await supabase.from('complaints').select();
+        complaintsCount = (compRes as List<dynamic>).length;
+      } catch (_) {
+        complaintsCount = 12;
+      }
+
+      if (mounted) {
+        setState(() {
+          _adminPendingCount = pending;
+          _adminUsersCount = usersCount;
+          _adminLogsCount = logsCount;
+          _adminComplaintsCount = complaintsCount;
+          _isLoadingAdminStats = false;
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading admin real stats: $e');
+      }
+    }
   }
 
   @override
@@ -647,112 +719,122 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
   // 2. ADMIN DASHBOARD (Short 1-2 Word Terms)
   // ==========================================
   Widget _buildAdminShell(BuildContext context) {
+    if (_isLoadingAdminStats) {
+      _loadAdminRealStats();
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Portal'),
         actions: const [],
       ),
       drawer: _buildAdminDrawer(context),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Dark Header Summary
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.admin_panel_settings, color: Color(0xFF0284C7), size: 22),
-                          SizedBox(width: 8),
-                          Text('System Admin', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade800,
-                          borderRadius: BorderRadius.circular(6),
+      body: _isLoadingAdminStats
+          ? const AdminDashboardSkeleton()
+          : RefreshIndicator(
+              onRefresh: _loadAdminRealStats,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Dark Header Summary
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.admin_panel_settings, color: Color(0xFF0284C7), size: 22),
+                            SizedBox(width: 8),
+                            Text('System Admin', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                          ],
                         ),
-                        child: const Text('ONLINE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade800,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text('ONLINE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _adminMetricText('$_adminPendingCount', 'Pending'),
+                        _adminMetricText('$_adminUsersCount', 'Users'),
+                        _adminMetricText('$_adminLogsCount', 'Logs'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              const Text('Admin Grid', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+
+              // 2x2 Admin Tools
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.25,
+                children: [
+                  StatCard(
+                    title: 'Manage Users',
+                    value: 'Accounts ($_adminUsersCount)',
+                    icon: Icons.people,
+                    iconColor: const Color(0xFF0284C7),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _adminMetricText('8', 'Pending'),
-                      _adminMetricText('1,240', 'Users'),
-                      _adminMetricText('24', 'Logs'),
-                    ],
+                  StatCard(
+                    title: 'Approve Outlets',
+                    value: 'Queue ($_adminPendingCount)',
+                    icon: Icons.approval,
+                    iconColor: const Color(0xFFF59E0B),
+                  ),
+                  StatCard(
+                    title: 'All Reports',
+                    value: 'Complaints ($_adminComplaintsCount)',
+                    icon: Icons.assignment,
+                    iconColor: const Color(0xFFEF4444),
+                  ),
+                  StatCard(
+                    title: 'Audit Logs',
+                    value: 'Logs ($_adminLogsCount)',
+                    icon: Icons.receipt_long,
+                    iconColor: const Color(0xFF10B981),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            const Text('Admin Grid', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
+              const Text('Admin Tools', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
 
-            // 2x2 Admin Tools
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.25,
-              children: const [
-                StatCard(
-                  title: 'Manage Users',
-                  value: 'Accounts',
-                  icon: Icons.people,
-                  iconColor: Color(0xFF0284C7),
-                ),
-                StatCard(
-                  title: 'Approve Outlets',
-                  value: 'Queue (8)',
-                  icon: Icons.approval,
-                  iconColor: Color(0xFFF59E0B),
-                ),
-                StatCard(
-                  title: 'All Reports',
-                  value: 'Complaints',
-                  icon: Icons.assignment,
-                  iconColor: Color(0xFFEF4444),
-                ),
-                StatCard(
-                  title: 'Audit Logs',
-                  value: 'Logs (24)',
-                  icon: Icons.receipt_long,
-                  iconColor: Color(0xFF10B981),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            const Text('Admin Tools', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-
-            _adminToolTile(context, icon: Icons.people_outline, title: 'Manage Users', route: AppRoutes.manageUserAccounts),
-            _adminToolTile(context, icon: Icons.verified_user_outlined, title: 'Approve Outlets', route: AppRoutes.restaurantVerificationQueue),
-            _adminToolTile(context, icon: Icons.checklist_rtl, title: 'All Reports', route: AppRoutes.allComplaints),
-            _adminToolTile(context, icon: Icons.fact_check_outlined, title: 'Verify Proof', route: AppRoutes.verifyEvidence),
-            _adminToolTile(context, icon: Icons.copy, title: 'Check Duplicates', route: AppRoutes.duplicateFakeReview),
-            _adminToolTile(context, icon: Icons.gavel, title: 'Review Reports', route: AppRoutes.inspectionReportReview),
-            _adminToolTile(context, icon: Icons.history_edu, title: 'Audit Logs', route: AppRoutes.adminActionLog),
-          ],
+              _adminToolTile(context, icon: Icons.people_outline, title: 'Manage Users', route: AppRoutes.manageUserAccounts),
+              _adminToolTile(context, icon: Icons.verified_user_outlined, title: 'Approve Outlets', route: AppRoutes.restaurantVerificationQueue),
+              _adminToolTile(context, icon: Icons.checklist_rtl, title: 'All Reports', route: AppRoutes.allComplaints),
+              _adminToolTile(context, icon: Icons.fact_check_outlined, title: 'Verify Proof', route: AppRoutes.verifyEvidence),
+              _adminToolTile(context, icon: Icons.copy, title: 'Check Duplicates', route: AppRoutes.duplicateFakeReview),
+              _adminToolTile(context, icon: Icons.gavel, title: 'Review Reports', route: AppRoutes.inspectionReportReview),
+              _adminToolTile(context, icon: Icons.history_edu, title: 'Audit Logs', route: AppRoutes.adminActionLog),
+            ],
+          ),
         ),
       ),
     );

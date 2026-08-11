@@ -70,6 +70,34 @@ class ListSkeleton extends StatelessWidget {
   }
 }
 
+/// Form Screen Skeleton for Reset Password / Auth Forms
+class FormSkeleton extends StatelessWidget {
+  const FormSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          const Center(child: BaseSkeleton(width: 80, height: 80, borderRadius: 40)),
+          const SizedBox(height: 20),
+          const Center(child: BaseSkeleton(width: 200, height: 26, borderRadius: 8)),
+          const SizedBox(height: 12),
+          const Center(child: BaseSkeleton(width: 260, height: 16, borderRadius: 6)),
+          const SizedBox(height: 32),
+          const BaseSkeleton(width: double.infinity, height: 56, borderRadius: 16),
+          const SizedBox(height: 20),
+          const BaseSkeleton(width: double.infinity, height: 50, borderRadius: 14),
+          const SizedBox(height: 32),
+          const BaseSkeleton(width: double.infinity, height: 80, borderRadius: 16),
+        ],
+      ),
+    );
+  }
+}
+
 /// Profile Screen Skeleton
 class ProfileSkeleton extends StatelessWidget {
   const ProfileSkeleton({super.key});
@@ -231,6 +259,140 @@ class MapSkeletonLoader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Admin Portal Dashboard Skeleton Loader
+class AdminDashboardSkeleton extends StatelessWidget {
+  const AdminDashboardSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Dark Header Summary Banner Shimmer
+          const BaseSkeleton(
+            width: double.infinity,
+            height: 110,
+            borderRadius: 16,
+          ),
+          const SizedBox(height: 24),
+
+          // Admin Grid Title Shimmer
+          const BaseSkeleton(width: 120, height: 18, borderRadius: 4),
+          const SizedBox(height: 12),
+
+          // 2x2 Grid Stat Cards Shimmer
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.25,
+            children: const [
+              BaseSkeleton(width: double.infinity, height: 110, borderRadius: 16),
+              BaseSkeleton(width: double.infinity, height: 110, borderRadius: 16),
+              BaseSkeleton(width: double.infinity, height: 110, borderRadius: 16),
+              BaseSkeleton(width: double.infinity, height: 110, borderRadius: 16),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Admin Tools Title Shimmer
+          const BaseSkeleton(width: 120, height: 18, borderRadius: 4),
+          const SizedBox(height: 12),
+
+          // Admin Tool Tiles Shimmer
+          const BaseSkeleton(width: double.infinity, height: 60, borderRadius: 12),
+          const SizedBox(height: 10),
+          const BaseSkeleton(width: double.infinity, height: 60, borderRadius: 12),
+          const SizedBox(height: 10),
+          const BaseSkeleton(width: double.infinity, height: 60, borderRadius: 12),
+          const SizedBox(height: 10),
+          const BaseSkeleton(width: double.infinity, height: 60, borderRadius: 12),
+        ],
+      ),
+    );
+  }
+}
+
+/// Outlet Review / Verification Detail Screen Skeleton Loader (including Map Shimmer)
+class OutletReviewSkeleton extends StatelessWidget {
+  const OutletReviewSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Hero Outlet Image Card Shimmer
+          const BaseSkeleton(
+            width: double.infinity,
+            height: 140,
+            borderRadius: 20,
+          ),
+          const SizedBox(height: 14),
+          const BaseSkeleton(width: 180, height: 24, borderRadius: 6),
+          const SizedBox(height: 8),
+          const BaseSkeleton(width: 120, height: 20, borderRadius: 8),
+          const SizedBox(height: 24),
+
+          // 2. Application Details Header & Card Shimmer
+          const Row(
+            children: [
+              BaseSkeleton(width: 20, height: 20, borderRadius: 4),
+              SizedBox(width: 8),
+              BaseSkeleton(width: 150, height: 18, borderRadius: 4),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const BaseSkeleton(width: double.infinity, height: 110, borderRadius: 16),
+          const SizedBox(height: 24),
+
+          // 3. Map Location Header & Embedded Map Canvas Shimmer
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  BaseSkeleton(width: 20, height: 20, borderRadius: 4),
+                  SizedBox(width: 8),
+                  BaseSkeleton(width: 120, height: 18, borderRadius: 4),
+                ],
+              ),
+              BaseSkeleton(width: 110, height: 22, borderRadius: 6),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Embedded Map Shimmer Container
+          const BaseSkeleton(
+            width: double.infinity,
+            height: 200,
+            borderRadius: 16,
+          ),
+          const SizedBox(height: 24),
+
+          // 4. Official Assessment Input Box Shimmer
+          const BaseSkeleton(width: 180, height: 16, borderRadius: 4),
+          const SizedBox(height: 8),
+          const BaseSkeleton(width: double.infinity, height: 80, borderRadius: 14),
+          const SizedBox(height: 24),
+
+          // 5. Action Buttons Shimmer
+          const BaseSkeleton(width: double.infinity, height: 50, borderRadius: 14),
+          const SizedBox(height: 10),
+          const BaseSkeleton(width: double.infinity, height: 50, borderRadius: 14),
+          const SizedBox(height: 10),
+          const BaseSkeleton(width: double.infinity, height: 50, borderRadius: 14),
+        ],
+      ),
     );
   }
 }

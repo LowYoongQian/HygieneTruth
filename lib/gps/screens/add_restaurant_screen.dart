@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -32,6 +33,36 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   XFile? _ssmCertFile;
   bool _isSimulatedUpload = false;
   final ImagePicker _picker = ImagePicker();
+
+  XFile? _bannerImageFile;
+  String? _selectedBannerUrl;
+
+  final List<Map<String, String>> _presetBannerImages = [
+    {
+      'title': 'Noodles & Asian',
+      'url': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=800',
+    },
+    {
+      'title': 'Malay Rice & Lauk',
+      'url': 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?q=80&w=800',
+    },
+    {
+      'title': 'Mamak & Roti Canai',
+      'url': 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?q=80&w=800',
+    },
+    {
+      'title': 'Modern Western Diner',
+      'url': 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=800',
+    },
+    {
+      'title': 'Cafe & Bakery',
+      'url': 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=800',
+    },
+    {
+      'title': 'Seafood Grill & BBQ',
+      'url': 'https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=800',
+    },
+  ];
 
   final List<Map<String, dynamic>> _categoryItems = [
     {
@@ -236,6 +267,230 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                 ],
               ),
               const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickBannerImage(ImageSource source) async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+      if (image != null) {
+        setState(() {
+          _bannerImageFile = image;
+          _selectedBannerUrl = null;
+        });
+        _showSnackBar('✓ Restaurant Banner Photo Uploaded!', const Color(0xFF0F766E));
+      }
+    } catch (_) {
+      _showSnackBar('Error selecting banner photo.', Colors.red);
+    }
+  }
+
+  void _showBannerSourcePickerModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: const [
+                  Icon(Icons.add_a_photo_rounded, color: AppTheme.primaryColor, size: 24),
+                  SizedBox(width: 10),
+                  Text(
+                    'Upload Restaurant Banner',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.navyColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Upload your custom restaurant storefront photo or pick a high-quality preset banner.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 20),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickBannerImage(ImageSource.camera);
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F766E).withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFF0F766E).withValues(alpha: 0.2)),
+                        ),
+                        child: Column(
+                          children: const [
+                            Icon(Icons.camera_alt_rounded, color: Color(0xFF0F766E), size: 30),
+                            SizedBox(height: 8),
+                            Text(
+                              'Take Photo',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Color(0xFF0F766E),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickBannerImage(ImageSource.gallery);
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.2)),
+                        ),
+                        child: Column(
+                          children: const [
+                            Icon(Icons.photo_library_rounded, color: Color(0xFF0284C7), size: 30),
+                            SizedBox(height: 8),
+                            Text(
+                              'Choose Photo',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Color(0xFF0284C7),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              const Text(
+                'Or Select Curated Preset Banner Gallery:',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 115,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _presetBannerImages.length,
+                  separatorBuilder: (ctx, i) => const SizedBox(width: 12),
+                  itemBuilder: (ctx, idx) {
+                    final item = _presetBannerImages[idx];
+                    final String title = item['title']!;
+                    final String url = item['url']!;
+                    final bool isSelected = _selectedBannerUrl == url && _bannerImageFile == null;
+
+                    return InkWell(
+                      onTap: () {
+                        setState(() {
+                          _selectedBannerUrl = url;
+                          _bannerImageFile = null;
+                        });
+                        Navigator.pop(ctx);
+                        _showSnackBar('✓ Preset Banner Selected: $title', const Color(0xFF0F766E));
+                      },
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        width: 140,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isSelected ? AppTheme.primaryColor : Colors.grey.shade300,
+                            width: isSelected ? 2.5 : 1.0,
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(13),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network(url, fit: BoxFit.cover),
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 8,
+                                left: 8,
+                                right: 8,
+                                child: Text(
+                                  title,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    shadows: [Shadow(blurRadius: 4, color: Colors.black)],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (isSelected)
+                                const Positioned(
+                                  top: 6,
+                                  right: 6,
+                                  child: Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
             ],
           ),
         );
@@ -582,6 +837,20 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       }
     }
 
+    String chosenImageUrl;
+    if (_bannerImageFile != null) {
+      try {
+        final bytes = await File(_bannerImageFile!.path).readAsBytes();
+        chosenImageUrl = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      } catch (_) {
+        chosenImageUrl = _bannerImageFile!.path;
+      }
+    } else if (_selectedBannerUrl != null && _selectedBannerUrl!.isNotEmpty) {
+      chosenImageUrl = _selectedBannerUrl!;
+    } else {
+      chosenImageUrl = 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=800';
+    }
+
     await RestaurantStoreService.addRestaurant(
       name: name,
       address: address,
@@ -590,6 +859,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       longitude: _selectedLong,
       ssmCertUrl: _ssmCertFile?.path ?? 'ssm_cert_simulated_proof.png',
       operatingHours: formattedOperatingHours,
+      imageUrl: chosenImageUrl,
       autoApprove: false,
     );
 
@@ -958,7 +1228,151 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 3. SECTION 2: LOCATION & GOOGLE MAP PIN PICKER
+            // 2. SECTION 2: RESTAURANT COVER BANNER PHOTO
+            Card(
+              elevation: 1,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: const [
+                              Icon(Icons.add_a_photo_rounded, color: AppTheme.primaryColor, size: 20),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '2. Restaurant Cover Banner Photo',
+                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (_bannerImageFile != null || _selectedBannerUrl != null) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F766E).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFF0F766E)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF0F766E)),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Banner Set',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Upload your custom restaurant storefront photo (Camera / Gallery) or pick from curated preset banners.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Banner Preview Card
+                    Container(
+                      height: 160,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        color: Colors.grey.shade100,
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(13),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (_bannerImageFile != null)
+                              Image.file(
+                                File(_bannerImageFile!.path),
+                                fit: BoxFit.cover,
+                              )
+                            else if (_selectedBannerUrl != null)
+                              Image.network(
+                                _selectedBannerUrl!,
+                                fit: BoxFit.cover,
+                              )
+                            else
+                              Image.network(
+                                'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=800',
+                                fit: BoxFit.cover,
+                              ),
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Colors.black.withValues(alpha: 0.65), Colors.transparent],
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 12,
+                              left: 12,
+                              right: 12,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _bannerImageFile != null
+                                          ? '✓ Custom Photo Attached'
+                                          : (_selectedBannerUrl != null ? '✓ Preset Banner Selected' : 'Default Storefront Preview'),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        shadows: [Shadow(blurRadius: 4, color: Colors.black)],
+                                      ),
+                                    ),
+                                  ),
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: AppTheme.navyColor,
+                                      elevation: 2,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    ),
+                                    onPressed: _showBannerSourcePickerModal,
+                                    icon: const Icon(Icons.photo_camera_rounded, size: 16, color: AppTheme.primaryColor),
+                                    label: Text(
+                                      _bannerImageFile != null || _selectedBannerUrl != null ? 'Change Banner' : 'Upload Banner',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 3. SECTION 3: LOCATION & GOOGLE MAP PIN PICKER
             Card(
               elevation: 1,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -972,7 +1386,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                         Icon(Icons.place_outlined, color: Color(0xFF0F766E), size: 20),
                         SizedBox(width: 8),
                         Text(
-                          '2. Location & Address Pin',
+                          '3. Location & Address Pin',
                           style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
                         ),
                       ],
@@ -1059,7 +1473,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 4. SECTION 3: UPLOAD SSM BUSINESS CERTIFICATE PROOF (Matching Reference Image 2)
+            // 4. SECTION 4: UPLOAD SSM BUSINESS CERTIFICATE PROOF
             Card(
               elevation: 1,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -1072,9 +1486,12 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                       children: const [
                         Icon(Icons.verified_user_outlined, color: Color(0xFFD97706), size: 20),
                         SizedBox(width: 8),
-                        Text(
-                          '3. SSM Business Registration Proof',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                        Expanded(
+                          child: Text(
+                            '4. SSM Business Registration Proof',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
@@ -1199,7 +1616,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                     else
                       // Uploaded File Preview Card (Reference Image 2 Style)
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF0FDF4),
                           borderRadius: BorderRadius.circular(16),
@@ -1212,64 +1629,78 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                               child: _ssmCertFile != null
                                   ? Image.file(
                                       File(_ssmCertFile!.path),
-                                      width: 58,
-                                      height: 58,
+                                      width: 52,
+                                      height: 52,
                                       fit: BoxFit.cover,
                                       errorBuilder: (ctx, err, stack) => Container(
-                                        width: 58,
-                                        height: 58,
+                                        width: 52,
+                                        height: 52,
                                         color: Colors.green.shade100,
                                         child: const Icon(Icons.article, color: Colors.green),
                                       ),
                                     )
                                   : Container(
-                                      width: 58,
-                                      height: 58,
+                                      width: 52,
+                                      height: 52,
                                       color: Colors.green.shade100,
-                                      child: const Icon(Icons.verified_rounded, color: Colors.green, size: 32),
+                                      child: const Icon(Icons.verified_rounded, color: Colors.green, size: 28),
                                     ),
                             ),
-                            const SizedBox(width: 14),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
                                     children: const [
-                                      Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
+                                      Icon(Icons.check_circle_rounded, color: Colors.green, size: 15),
                                       SizedBox(width: 4),
-                                      Text(
-                                        'SSM Proof Attached',
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
+                                      Expanded(
+                                        child: Text(
+                                          'SSM Proof Attached',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 3),
+                                  const SizedBox(height: 2),
                                   Text(
                                     _ssmCertFile != null ? _ssmCertFile!.name : 'ssm_registration_cert_2026.png',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
                                     overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     _ssmValidationResult?.registrationNo != null
                                         ? 'SSM No: ${_ssmValidationResult!.registrationNo} • Verified'
                                         : '1.8 MB • Ready to submit for verification',
-                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                    style: TextStyle(fontSize: 10.5, color: Colors.grey.shade700),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 2,
                                   ),
                                 ],
                               ),
                             ),
+                            const SizedBox(width: 4),
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.sync_rounded, color: Color(0xFF0284C7)),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  visualDensity: VisualDensity.compact,
+                                  icon: const Icon(Icons.sync_rounded, color: Color(0xFF0284C7), size: 22),
                                   tooltip: 'Replace SSM proof',
                                   onPressed: _showImageSourcePickerModal,
                                 ),
+                                const SizedBox(width: 8),
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  visualDensity: VisualDensity.compact,
+                                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 22),
                                   tooltip: 'Remove SSM proof',
                                   onPressed: () {
                                     setState(() {

@@ -51,31 +51,45 @@ class AuditLogModel {
 
   IconData get icon {
     switch (actionType.toUpperCase()) {
+      case 'CUSTOMER_REGISTER':
+      case 'USER_REGISTER':
+        return Icons.person_add_alt_1_rounded;
+      case 'BUSINESSMAN_REGISTER':
+        return Icons.storefront_rounded;
+      case 'GOVERNMENT_INSPECTION':
+      case 'GOVERNMENT_REVIEW':
+        return Icons.fact_check_rounded;
+      case 'OUTLET_APPROVED':
+        return Icons.verified_rounded;
+      case 'OUTLET_REJECTED':
+        return Icons.remove_circle_outline_rounded;
+      case 'ADMIN_USER_EDIT':
+      case 'ADMIN_ROLE_CHANGE':
+      case 'ADMIN_PROFILE_EDIT':
+        return Icons.admin_panel_settings_rounded;
       case 'LOGIN':
         return Icons.login_rounded;
       case 'LOGOUT':
         return Icons.logout_rounded;
-      case 'NAME_CHANGE':
-        return Icons.badge_outlined;
       case 'PASSWORD_CHANGE':
         return Icons.lock_reset_rounded;
-      case 'PROFILE_UPDATE':
-        return Icons.person_outline_rounded;
-      case 'COMPLAINT_SUBMITTED':
-        return Icons.report_problem_outlined;
       default:
-        return Icons.history_rounded;
+        return Icons.history_edu_rounded;
     }
   }
 
   Color get iconColor {
-    switch (category) {
-      case 'Session Activity':
-        return actionType.toUpperCase() == 'LOGIN' ? Colors.green : Colors.orange;
-      case 'Account Modification':
-        return Colors.blue;
+    switch (category.toLowerCase()) {
+      case 'customer':
+        return const Color(0xFF0F766E);
+      case 'businessman':
+        return const Color(0xFF0284C7);
+      case 'government':
+        return const Color(0xFFD97706);
+      case 'admin':
+        return const Color(0xFF7C3AED);
       default:
-        return Colors.teal;
+        return const Color(0xFF7C3AED);
     }
   }
 }

@@ -38,4 +38,38 @@ class RestaurantModel {
     this.operatingHours = '10:00 AM - 10:00 PM (Daily)',
     this.businessRegNo,
   });
+
+  factory RestaurantModel.fromMap(Map<String, dynamic> map) {
+    RestaurantStatus parseStatus(String? s) {
+      if (s == 'approved' || s == 'active') return RestaurantStatus.approved;
+      if (s == 'rejected') return RestaurantStatus.rejected;
+      if (s == 'needsRevision') return RestaurantStatus.needsRevision;
+      return RestaurantStatus.pendingVerification;
+    }
+
+    RiskCategory parseRisk(String? r) {
+      if (r == 'high' || r == 'critical') return RiskCategory.high;
+      if (r == 'moderate') return RiskCategory.moderate;
+      return RiskCategory.safe;
+    }
+
+    return RestaurantModel(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? 'Unnamed Restaurant',
+      address: map['address']?.toString() ?? 'No address provided',
+      category: map['category']?.toString() ?? 'General',
+      latitude: (map['latitude'] as num?)?.toDouble() ?? 3.1475,
+      longitude: (map['longitude'] as num?)?.toDouble() ?? 101.7085,
+      hygieneRiskScore: (map['hygiene_risk_score'] as num?)?.toDouble() ?? 10.0,
+      riskCategory: parseRisk(map['risk_category']?.toString()),
+      status: parseStatus(map['status']?.toString()),
+      violationCount: (map['violation_count'] as num?)?.toInt() ?? 0,
+      imageUrl: map['image_url']?.toString() ?? 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600',
+      lastUpdated: map['last_updated']?.toString().split('T').first ?? '2026-08-09',
+      ownerId: map['owner_id']?.toString() ?? 'own_001',
+      ownerName: map['owner_name']?.toString() ?? 'Owner',
+      operatingHours: map['operating_hours']?.toString() ?? '10:00 AM - 10:00 PM (Daily)',
+      businessRegNo: map['business_reg_no']?.toString(),
+    );
+  }
 }

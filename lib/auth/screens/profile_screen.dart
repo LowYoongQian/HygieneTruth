@@ -285,7 +285,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 const Divider(height: 20),
                                 _buildDetailRow(context, Icons.location_city_outlined, 'State / City', customer?.state ?? 'Not set (Tap edit to set)', textColor, subtitleTextColor),
                                 const Divider(height: 20),
-                                _buildDetailRow(context, Icons.calendar_today_outlined, 'Member Since', (customer?.joinedDate != null && customer!.joinedDate!.isNotEmpty) ? customer.joinedDate! : 'Recently Joined', textColor, subtitleTextColor),
+                                _buildDetailRow(context, Icons.calendar_today_outlined, 'Member Since', _formatMemberSinceDate(customer?.joinedDate), textColor, subtitleTextColor),
                               ],
                             ),
                           ),
@@ -301,6 +301,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       },
     );
+  }
+
+  String _formatMemberSinceDate(String? rawDate) {
+    if (rawDate != null && rawDate.trim().isNotEmpty && rawDate != 'Recently Joined') {
+      if (rawDate.contains('-') && rawDate.length >= 10) {
+        final dt = DateTime.tryParse(rawDate);
+        if (dt != null) {
+          final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+        }
+      }
+      return rawDate;
+    }
+    final nowMsia = DateTime.now().toUtc().add(const Duration(hours: 8));
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${nowMsia.day} ${months[nowMsia.month - 1]} ${nowMsia.year}';
   }
 
   Widget _buildDetailRow(BuildContext context, IconData icon, String label, String value, Color textColor, Color subtitleTextColor) {

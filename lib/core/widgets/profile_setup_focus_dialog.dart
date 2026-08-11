@@ -176,9 +176,10 @@ class ProfileSetupFocusDialog {
                             final finalState = selectedState == 'Other' ? customStateCtrl.text.trim() : selectedState;
 
                             Navigator.pop(ctx);
-                            if (customer != null) {
+                            final current = CustomerStoreService.currentCustomer;
+                            if (current != null) {
                               await CustomerStoreService.updateCustomerProfile(
-                                name: customer.name,
+                                name: current.name,
                                 gender: finalGender,
                                 country: finalCountry,
                                 state: finalState,
