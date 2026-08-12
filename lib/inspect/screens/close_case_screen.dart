@@ -11,7 +11,30 @@ class CloseCaseScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments;
-    final insp = args is InspectionModel ? args : MockSeedData.inspections.first;
+    InspectionModel? insp;
+    if (args is InspectionModel) {
+      insp = args;
+    } else if (MockSeedData.inspections.isNotEmpty) {
+      insp = MockSeedData.inspections.first;
+    }
+
+    if (insp == null) {
+      return Scaffold(
+        appBar: const CustomAppBar(title: 'Close Case'),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.assignment_turned_in_outlined, size: 48, color: Colors.grey),
+              const SizedBox(height: 12),
+              const Text('No inspection case available to close.', style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Go Back')),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: const CustomAppBar(title: 'Close Case'),

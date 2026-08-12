@@ -862,30 +862,33 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
 
   Widget _buildAdminDrawer(BuildContext context) {
     return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
+      backgroundColor: const Color(0xFFF8FAFC),
+      child: Column(
         children: [
-          const UserAccountsDrawerHeader(
-            decoration: BoxDecoration(color: Color(0xFF0F172A)),
-            accountName: Text('System Admin'),
-            accountEmail: Text('admin@hygiene.gov.my'),
-            currentAccountPicture: CircleAvatar(
-              backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=33'),
+          _buildDrawerHeader(
+            name: 'System Admin',
+            email: 'admin@hygiene.gov.my',
+            roleBadge: 'Admin',
+            avatarUrl: 'https://i.pravatar.cc/150?img=33',
+            badgeColor: const Color(0xFF38BDF8),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildDrawerSectionHeader('Administration Tools'),
+                _buildDrawerItem(context, icon: Icons.people_alt_outlined, title: 'Manage Users', route: AppRoutes.manageUserAccounts, iconColor: const Color(0xFF0284C7), iconBgColor: const Color(0xFFE0F2FE)),
+                _buildDrawerItem(context, icon: Icons.verified_outlined, title: 'Approve Outlets', route: AppRoutes.restaurantVerificationQueue, iconColor: const Color(0xFF0D9488), iconBgColor: const Color(0xFFCCFBF1)),
+                _buildDrawerItem(context, icon: Icons.assignment_outlined, title: 'All Reports', route: AppRoutes.allComplaints, iconColor: const Color(0xFF8B5CF6), iconBgColor: const Color(0xFFF3E8FF)),
+                _buildDrawerItem(context, icon: Icons.fact_check_outlined, title: 'Verify Proof', route: AppRoutes.verifyEvidence, iconColor: const Color(0xFFEA580C), iconBgColor: const Color(0xFFFFEDD5)),
+                _buildDrawerItem(context, icon: Icons.copy_outlined, title: 'Check Duplicates', route: AppRoutes.duplicateFakeReview, iconColor: const Color(0xFFD97706), iconBgColor: const Color(0xFFFEF3C7)),
+                _buildDrawerItem(context, icon: Icons.gavel_outlined, title: 'Review Reports', route: AppRoutes.inspectionReportReview, iconColor: const Color(0xFF059669), iconBgColor: const Color(0xFFD1FAE5)),
+                _buildDrawerItem(context, icon: Icons.receipt_long_outlined, title: 'Audit Logs', route: AppRoutes.adminActionLog, iconColor: const Color(0xFF6366F1), iconBgColor: const Color(0xFFEEF2FF)),
+              ],
             ),
           ),
-          ListTile(leading: const Icon(Icons.people), title: const Text('Manage Users'), onTap: () => Navigator.pushNamed(context, AppRoutes.manageUserAccounts)),
-          ListTile(leading: const Icon(Icons.approval), title: const Text('Approve Outlets'), onTap: () => Navigator.pushNamed(context, AppRoutes.restaurantVerificationQueue)),
-          ListTile(leading: const Icon(Icons.assignment), title: const Text('All Reports'), onTap: () => Navigator.pushNamed(context, AppRoutes.allComplaints)),
-          ListTile(leading: const Icon(Icons.fact_check), title: const Text('Verify Proof'), onTap: () => Navigator.pushNamed(context, AppRoutes.verifyEvidence)),
-          ListTile(leading: const Icon(Icons.copy), title: const Text('Check Duplicates'), onTap: () => Navigator.pushNamed(context, AppRoutes.duplicateFakeReview)),
-          ListTile(leading: const Icon(Icons.rate_review), title: const Text('Review Reports'), onTap: () => Navigator.pushNamed(context, AppRoutes.inspectionReportReview)),
-          ListTile(leading: const Icon(Icons.receipt_long), title: const Text('Audit Logs'), onTap: () => Navigator.pushNamed(context, AppRoutes.adminActionLog)),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('Logout'),
-            onTap: () => Navigator.pushReplacementNamed(context, AppRoutes.splashRoleSelect),
-          ),
+          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          _buildDrawerLogoutTile(context),
         ],
       ),
     );
@@ -1027,30 +1030,227 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
 
   Widget _buildGovernmentDrawer(BuildContext context) {
     return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
+      backgroundColor: const Color(0xFFF8FAFC),
+      child: Column(
         children: [
-          const UserAccountsDrawerHeader(
-            decoration: BoxDecoration(color: Color(0xFF0284C7)),
-            accountName: Text('Health Officer (PIC)'),
-            accountEmail: Text('officer.pic@hygiene.gov.my'),
-            currentAccountPicture: CircleAvatar(
-              backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=12'),
+          _buildDrawerHeader(
+            name: 'Health Officer (PIC)',
+            email: 'officer.pic@hygiene.gov.my',
+            roleBadge: 'Officer (PIC)',
+            avatarUrl: 'https://i.pravatar.cc/150?img=12',
+            badgeColor: const Color(0xFF34D399),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildDrawerSectionHeader('Field Operations'),
+                _buildDrawerItem(context, icon: Icons.verified_outlined, title: 'Assigned Cases', route: AppRoutes.verifiedComplaintsList, iconColor: const Color(0xFF0284C7), iconBgColor: const Color(0xFFE0F2FE)),
+                _buildDrawerItem(context, icon: Icons.edit_calendar_outlined, title: 'Schedule Visit', route: AppRoutes.scheduleInspection, iconColor: const Color(0xFFD97706), iconBgColor: const Color(0xFFFEF3C7)),
+                _buildDrawerItem(context, icon: Icons.assignment_turned_in_outlined, title: 'Record Visit', route: AppRoutes.conductInspection, iconColor: const Color(0xFF059669), iconBgColor: const Color(0xFFD1FAE5)),
+                _buildDrawerItem(context, icon: Icons.warning_amber_rounded, title: 'Issue Action', route: AppRoutes.issueEnforcement, iconColor: const Color(0xFFDC2626), iconBgColor: const Color(0xFFFEE2E2)),
+                _buildDrawerItem(context, icon: Icons.history_rounded, title: 'Action History', route: AppRoutes.enforcementHistory, iconColor: const Color(0xFF8B5CF6), iconBgColor: const Color(0xFFF3E8FF)),
+                _buildDrawerItem(context, icon: Icons.folder_off_outlined, title: 'Close Case', route: AppRoutes.closeCase, iconColor: const Color(0xFF475569), iconBgColor: const Color(0xFFF1F5F9)),
+              ],
             ),
           ),
-          ListTile(leading: const Icon(Icons.verified), title: const Text('Assigned Cases'), onTap: () => Navigator.pushNamed(context, AppRoutes.verifiedComplaintsList)),
-          ListTile(leading: const Icon(Icons.event), title: const Text('Schedule Visit'), onTap: () => Navigator.pushNamed(context, AppRoutes.scheduleInspection)),
-          ListTile(leading: const Icon(Icons.assignment_turned_in), title: const Text('Record Visit'), onTap: () => Navigator.pushNamed(context, AppRoutes.conductInspection)),
-          ListTile(leading: const Icon(Icons.warning_amber), title: const Text('Issue Action'), onTap: () => Navigator.pushNamed(context, AppRoutes.issueEnforcement)),
-          ListTile(leading: const Icon(Icons.history), title: const Text('Action History'), onTap: () => Navigator.pushNamed(context, AppRoutes.enforcementHistory)),
-          ListTile(leading: const Icon(Icons.folder_off), title: const Text('Close Case'), onTap: () => Navigator.pushNamed(context, AppRoutes.closeCase)),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('Logout'),
-            onTap: () => Navigator.pushReplacementNamed(context, AppRoutes.splashRoleSelect),
+          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          _buildDrawerLogoutTile(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerHeader({
+    required String name,
+    required String email,
+    required String roleBadge,
+    required String avatarUrl,
+    required Color badgeColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 52, 20, 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0C2340), Color(0xFF1E293B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 2),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4)),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: 28,
+                  backgroundImage: NetworkImage(avatarUrl),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF22C55E),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      roleBadge.toUpperCase(),
+                      style: TextStyle(
+                        color: badgeColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            email,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 12,
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF64748B),
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String route,
+    required Color iconColor,
+    required Color iconBgColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.pushNamed(context, route);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: iconBgColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 20, color: iconColor),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded, size: 18, color: Color(0xFF94A3B8)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerLogoutTile(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => Navigator.pushReplacementNamed(context, AppRoutes.splashRoleSelect),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF2F2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFCA5A5).withValues(alpha: 0.5)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 20),
+                SizedBox(width: 12),
+                Text(
+                  'Logout System',
+                  style: TextStyle(
+                    color: Color(0xFFEF4444),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

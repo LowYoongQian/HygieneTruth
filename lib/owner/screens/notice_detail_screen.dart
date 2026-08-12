@@ -40,8 +40,33 @@ class NoticeDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments;
-    final c = args is ComplaintModel ? args : MockSeedData.complaints.first;
-    final authInfo = _getAuthorityInfo(c);
+    ComplaintModel? c;
+    if (args is ComplaintModel) {
+      c = args;
+    } else if (MockSeedData.complaints.isNotEmpty) {
+      c = MockSeedData.complaints.first;
+    }
+
+    if (c == null) {
+      return Scaffold(
+        appBar: const CustomAppBar(title: 'Notice & Directive Details'),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.assignment_late_outlined, size: 48, color: Colors.grey),
+              const SizedBox(height: 12),
+              const Text('No notice or directive details available.', style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Go Back')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final complaint = c;
+    final authInfo = _getAuthorityInfo(complaint);
     final Color authColor = authInfo['color'];
 
     return Scaffold(
@@ -164,14 +189,14 @@ class NoticeDetailScreen extends StatelessWidget {
               height: 120,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: c.photoUrls.isNotEmpty ? c.photoUrls.length : 2,
+                itemCount: complaint.photoUrls.isNotEmpty ? complaint.photoUrls.length : 2,
                 itemBuilder: (context, idx) {
                   return Padding(
                     padding: const EdgeInsets.only(right: 8.0),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: c.photoUrls.isNotEmpty
-                          ? Image.network(c.photoUrls[idx], width: 140, height: 120, fit: BoxFit.cover)
+                      child: complaint.photoUrls.isNotEmpty
+                          ? Image.network(complaint.photoUrls[idx], width: 140, height: 120, fit: BoxFit.cover)
                           : const WireframeBox(width: 140, height: 120, icon: Icons.image, label: 'Photo Proof'),
                     ),
                   );

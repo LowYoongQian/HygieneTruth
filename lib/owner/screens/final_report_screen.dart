@@ -13,7 +13,30 @@ class FinalReportScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments;
-    final c = args is ComplaintModel ? args : MockSeedData.complaints.last;
+    ComplaintModel? c;
+    if (args is ComplaintModel) {
+      c = args;
+    } else if (MockSeedData.complaints.isNotEmpty) {
+      c = MockSeedData.complaints.last;
+    }
+
+    if (c == null) {
+      return Scaffold(
+        appBar: const CustomAppBar(title: 'Final Report'),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.picture_as_pdf_outlined, size: 48, color: Colors.grey),
+              const SizedBox(height: 12),
+              const Text('No final report available.', style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Go Back')),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: const CustomAppBar(title: 'Final Report'),

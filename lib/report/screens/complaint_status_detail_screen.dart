@@ -11,7 +11,30 @@ class ComplaintStatusDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments;
-    final c = args is ComplaintModel ? args : MockSeedData.complaints.first;
+    ComplaintModel? c;
+    if (args is ComplaintModel) {
+      c = args;
+    } else if (MockSeedData.complaints.isNotEmpty) {
+      c = MockSeedData.complaints.first;
+    }
+
+    if (c == null) {
+      return Scaffold(
+        appBar: const CustomAppBar(title: 'Report Status'),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.report_outlined, size: 48, color: Colors.grey),
+              const SizedBox(height: 12),
+              const Text('No complaint status available.', style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Go Back')),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: CustomAppBar(title: 'Report: ${c.id}'),

@@ -10,7 +10,30 @@ class VerifyEvidenceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments;
-    final c = args is ComplaintModel ? args : MockSeedData.complaints[2];
+    ComplaintModel? c;
+    if (args is ComplaintModel) {
+      c = args;
+    } else if (MockSeedData.complaints.isNotEmpty) {
+      c = MockSeedData.complaints.length > 2 ? MockSeedData.complaints[2] : MockSeedData.complaints.first;
+    }
+
+    if (c == null) {
+      return Scaffold(
+        appBar: const CustomAppBar(title: 'Verify Proof'),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.verified_user_outlined, size: 48, color: Colors.grey),
+              const SizedBox(height: 12),
+              const Text('No complaints available for evidence verification.', style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Go Back')),
+            ],
+          ),
+        ),
+      );
+    }
 
     final isMismatched = c.isFlaggedForReview && (c.flaggedReason?.contains('GPS') ?? false);
 
