@@ -104,7 +104,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
     if (args is RestaurantModel) {
       _selectedRestaurant = args;
     } else {
-      _selectedRestaurant ??= MockSeedData.restaurants.first;
+      _selectedRestaurant ??= MockSeedData.restaurants.isNotEmpty ? MockSeedData.restaurants.first : null;
     }
   }
 

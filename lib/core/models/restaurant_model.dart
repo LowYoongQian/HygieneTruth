@@ -72,4 +72,25 @@ class RestaurantModel {
       businessRegNo: map['business_reg_no']?.toString(),
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'address': address,
+      'category': category,
+      'latitude': latitude,
+      'longitude': longitude,
+      'hygiene_risk_score': hygieneRiskScore,
+      'risk_category': riskCategory.name,
+      'status': status.name,
+      'violation_count': violationCount,
+      'image_url': imageUrl,
+      'last_updated': lastUpdated,
+      'owner_id': ownerId,
+      'owner_name': ownerName,
+      'operating_hours': operatingHours,
+      'business_reg_no': businessRegNo,
+    };
+  }
 }

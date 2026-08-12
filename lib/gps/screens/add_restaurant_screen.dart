@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
@@ -25,6 +26,73 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   double _selectedLat = 3.1475;
   double _selectedLong = 101.7085;
   bool _hasCustomPin = false;
+
+  Timer? _addressDebounce;
+  List<Map<String, dynamic>> _addressSuggestions = [];
+  final FocusNode _addressFocusNode = FocusNode();
+
+  static const List<Map<String, dynamic>> _presetMalaysianLocations = [
+    {
+      'title': 'Petaling Street (Chinatown)',
+      'address': '12 Jalan Petaling, City Centre, 50000 Kuala Lumpur',
+      'lat': 3.1466,
+      'lng': 101.6958,
+    },
+    {
+      'title': 'Pavilion Bukit Bintang',
+      'address': '168 Jalan Bukit Bintang, Bukit Bintang, 55100 Kuala Lumpur',
+      'lat': 3.1488,
+      'lng': 101.7132,
+    },
+    {
+      'title': 'Suria KLCC Twin Towers',
+      'address': '241 Suria KLCC, Kuala Lumpur City Centre, 50088 Kuala Lumpur',
+      'lat': 3.1579,
+      'lng': 101.7116,
+    },
+    {
+      'title': 'Bangsar Telawi Commercial Hub',
+      'address': '28 Jalan Telawi 3, Bangsar Baru, 59100 Kuala Lumpur',
+      'lat': 3.1311,
+      'lng': 101.6715,
+    },
+    {
+      'title': 'Subang Jaya SS15 Food Street',
+      'address': '15 Jalan SS 15/4D, SS 15, 47500 Subang Jaya, Selangor',
+      'lat': 3.0760,
+      'lng': 101.5888,
+    },
+    {
+      'title': 'Solaris Mont Kiara Business Park',
+      'address': 'A-G-01 Solaris Mont Kiara, Jalan Solaris 2, 50480 Kuala Lumpur',
+      'lat': 3.1751,
+      'lng': 101.6599,
+    },
+    {
+      'title': 'Uptown Damansara Utama',
+      'address': '10 Jalan SS 21/39, Damansara Utama, 47400 Petaling Jaya, Selangor',
+      'lat': 3.1345,
+      'lng': 101.6224,
+    },
+    {
+      'title': 'Presint 2 Government Center',
+      'address': 'Persiaran Perdana, Presint 2, 62000 Putrajaya',
+      'lat': 2.9264,
+      'lng': 101.6964,
+    },
+    {
+      'title': 'Gurney Drive Promenade',
+      'address': 'Gurney Drive Promenade, 10250 George Town, Penang',
+      'lat': 5.4375,
+      'lng': 100.3098,
+    },
+    {
+      'title': 'Johor Bahru City Center',
+      'address': 'Jalan Wong Ah Fook, Bandar Johor Bahru, 80000 Johor Bahru, Johor',
+      'lat': 1.4554,
+      'lng': 103.7643,
+    },
+  ];
 
   TimeOfDay _openingTime = const TimeOfDay(hour: 10, minute: 0);
   TimeOfDay _closingTime = const TimeOfDay(hour: 22, minute: 0);
@@ -113,13 +181,64 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _addressCtrl.addListener(_onAddressInputChanged);
+  }
+
+  void _onAddressInputChanged() {
+    final text = _addressCtrl.text.trim();
+    if (text.isEmpty) {
+      if (_addressSuggestions.isNotEmpty) {
+        setState(() => _addressSuggestions = []);
+      }
+      return;
+    }
+
+    _addressDebounce?.cancel();
+    _addressDebounce = Timer(const Duration(milliseconds: 200), () {
+      final query = text.toLowerCase();
+      final matches = _presetMalaysianLocations.where((loc) {
+        final addr = (loc['address'] as String).toLowerCase();
+        final title = (loc['title'] as String).toLowerCase();
+        return addr.contains(query) || title.contains(query);
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _addressSuggestions = matches;
+        });
+      }
+    });
+  }
+
+  String _reverseGeocodeLocation(double lat, double lng) {
+    for (final loc in _presetMalaysianLocations) {
+      final double targetLat = loc['lat'];
+      final double targetLng = loc['lng'];
+      final double diffLat = (lat - targetLat).abs();
+      final double diffLng = (lng - targetLng).abs();
+      if (diffLat < 0.008 && diffLng < 0.008) {
+        return loc['address'] as String;
+      }
+    }
+    return '18 Jalan Commercial, Lat: ${lat.toStringAsFixed(4)}, Long: ${lng.toStringAsFixed(4)}, Kuala Lumpur';
+  }
+
+  @override
   void dispose() {
+    _addressDebounce?.cancel();
+    _addressCtrl.removeListener(_onAddressInputChanged);
+    _addressFocusNode.dispose();
     _nameCtrl.dispose();
     _addressCtrl.dispose();
     super.dispose();
   }
 
   SSMValidationResult? _ssmValidationResult;
+  bool _isOcrScanning = false;
+  double _ocrScanProgress = 0.0;
+  String _ocrScanStepText = '';
 
   Future<void> _pickSSMImage(ImageSource source) async {
     try {
@@ -130,36 +249,48 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
         imageQuality: 85,
       );
       if (image != null) {
-        final validation = await SSMValidatorHelper.validateSSMCertificate(image);
-        if (!validation.isValid) {
-          setState(() {
-            _ssmCertFile = null;
-            _isSimulatedUpload = false;
-            _ssmValidationResult = validation;
-          });
-          _showSnackBar(validation.message, Colors.red);
-          return;
-        }
-
         setState(() {
           _ssmCertFile = image;
           _isSimulatedUpload = false;
+          _isOcrScanning = true;
+          _ocrScanProgress = 0.15;
+          _ocrScanStepText = 'Scanning Document Layout & Image Structure...';
+        });
+
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (!mounted) return;
+        setState(() {
+          _ocrScanProgress = 0.55;
+          _ocrScanStepText = 'Extracting OCR Text, Seals & SSM Registration Number...';
+        });
+
+        final validation = await SSMValidatorHelper.validateSSMCertificate(image);
+
+        if (!mounted) return;
+        setState(() {
+          _ocrScanProgress = 1.0;
+          _ocrScanStepText = 'AI OCR Scan Complete';
+          _isOcrScanning = false;
           _ssmValidationResult = validation;
         });
-        _showSnackBar('✓ SSM Certificate Verified (Suruhanjaya Syarikat Malaysia)!', const Color(0xFF0F766E));
+
+        if (!validation.isValid) {
+          _showSnackBar('❌ AI OCR Rejected: Invalid SSM Document!', Colors.red);
+        } else {
+          _showSnackBar('✓ AI OCR Verified: Official SSM Certificate Authenticated!', const Color(0xFF0F766E));
+        }
       }
-    } catch (_) {
+    } catch (e) {
       setState(() {
-        _isSimulatedUpload = true;
-        _ssmValidationResult = const SSMValidationResult(
-          isValid: true,
-          confidenceScore: 0.96,
-          message: 'Official SSM Certificate of Incorporation (Suruhanjaya Syarikat Malaysia) verified.',
-          companyName: 'GOLDEN DRAGON NOODLE HOUSE SDN. BHD.',
-          registrationNo: '202201019842 (1465139-V)',
+        _isOcrScanning = false;
+        _ssmValidationResult = SSMValidationResult(
+          isValid: false,
+          confidenceScore: 0.0,
+          message: 'AI OCR Image Picker Error: Could not read uploaded file ($e). Please upload an official SSM Certificate document.',
+          detectedOcrKeywords: ['IMAGE_PICKER_ERROR'],
         );
       });
-      _showSnackBar('✓ SSM Certificate Verified!', const Color(0xFF0F766E));
+      _showSnackBar('❌ AI OCR Scan Failed: Could not process uploaded file!', Colors.red);
     }
   }
 
@@ -781,13 +912,16 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                           onPressed: () {
+                            final reverseAddr = _reverseGeocodeLocation(tempPickedLocation.latitude, tempPickedLocation.longitude);
                             setState(() {
                               _selectedLat = tempPickedLocation.latitude;
                               _selectedLong = tempPickedLocation.longitude;
                               _hasCustomPin = true;
+                              _addressCtrl.text = reverseAddr;
+                              _addressSuggestions = [];
                             });
                             Navigator.pop(ctx);
-                            _showSnackBar('Location pin updated from Google Map!', const Color(0xFF0F766E));
+                            _showSnackBar('✓ Map pin updated & address auto-filled!', const Color(0xFF0F766E));
                           },
                           icon: const Icon(Icons.check_circle, color: Colors.white),
                           label: const Text(
@@ -823,19 +957,20 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     }
 
     if (!hasProofAttached) {
-      _showSnackBar('Please upload your SSM Business Registration Certificate proof', Colors.red);
+      _showSnackBar('Please upload your official SSM Business Registration Certificate', Colors.red);
+      return;
+    }
+
+    // Strict AI OCR Document Validation Enforcement
+    if (_ssmValidationResult == null || !_ssmValidationResult!.isValid) {
+      _showSnackBar(
+        _ssmValidationResult?.message ?? 'AI OCR Scan Rejected: You must upload a valid official SSM Business Certificate before submitting to admin!',
+        Colors.red,
+      );
       return;
     }
 
     final String formattedOperatingHours = '${_openingTime.format(context)} - ${_closingTime.format(context)} ($_operatingDays)';
-
-    if (_ssmCertFile != null) {
-      final validation = await SSMValidatorHelper.validateSSMCertificate(_ssmCertFile!);
-      if (!validation.isValid) {
-        _showSnackBar(validation.message, Colors.red);
-        return;
-      }
-    }
 
     String chosenImageUrl;
     if (_bannerImageFile != null) {
@@ -1393,17 +1528,89 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Address Text Input
+                    // Address Text Input with Live Autocomplete
                     TextField(
                       controller: _addressCtrl,
+                      focusNode: _addressFocusNode,
                       decoration: InputDecoration(
                         labelText: 'Street Address & Location Details *',
                         hintText: 'e.g. 12 Jalan Petaling, City Centre, 50000 Kuala Lumpur',
-                        prefixIcon: const Icon(Icons.location_on_outlined),
+                        prefixIcon: const Icon(Icons.location_on_outlined, color: Color(0xFF0F766E)),
+                        suffixIcon: _addressCtrl.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                                onPressed: () {
+                                  _addressCtrl.clear();
+                                  setState(() => _addressSuggestions = []);
+                                },
+                              )
+                            : null,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF0F766E), width: 1.8),
+                        ),
                       ),
                       maxLines: 2,
                     ),
+
+                    // Location Autocomplete Dropdown Overlay Card
+                    if (_addressSuggestions.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 220),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFF0F766E).withValues(alpha: 0.3)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          itemCount: _addressSuggestions.length,
+                          separatorBuilder: (ctx, i) => const Divider(height: 1, indent: 12, endIndent: 12),
+                          itemBuilder: (ctx, idx) {
+                            final item = _addressSuggestions[idx];
+                            final String title = item['title'];
+                            final String address = item['address'];
+                            final double lat = item['lat'];
+                            final double lng = item['lng'];
+
+                            return ListTile(
+                              dense: true,
+                              leading: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.place_rounded, color: Color(0xFF0F766E), size: 18),
+                              ),
+                              title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.navyColor)),
+                              subtitle: Text(address, style: TextStyle(fontSize: 11, color: Colors.grey.shade600), maxLines: 2, overflow: TextOverflow.ellipsis),
+                              onTap: () {
+                                _addressCtrl.text = address;
+                                setState(() {
+                                  _selectedLat = lat;
+                                  _selectedLong = lng;
+                                  _hasCustomPin = true;
+                                  _addressSuggestions = [];
+                                });
+                                _addressFocusNode.unfocus();
+                                _showSnackBar('✓ Suggested Location & Map Pin Coordinates Selected!', const Color(0xFF0F766E));
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
 
                     // Captured GPS Status & Interactive Map Pin Button Card
@@ -1599,7 +1806,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                                 ),
                                 const SizedBox(height: 6),
 
-                                // Subtitle Text: "50 MB max file size" / "JPG, PNG, WEBP or PDF"
+                                 // Subtitle Text: "50 MB max file size" / "JPG, PNG, WEBP or PDF"
                                 Text(
                                   'Supported formats: JPG, PNG, WEBP or PDF • 10 MB max file size',
                                   style: TextStyle(
@@ -1613,101 +1820,217 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                           ),
                         ),
                       )
-                    else
-                      // Uploaded File Preview Card (Reference Image 2 Style)
+                    else if (_isOcrScanning)
+                      // 1. AI OCR SCANNING ANIMATED PROGRESS CARD
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F766E).withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFF0F766E).withValues(alpha: 0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: const [
+                                SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(color: Color(0xFF0F766E), strokeWidth: 2.2),
+                                ),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    '🤖 Real AI Document OCR Scanner Active...',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F766E)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: LinearProgressIndicator(
+                                value: _ocrScanProgress,
+                                backgroundColor: Colors.grey.shade200,
+                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0F766E)),
+                                minHeight: 6,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _ocrScanStepText,
+                              style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (_ssmValidationResult != null && !_ssmValidationResult!.isValid)
+                      // 2. AI REJECTION WARNING CARD (REJECTED DOCUMENT)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFFCA5A5)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(color: Color(0xFFDC2626), shape: BoxShape.circle),
+                                  child: const Icon(Icons.close_rounded, color: Colors.white, size: 16),
+                                ),
+                                const SizedBox(width: 10),
+                                const Expanded(
+                                  child: Text(
+                                    'AI OCR REJECTED: INVALID SSM DOCUMENT',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF991B1B)),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade100,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    'Confidence: ${(_ssmValidationResult!.confidenceScore * 100).toStringAsFixed(0)}%',
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red.shade800),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              _ssmValidationResult!.message,
+                              style: const TextStyle(fontSize: 11.5, color: Color(0xFF7F1D1D), height: 1.35),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFFDC2626)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                ),
+                                onPressed: _showImageSourcePickerModal,
+                                icon: const Icon(Icons.upload_file_rounded, color: Color(0xFFDC2626), size: 18),
+                                label: const Text('Re-upload Official SSM Certificate', style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      // 3. AI VERIFIED DOCUMENT CARD (AUTHENTICATED SSM CERTIFICATE)
+                      Container(
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF0FDF4),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: const Color(0xFF86EFAC)),
                         ),
-                        child: Row(
+                        child: Column(
                           children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: _ssmCertFile != null
-                                  ? Image.file(
-                                      File(_ssmCertFile!.path),
-                                      width: 52,
-                                      height: 52,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (ctx, err, stack) => Container(
-                                        width: 52,
-                                        height: 52,
-                                        color: Colors.green.shade100,
-                                        child: const Icon(Icons.article, color: Colors.green),
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 52,
+                                  height: 52,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: _ssmCertFile != null && !_ssmCertFile!.path.toLowerCase().endsWith('.pdf')
+                                        ? Image.file(
+                                            File(_ssmCertFile!.path),
+                                            width: 52,
+                                            height: 52,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (ctx, err, stack) => Container(
+                                              width: 52,
+                                              height: 52,
+                                              color: Colors.green.shade100,
+                                              child: const Icon(Icons.description_rounded, color: Color(0xFF166534), size: 28),
+                                            ),
+                                          )
+                                        : Container(
+                                            width: 52,
+                                            height: 52,
+                                            color: const Color(0xFFDCFCE7),
+                                            child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF166534), size: 28),
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: const [
+                                          Icon(Icons.check_circle_rounded, color: Colors.green, size: 15),
+                                          SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              'VERIFIED BY AI OCR ENGINE',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.green),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    )
-                                  : Container(
-                                      width: 52,
-                                      height: 52,
-                                      color: Colors.green.shade100,
-                                      child: const Icon(Icons.verified_rounded, color: Colors.green, size: 28),
-                                    ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: const [
-                                      Icon(Icons.check_circle_rounded, color: Colors.green, size: 15),
-                                      SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          'SSM Proof Attached',
-                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _ssmCertFile != null ? _ssmCertFile!.name : 'ssm_registration_cert_2026.png',
+                                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _ssmValidationResult?.registrationNo != null
+                                            ? 'SSM No: ${_ssmValidationResult!.registrationNo}'
+                                            : 'Official SSM Registration Certificate Authenticated',
+                                        style: TextStyle(fontSize: 10.5, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 2,
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _ssmCertFile != null ? _ssmCertFile!.name : 'ssm_registration_cert_2026.png',
-                                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _ssmValidationResult?.registrationNo != null
-                                        ? 'SSM No: ${_ssmValidationResult!.registrationNo} • Verified'
-                                        : '1.8 MB • Ready to submit for verification',
-                                    style: TextStyle(fontSize: 10.5, color: Colors.grey.shade700),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 2,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  visualDensity: VisualDensity.compact,
-                                  icon: const Icon(Icons.sync_rounded, color: Color(0xFF0284C7), size: 22),
-                                  tooltip: 'Replace SSM proof',
-                                  onPressed: _showImageSourcePickerModal,
                                 ),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  visualDensity: VisualDensity.compact,
-                                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 22),
-                                  tooltip: 'Remove SSM proof',
-                                  onPressed: () {
-                                    setState(() {
-                                      _ssmCertFile = null;
-                                      _isSimulatedUpload = false;
-                                    });
-                                  },
+                                const SizedBox(width: 4),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      visualDensity: VisualDensity.compact,
+                                      icon: const Icon(Icons.sync_rounded, color: Color(0xFF0284C7), size: 22),
+                                      tooltip: 'Replace SSM proof',
+                                      onPressed: _showImageSourcePickerModal,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      visualDensity: VisualDensity.compact,
+                                      icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 22),
+                                      tooltip: 'Remove SSM proof',
+                                      onPressed: () {
+                                        setState(() {
+                                          _ssmCertFile = null;
+                                          _isSimulatedUpload = false;
+                                          _ssmValidationResult = null;
+                                        });
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

@@ -7,6 +7,12 @@ import 'customer_store_service.dart';
 import 'supabase_service.dart';
 
 class AuditLogService {
+  static bool _isValidUuid(String? str) {
+    if (str == null || str.isEmpty) return false;
+    final uuidRegex = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+    return uuidRegex.hasMatch(str);
+  }
+
   static final List<AuditLogModel> _localLogs = [
     AuditLogModel(
       id: 'log_seed_101',
@@ -138,40 +144,42 @@ class AuditLogService {
     }
 
     // 3. Persist to Supabase Postgres database inside `users.settings` JSON
-    try {
-      final supabase = SupabaseService.client;
-      
-      // Fetch current settings for user
-      final userResp = await supabase
-          .from('users')
-          .select('settings')
-          .eq('id', currentUserId)
-          .maybeSingle();
-
-      Map<String, dynamic> settings = {};
-      if (userResp != null && userResp['settings'] != null) {
-        if (userResp['settings'] is Map) {
-          settings = Map<String, dynamic>.from(userResp['settings']);
-        }
-      }
-
-      List<dynamic> existingAuditLogs = settings['audit_logs'] is List ? List.from(settings['audit_logs']) : [];
-      
-      // Check if already inserted
-      if (!existingAuditLogs.any((item) => item is Map && item['id'] == id)) {
-        existingAuditLogs.insert(0, payload);
-        if (existingAuditLogs.length > 200) {
-          existingAuditLogs = existingAuditLogs.sublist(0, 200);
-        }
-        settings['audit_logs'] = existingAuditLogs;
-
-        await supabase
+    if (_isValidUuid(currentUserId)) {
+      try {
+        final supabase = SupabaseService.client;
+        
+        // Fetch current settings for user
+        final userResp = await supabase
             .from('users')
-            .update({'settings': settings})
-            .eq('id', currentUserId);
+            .select('settings')
+            .eq('id', currentUserId)
+            .maybeSingle();
+
+        Map<String, dynamic> settings = {};
+        if (userResp != null && userResp['settings'] != null) {
+          if (userResp['settings'] is Map) {
+            settings = Map<String, dynamic>.from(userResp['settings']);
+          }
+        }
+
+        List<dynamic> existingAuditLogs = settings['audit_logs'] is List ? List.from(settings['audit_logs']) : [];
+        
+        // Check if already inserted
+        if (!existingAuditLogs.any((item) => item is Map && item['id'] == id)) {
+          existingAuditLogs.insert(0, payload);
+          if (existingAuditLogs.length > 200) {
+            existingAuditLogs = existingAuditLogs.sublist(0, 200);
+          }
+          settings['audit_logs'] = existingAuditLogs;
+
+          await supabase
+              .from('users')
+              .update({'settings': settings})
+              .eq('id', currentUserId);
+        }
+      } catch (e) {
+        if (kDebugMode) print('Supabase users.settings audit log save error: $e');
       }
-    } catch (e) {
-      if (kDebugMode) print('Supabase users.settings audit log save error: $e');
     }
 
     // 4. Try legacy tables `audit_logs` & `user_audit_logs` if exist
@@ -286,27 +294,29 @@ class AuditLogService {
     final List<AuditLogModel> resultLogs = [];
 
     // 1. Fetch from Supabase `users.settings` for this currentUserId
-    try {
-      final supabase = SupabaseService.client;
-      final userResp = await supabase
-          .from('users')
-          .select('settings')
-          .eq('id', currentUserId)
-          .maybeSingle();
+    if (_isValidUuid(currentUserId)) {
+      try {
+        final supabase = SupabaseService.client;
+        final userResp = await supabase
+            .from('users')
+            .select('settings')
+            .eq('id', currentUserId)
+            .maybeSingle();
 
-      if (userResp != null && userResp['settings'] != null && userResp['settings']['audit_logs'] is List) {
-        final List<dynamic> userLogs = userResp['settings']['audit_logs'];
-        for (var item in userLogs) {
-          if (item is Map<String, dynamic>) {
-            final model = AuditLogModel.fromJson(item);
-            if (!resultLogs.any((x) => x.id == model.id)) {
-              resultLogs.add(model);
+        if (userResp != null && userResp['settings'] != null && userResp['settings']['audit_logs'] is List) {
+          final List<dynamic> userLogs = userResp['settings']['audit_logs'];
+          for (var item in userLogs) {
+            if (item is Map<String, dynamic>) {
+              final model = AuditLogModel.fromJson(item);
+              if (!resultLogs.any((x) => x.id == model.id)) {
+                resultLogs.add(model);
+              }
             }
           }
         }
+      } catch (e) {
+        if (kDebugMode) print('Supabase fetchUserLogs settings error: $e');
       }
-    } catch (e) {
-      if (kDebugMode) print('Supabase fetchUserLogs settings error: $e');
     }
 
     // 2. Fetch from SharedPreferences local user cache
@@ -323,23 +333,25 @@ class AuditLogService {
     } catch (_) {}
 
     // 3. Attempt fetching from legacy Supabase table `user_audit_logs`
-    try {
-      final supabase = SupabaseService.client;
-      final List<dynamic> response = await supabase
-          .from('user_audit_logs')
-          .select()
-          .eq('user_id', currentUserId)
-          .order('created_at', ascending: false);
+    if (_isValidUuid(currentUserId)) {
+      try {
+        final supabase = SupabaseService.client;
+        final List<dynamic> response = await supabase
+            .from('user_audit_logs')
+            .select()
+            .eq('user_id', currentUserId)
+            .order('created_at', ascending: false);
 
-      for (var row in response) {
-        if (row is Map<String, dynamic>) {
-          final model = AuditLogModel.fromJson(row);
-          if (!resultLogs.any((x) => x.id == model.id)) {
-            resultLogs.add(model);
+        for (var row in response) {
+          if (row is Map<String, dynamic>) {
+            final model = AuditLogModel.fromJson(row);
+            if (!resultLogs.any((x) => x.id == model.id)) {
+              resultLogs.add(model);
+            }
           }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
 
     // 4. Merge with local memory logs for this user ID or email
     for (var l in _localLogs) {

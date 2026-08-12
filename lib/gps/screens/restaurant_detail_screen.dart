@@ -326,7 +326,14 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final restaurant = ModalRoute.of(context)?.settings.arguments as RestaurantModel? ?? MockSeedData.restaurants.first;
+    final restaurant = ModalRoute.of(context)?.settings.arguments as RestaurantModel? ?? (MockSeedData.restaurants.isNotEmpty ? MockSeedData.restaurants.first : null);
+
+    if (restaurant == null) {
+      return const Scaffold(
+        appBar: CustomAppBar(title: 'Restaurant Details'),
+        body: Center(child: Text('No restaurant data selected')),
+      );
+    }
 
     return Scaffold(
       appBar: CustomAppBar(

@@ -81,40 +81,104 @@ class ProfileSetupFocusDialog {
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
                           initialValue: selectedGender,
+                          dropdownColor: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          style: const TextStyle(color: AppTheme.navyColor, fontSize: 14.5, fontWeight: FontWeight.w600),
                           decoration: InputDecoration(
                             hintText: 'Select Gender',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14, fontWeight: FontWeight.normal),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            prefixIcon: Icon(Icons.wc_rounded, color: Colors.grey.shade600, size: 20),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.8),
+                            ),
                           ),
-                          items: ['Male', 'Female', 'Other'].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                          items: ['Male', 'Female', 'Other']
+                              .map((g) => DropdownMenuItem(
+                                    value: g,
+                                    child: Text(
+                                      g,
+                                      style: const TextStyle(color: AppTheme.navyColor, fontWeight: FontWeight.w600, fontSize: 14.5),
+                                    ),
+                                  ))
+                              .toList(),
                           onChanged: (val) => setDialogState(() => selectedGender = val),
                         ),
                         if (selectedGender == 'Other') ...[
                           const SizedBox(height: 8),
                           TextField(
                             controller: customGenderCtrl,
+                            style: const TextStyle(color: AppTheme.navyColor, fontSize: 14.5, fontWeight: FontWeight.w500),
                             decoration: InputDecoration(
                               hintText: 'Specify gender...',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.8),
+                              ),
                             ),
                           ),
                         ],
 
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
 
                         // 2. COUNTRY DROPDOWN
                         const Text('Country / Region', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.navyColor)),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
                           initialValue: selectedCountry,
+                          dropdownColor: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          style: const TextStyle(color: AppTheme.navyColor, fontSize: 14.5, fontWeight: FontWeight.w600),
                           decoration: InputDecoration(
                             hintText: 'Select Country',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14, fontWeight: FontWeight.normal),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            prefixIcon: Icon(Icons.public_rounded, color: Colors.grey.shade600, size: 20),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.8),
+                            ),
                           ),
                           items: ['Malaysia', 'Singapore', 'Indonesia', 'Thailand', 'Other']
-                              .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                              .map((c) => DropdownMenuItem(
+                                    value: c,
+                                    child: Text(
+                                      c,
+                                      style: const TextStyle(color: AppTheme.navyColor, fontWeight: FontWeight.w600, fontSize: 14.5),
+                                    ),
+                                  ))
                               .toList(),
                           onChanged: (val) => setDialogState(() => selectedCountry = val),
                         ),
@@ -122,28 +186,66 @@ class ProfileSetupFocusDialog {
                           const SizedBox(height: 8),
                           TextField(
                             controller: customCountryCtrl,
+                            style: const TextStyle(color: AppTheme.navyColor, fontSize: 14.5, fontWeight: FontWeight.w500),
                             decoration: InputDecoration(
                               hintText: 'Enter country name...',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.8),
+                              ),
                             ),
                           ),
                         ],
 
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
 
                         // 3. STATE DROPDOWN
                         const Text('State / City', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.navyColor)),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
                           initialValue: selectedState,
+                          dropdownColor: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          style: const TextStyle(color: AppTheme.navyColor, fontSize: 14.5, fontWeight: FontWeight.w600),
                           decoration: InputDecoration(
                             hintText: 'Select State / City',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14, fontWeight: FontWeight.normal),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            prefixIcon: Icon(Icons.location_city_rounded, color: Colors.grey.shade600, size: 20),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.8),
+                            ),
                           ),
                           items: ['Kuala Lumpur', 'Selangor', 'Johor', 'Penang', 'Perak', 'Sabah', 'Sarawak', 'Other']
-                              .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                              .map((s) => DropdownMenuItem(
+                                    value: s,
+                                    child: Text(
+                                      s,
+                                      style: const TextStyle(color: AppTheme.navyColor, fontWeight: FontWeight.w600, fontSize: 14.5),
+                                    ),
+                                  ))
                               .toList(),
                           onChanged: (val) => setDialogState(() => selectedState = val),
                         ),
@@ -151,10 +253,24 @@ class ProfileSetupFocusDialog {
                           const SizedBox(height: 8),
                           TextField(
                             controller: customStateCtrl,
+                            style: const TextStyle(color: AppTheme.navyColor, fontSize: 14.5, fontWeight: FontWeight.w500),
                             decoration: InputDecoration(
                               hintText: 'Enter state or city name...',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.8),
+                              ),
                             ),
                           ),
                         ],
@@ -167,8 +283,8 @@ class ProfileSetupFocusDialog {
                             backgroundColor: AppTheme.primaryColor,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                           onPressed: () async {
                             final finalGender = selectedGender == 'Other' ? customGenderCtrl.text.trim() : selectedGender;
@@ -200,7 +316,8 @@ class ProfileSetupFocusDialog {
                         OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
                           ),
                           onPressed: () {
                             Navigator.pop(ctx);
@@ -212,7 +329,7 @@ class ProfileSetupFocusDialog {
                               ),
                             );
                           },
-                          child: const Text('Set It Later', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
+                          child: Text('Set It Later', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
                         ),
                       ],
                     ),

@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/gps_service.dart';
 import '../../core/services/language_manager.dart';
+import '../../core/services/restaurant_store_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -39,7 +39,8 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
 
   Set<Marker> _markers = {};
   Set<Circle> _heatmapCircles = {};
-  List<RestaurantModel> _filteredList = MockSeedData.restaurants;
+  List<RestaurantModel> _allRestaurants = [];
+  List<RestaurantModel> _filteredList = [];
 
   static const LatLng _defaultCenter = LatLng(3.1466, 101.6958);
 
@@ -49,11 +50,10 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: 0.88, initialPage: 0);
-    _initMapMarkersAndHeatmap();
+    _loadRestaurantsFromSupabase();
     _fetchUserLocation();
     _initSpeechState();
 
-    // High quality shimmer load simulation during map rasterization & marker placement
     Future.delayed(const Duration(milliseconds: 900), () {
       if (mounted) {
         setState(() {
@@ -61,6 +61,17 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
         });
       }
     });
+  }
+
+  Future<void> _loadRestaurantsFromSupabase() async {
+    final list = await RestaurantStoreService.fetchOwnerRestaurants(null);
+    if (mounted) {
+      setState(() {
+        _allRestaurants = list;
+        _filteredList = list;
+      });
+      _initMapMarkersAndHeatmap();
+    }
   }
 
   @override
@@ -436,7 +447,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
 
   void _filterRestaurantList() {
     final query = _listSearchCtrl.text.toLowerCase().trim();
-    List<RestaurantModel> temp = MockSeedData.restaurants;
+    List<RestaurantModel> temp = List.from(_allRestaurants);
 
     if (query.isNotEmpty) {
       temp = temp.where((r) {

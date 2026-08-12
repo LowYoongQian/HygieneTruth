@@ -42,9 +42,16 @@ class _RestaurantVerificationDetailScreenState extends State<RestaurantVerificat
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final args = ModalRoute.of(context)?.settings.arguments;
-    final r = args is RestaurantModel ? args : MockSeedData.restaurants.last;
+    final RestaurantModel? r = args is RestaurantModel ? args : (MockSeedData.restaurants.isNotEmpty ? MockSeedData.restaurants.last : null);
 
-    final appId = 'APP-${r.id.substring(0, 8).toUpperCase()}';
+    if (r == null) {
+      return Scaffold(
+        appBar: const CustomAppBar(title: 'Outlet Review'),
+        body: const Center(child: Text('No outlet selected for review')),
+      );
+    }
+
+    final appId = 'APP-${r.id.substring(0, r.id.length > 8 ? 8 : r.id.length).toUpperCase()}';
 
     return Scaffold(
       appBar: const CustomAppBar(title: 'Outlet Review'),

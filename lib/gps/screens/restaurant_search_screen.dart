@@ -6,6 +6,7 @@ import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/language_manager.dart';
+import '../../core/services/restaurant_store_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -30,7 +31,8 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
   String _selectedRanking = 'All'; // 'All', 'Low', 'Medium', 'High'
   bool _isNearbyOnly = false;
 
-  List<RestaurantModel> _filteredList = MockSeedData.restaurants;
+  List<RestaurantModel> _allRestaurants = [];
+  List<RestaurantModel> _filteredList = [];
 
   // Reference User Location for Nearby calculation (Kuala Lumpur City Center)
   final double _userLat = 3.1466;
@@ -40,6 +42,17 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
   void initState() {
     super.initState();
     _initSpeech();
+    _loadRestaurantsFromSupabase();
+  }
+
+  Future<void> _loadRestaurantsFromSupabase() async {
+    final list = await RestaurantStoreService.fetchOwnerRestaurants(null);
+    if (mounted) {
+      setState(() {
+        _allRestaurants = list;
+        _filteredList = list;
+      });
+    }
   }
 
   @override
@@ -227,7 +240,7 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
     final query = _searchCtrl.text.trim().toLowerCase();
 
     setState(() {
-      _filteredList = MockSeedData.restaurants.where((r) {
+      _filteredList = _allRestaurants.where((r) {
         final matchesQuery = query.isEmpty ||
             r.name.toLowerCase().contains(query) ||
             r.category.toLowerCase().contains(query) ||

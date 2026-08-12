@@ -114,117 +114,205 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
   @override
   Widget build(BuildContext context) {
     const ownerColor = Color(0xFFD97706);
+    const navyColor = Color(0xFF0F172A);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: const CustomAppBar(title: 'Business Portal Login'),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: ownerColor.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.storefront, size: 64, color: ownerColor),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Businessman Portal',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Manage hygiene inspection compliance, notices & reports',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-
-            TextField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                labelText: 'Business Email',
-                prefixIcon: const Icon(Icons.business_center_outlined),
-                border: const OutlineInputBorder(),
-                errorText: _emailError,
-              ),
-              onChanged: (_) {
-                if (_emailError != null) setState(() => _emailError = null);
-              },
-            ),
-            const SizedBox(height: 16),
-
-            TextField(
-              controller: _passwordController,
-              obscureText: _obscurePassword,
-              decoration: InputDecoration(
-                labelText: 'Password',
-                prefixIcon: const Icon(Icons.lock_outline),
-                errorText: _passwordError,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                    color: Colors.grey,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 16),
+              // Circular soft amber badge with store icon matching reference design
+              Center(
+                child: Container(
+                  width: 90,
+                  height: 90,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFEF3C7),
+                    shape: BoxShape.circle,
                   ),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  child: const Icon(
+                    Icons.storefront_rounded,
+                    size: 48,
+                    color: ownerColor,
+                  ),
                 ),
-                border: const OutlineInputBorder(),
               ),
-              onChanged: (_) {
-                if (_passwordError != null) setState(() => _passwordError = null);
-              },
-            ),
-            const SizedBox(height: 10),
-
-            Row(
-              children: [
-                Checkbox(
-                  value: _rememberMe,
-                  activeColor: ownerColor,
-                  onChanged: (val) => setState(() => _rememberMe = val ?? false),
+              const SizedBox(height: 20),
+              const Text(
+                'Businessman Portal',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: navyColor,
+                  letterSpacing: -0.3,
                 ),
-                const Text('Remember me', style: TextStyle(fontSize: 14)),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            SizedBox(
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _handleOwnerLogin,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: ownerColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Text('Log In to Business Portal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 20),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('Need a Business Account?'),
-                TextButton(
-                  onPressed: () => Navigator.pushNamed(context, AppRoutes.ownerRegister),
-                  child: const Text('Register Business', style: TextStyle(color: ownerColor, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text(
+                'Manage hygiene inspection compliance, notices & reports',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                  height: 1.3,
                 ),
-              ],
-            ),
-          ],
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+
+              // Email Input Field matching reference screenshot
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                style: const TextStyle(color: navyColor, fontSize: 14.5, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  labelText: 'Business Email',
+                  labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  prefixIcon: Icon(Icons.business_center_outlined, color: Colors.grey.shade600, size: 20),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: ownerColor, width: 1.8),
+                  ),
+                  errorText: _emailError,
+                ),
+                onChanged: (_) {
+                  if (_emailError != null) setState(() => _emailError = null);
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Password Input Field matching reference screenshot
+              TextField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                style: const TextStyle(color: navyColor, fontSize: 14.5, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  prefixIcon: Icon(Icons.lock_outline_rounded, color: Colors.grey.shade600, size: 20),
+                  errorText: _passwordError,
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      color: Colors.grey.shade500,
+                      size: 20,
+                    ),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: ownerColor, width: 1.8),
+                  ),
+                ),
+                onChanged: (_) {
+                  if (_passwordError != null) setState(() => _passwordError = null);
+                },
+              ),
+              const SizedBox(height: 10),
+
+              // Remember me Checkbox
+              Row(
+                children: [
+                  SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: Checkbox(
+                      value: _rememberMe,
+                      activeColor: ownerColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      onChanged: (val) => setState(() => _rememberMe = val ?? false),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Remember me',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Log In to Business Portal Full-width Action Button matching reference design
+              SizedBox(
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _handleOwnerLogin,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ownerColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                        )
+                      : const Text(
+                          'Log In to Business Portal',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Footer: Need a Business Account? Register Business
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Need a Business Account?',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  ),
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.ownerRegister),
+                    child: const Text(
+                      'Register Business',
+                      style: TextStyle(
+                        color: ownerColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );

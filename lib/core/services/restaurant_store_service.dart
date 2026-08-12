@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/mock_seed_data.dart';
 import '../models/restaurant_model.dart';
 import '../utils/uuid_helper.dart';
@@ -9,6 +12,89 @@ import 'supabase_service.dart';
 class RestaurantStoreService {
   /// In-memory override store for reviewed outlet statuses: restaurantId -> status string
   static final Map<String, String> _reviewedOutletStatuses = {};
+  static final Map<String, String> _reviewedOutletRegNos = {};
+
+  static bool _isValidUuid(String? str) {
+    if (str == null || str.isEmpty) return false;
+    final uuidRegex = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+    return uuidRegex.hasMatch(str);
+  }
+
+  static Future<void> _saveOverrideToPrefs(String id, String status, String? regNo) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('restaurant_override_status_$id', status);
+      if (regNo != null && regNo.isNotEmpty) {
+        await prefs.setString('restaurant_override_regno_$id', regNo);
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> _applyOverridesToMap(Map<String, dynamic> mapData) async {
+    final String id = mapData['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+
+    if (_reviewedOutletStatuses.containsKey(id)) {
+      mapData['status'] = _reviewedOutletStatuses[id];
+    } else {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final savedStatus = prefs.getString('restaurant_override_status_$id');
+        if (savedStatus != null && savedStatus.isNotEmpty) {
+          _reviewedOutletStatuses[id] = savedStatus;
+          mapData['status'] = savedStatus;
+        }
+      } catch (_) {}
+    }
+
+    if (_reviewedOutletRegNos.containsKey(id)) {
+      mapData['business_reg_no'] = _reviewedOutletRegNos[id];
+    } else {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final savedRegNo = prefs.getString('restaurant_override_regno_$id');
+        if (savedRegNo != null && savedRegNo.isNotEmpty) {
+          _reviewedOutletRegNos[id] = savedRegNo;
+          mapData['business_reg_no'] = savedRegNo;
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Uploads an SSM certificate image file to Supabase storage bucket 'Images' in folder 'SSM'
+  static Future<String?> uploadSSMCertificateFile(File file, String restaurantId) async {
+    try {
+      final supabase = SupabaseService.client;
+      final fileName = 'SSM_Cert_${restaurantId}_${DateTime.now().millisecondsSinceEpoch}.png';
+      final storagePath = 'SSM/$fileName';
+
+      final bytes = await file.readAsBytes();
+      try {
+        await supabase.storage.from('Images').uploadBinary(
+          storagePath,
+          bytes,
+          fileOptions: const FileOptions(contentType: 'image/png', upsert: true),
+        );
+
+        final publicUrl = supabase.storage.from('Images').getPublicUrl(storagePath);
+        return publicUrl;
+      } catch (_) {
+        // Fallback to hygiene-proofs bucket if Images bucket is restricted
+        await supabase.storage.from('hygiene-proofs').uploadBinary(
+          'ssm_certificates/$fileName',
+          bytes,
+          fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
+        );
+        return supabase.storage.from('hygiene-proofs').getPublicUrl('ssm_certificates/$fileName');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Supabase SSM cert upload warning: $e');
+      }
+      return null;
+    }
+  }
+
   /// Save a new restaurant input to Supabase database & append to active store
   static Future<RestaurantModel> addRestaurant({
     required String name,
@@ -34,6 +120,13 @@ class RestaurantStoreService {
     final String finalImageUrl = (imageUrl != null && imageUrl.trim().isNotEmpty)
         ? imageUrl.trim()
         : 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600';
+
+    // Upload SSM Certificate to Supabase Bucket if file exists locally
+    String? uploadedSsmUrl;
+    if (ssmCertUrl != null && ssmCertUrl.isNotEmpty && File(ssmCertUrl).existsSync()) {
+      uploadedSsmUrl = await uploadSSMCertificateFile(File(ssmCertUrl), id);
+    }
+    final String finalSsmCertUrl = uploadedSsmUrl ?? ssmCertUrl ?? 'ssm_cert_verified_proof.png';
 
     final newRestaurant = RestaurantModel(
       id: id,
@@ -73,20 +166,21 @@ class RestaurantStoreService {
         'last_updated': nowIso,
       };
 
-      if (currentUserId != null && currentUserId.isNotEmpty) {
+      if (currentUserId != null && currentUserId.isNotEmpty && _isValidUuid(currentUserId)) {
         insertData['owner_id'] = currentUserId;
       }
 
-      // Try inserting with operating_hours and business_reg_no into database
+      // Try inserting with operating_hours, business_reg_no, and ssm_cert_url into database
       try {
         final Map<String, dynamic> insertDataWithExtraCols = Map<String, dynamic>.from(insertData);
         insertDataWithExtraCols['operating_hours'] = operatingHours;
+        insertDataWithExtraCols['ssm_cert_url'] = finalSsmCertUrl;
         if (generatedRegNo != null) {
           insertDataWithExtraCols['business_reg_no'] = generatedRegNo;
         }
         await supabase.from('restaurants').insert(insertDataWithExtraCols);
       } catch (_) {
-        // Safe fallback if operating_hours column is not yet present in Supabase table schema
+        // Safe fallback if optional columns are not present in Supabase table schema
         await supabase.from('restaurants').insert(insertData);
       }
     } catch (e) {
@@ -108,11 +202,11 @@ class RestaurantStoreService {
       final supabase = SupabaseService.client;
       final List<dynamic> rows;
 
-      if (ownerId != null && ownerId.isNotEmpty) {
+      if (ownerId != null && ownerId.isNotEmpty && _isValidUuid(ownerId)) {
         final res = await supabase
             .from('restaurants')
             .select()
-            .or('owner_id.eq.$ownerId,owner_id.eq.own_001');
+            .eq('owner_id', ownerId);
         rows = res as List<dynamic>;
       } else {
         final res = await supabase.from('restaurants').select();
@@ -121,14 +215,18 @@ class RestaurantStoreService {
 
       final List<RestaurantModel> fetchedList = [];
       for (final r in rows) {
-        fetchedList.add(RestaurantModel.fromMap(r as Map<String, dynamic>));
+        final mapData = Map<String, dynamic>.from(r as Map<String, dynamic>);
+        await _applyOverridesToMap(mapData);
+        fetchedList.add(RestaurantModel.fromMap(mapData));
       }
 
       // Merge any local session restaurants that might not yet be in fetchedList
       for (final local in MockSeedData.restaurants) {
         if (!fetchedList.any((r) => r.id == local.id)) {
           if (ownerId == null || local.ownerId == ownerId || local.ownerId == 'own_001' || (ownerEmail != null && local.ownerId == ownerEmail)) {
-            fetchedList.add(local);
+            final mapData = local.toMap();
+            await _applyOverridesToMap(mapData);
+            fetchedList.add(RestaurantModel.fromMap(mapData));
           }
         }
       }
@@ -145,6 +243,16 @@ class RestaurantStoreService {
         return r.ownerId == ownerId ||
             (ownerEmail != null && r.ownerId == ownerEmail) ||
             (ownerId == 'own_001' && r.ownerId == 'own_001');
+      }).map((r) {
+        final mapData = r.toMap();
+        final String id = mapData['id']?.toString() ?? '';
+        if (_reviewedOutletStatuses.containsKey(id)) {
+          mapData['status'] = _reviewedOutletStatuses[id];
+        }
+        if (_reviewedOutletRegNos.containsKey(id)) {
+          mapData['business_reg_no'] = _reviewedOutletRegNos[id];
+        }
+        return RestaurantModel.fromMap(mapData);
       }).toList();
     }
     return List.from(MockSeedData.restaurants);
@@ -157,15 +265,15 @@ class RestaurantStoreService {
       final res = await supabase
           .from('restaurants')
           .select()
-          .eq('status', 'pendingVerification')
           .order('created_at', ascending: false);
 
       final List<dynamic> rows = res as List<dynamic>;
       final List<RestaurantModel> pendingList = [];
       for (final r in rows) {
-        final model = RestaurantModel.fromMap(r as Map<String, dynamic>);
-        final String effectiveStatus = _reviewedOutletStatuses[model.id] ?? model.status.name;
-        if (effectiveStatus == 'pendingVerification') {
+        final mapData = Map<String, dynamic>.from(r as Map<String, dynamic>);
+        await _applyOverridesToMap(mapData);
+        final model = RestaurantModel.fromMap(mapData);
+        if (model.status == RestaurantStatus.pendingVerification) {
           pendingList.add(model);
         }
       }
@@ -196,17 +304,16 @@ class RestaurantStoreService {
       final res = await supabase
           .from('restaurants')
           .select()
-          .eq('status', 'pendingVerification')
           .order('created_at', ascending: false)
           .range(from, to);
 
       final List<dynamic> rows = res as List<dynamic>;
       final List<RestaurantModel> pendingList = [];
       for (final r in rows) {
-        final model = RestaurantModel.fromMap(r as Map<String, dynamic>);
-        // Check if override status exists in session or local store
-        final String effectiveStatus = _reviewedOutletStatuses[model.id] ?? model.status.name;
-        if (effectiveStatus == 'pendingVerification') {
+        final mapData = Map<String, dynamic>.from(r as Map<String, dynamic>);
+        await _applyOverridesToMap(mapData);
+        final model = RestaurantModel.fromMap(mapData);
+        if (model.status == RestaurantStatus.pendingVerification) {
           pendingList.add(model);
         }
       }
@@ -236,8 +343,13 @@ class RestaurantStoreService {
     String? businessRegNo,
     String? revisionNotes,
   }) async {
-    // Record status override in session memory immediately
+    // 1. Record status override in session memory & SharedPreferences immediately
     _reviewedOutletStatuses[restaurantId] = status;
+    if (businessRegNo != null && businessRegNo.isNotEmpty) {
+      _reviewedOutletRegNos[restaurantId] = businessRegNo;
+    }
+    await _saveOverrideToPrefs(restaurantId, status, businessRegNo);
+
     try {
       final supabase = SupabaseService.client;
       final String nowIso = DateTime.now().toUtc().toIso8601String();
@@ -250,7 +362,7 @@ class RestaurantStoreService {
         updateData['business_reg_no'] = businessRegNo;
       }
 
-      // 1. Update Supabase `restaurants` table
+      // Update Supabase `restaurants` table
       try {
         await supabase.from('restaurants').update(updateData).eq('id', restaurantId);
       } catch (e) {
@@ -259,7 +371,7 @@ class RestaurantStoreService {
         }
       }
 
-      // 2. Update local in-memory MockSeedData store for instant UI reactivity
+      // Update local in-memory MockSeedData store for instant UI reactivity
       final idx = MockSeedData.restaurants.indexWhere((r) => r.id == restaurantId);
       if (idx != -1) {
         final old = MockSeedData.restaurants[idx];
@@ -287,7 +399,7 @@ class RestaurantStoreService {
         );
       }
 
-      // 3. Log Audit Action
+      // Log Audit Action
       final String auditActionType = status == 'approved'
           ? 'OUTLET_APPROVED'
           : (status == 'needsRevision' ? 'REVISION_REQUESTED' : 'OUTLET_REJECTED');

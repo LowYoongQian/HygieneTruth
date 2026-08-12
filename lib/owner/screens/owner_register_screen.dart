@@ -99,127 +99,228 @@ class _OwnerRegisterScreenState extends State<OwnerRegisterScreen> {
   @override
   Widget build(BuildContext context) {
     const ownerColor = Color(0xFFD97706);
+    const navyColor = Color(0xFF0F172A);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: const CustomAppBar(title: 'Business Registration'),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Icon(Icons.add_business_outlined, size: 54, color: ownerColor),
-            const SizedBox(height: 12),
-            const Text(
-              'Register Businessman Account',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Register your business details to receive official inspection notices & report resolutions',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-
-            TextField(
-              controller: _ownerNameController,
-              decoration: InputDecoration(
-                labelText: 'Businessman / Manager Full Name',
-                prefixIcon: const Icon(Icons.person_outline),
-                border: const OutlineInputBorder(),
-                errorText: _nameError,
-              ),
-              onChanged: (_) {
-                if (_nameError != null) setState(() => _nameError = null);
-              },
-            ),
-            const SizedBox(height: 16),
-
-            TextField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                labelText: 'Business Email Address',
-                prefixIcon: const Icon(Icons.email_outlined),
-                border: const OutlineInputBorder(),
-                errorText: _emailError,
-              ),
-              onChanged: (_) {
-                if (_emailError != null) setState(() => _emailError = null);
-              },
-            ),
-            const SizedBox(height: 16),
-
-            TextField(
-              controller: _passController,
-              obscureText: _obscurePass,
-              decoration: InputDecoration(
-                labelText: 'Password',
-                prefixIcon: const Icon(Icons.lock_outline),
-                errorText: _passError,
-                suffixIcon: IconButton(
-                  icon: Icon(_obscurePass ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
-                  onPressed: () => setState(() => _obscurePass = !_obscurePass),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 12),
+              // Circular soft amber badge matching system theme
+              Center(
+                child: Container(
+                  width: 90,
+                  height: 90,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFEF3C7),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.add_business_rounded,
+                    size: 48,
+                    color: ownerColor,
+                  ),
                 ),
-                border: const OutlineInputBorder(),
               ),
-              onChanged: (_) {
-                if (_passError != null) setState(() => _passError = null);
-              },
-            ),
-            const SizedBox(height: 16),
-
-            TextField(
-              controller: _confirmPassController,
-              obscureText: _obscureConfirmPass,
-              decoration: InputDecoration(
-                labelText: 'Confirm Password',
-                prefixIcon: const Icon(Icons.lock_reset),
-                errorText: _confirmPassError,
-                suffixIcon: IconButton(
-                  icon: Icon(_obscureConfirmPass ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
-                  onPressed: () => setState(() => _obscureConfirmPass = !_obscureConfirmPass),
+              const SizedBox(height: 20),
+              const Text(
+                'Register Business Account',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: navyColor,
+                  letterSpacing: -0.3,
                 ),
-                border: const OutlineInputBorder(),
+                textAlign: TextAlign.center,
               ),
-              onChanged: (_) {
-                if (_confirmPassError != null) setState(() => _confirmPassError = null);
-              },
-            ),
-            const SizedBox(height: 24),
-
-            SizedBox(
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _handleOwnerRegistration,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: ownerColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              const SizedBox(height: 6),
+              Text(
+                'Register your business details to receive official inspection notices & report resolutions',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                  height: 1.3,
                 ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Text('Register Business Account', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 28),
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('Already registered your business?'),
-                TextButton(
-                  onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.ownerLogin),
-                  child: const Text('Log In', style: TextStyle(color: ownerColor, fontWeight: FontWeight.bold)),
+              // Businessman / Manager Full Name
+              TextField(
+                controller: _ownerNameController,
+                style: const TextStyle(color: navyColor, fontSize: 14.5, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  labelText: 'Businessman / Manager Full Name',
+                  labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  prefixIcon: Icon(Icons.person_outline_rounded, color: Colors.grey.shade600, size: 20),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: ownerColor, width: 1.8),
+                  ),
+                  errorText: _nameError,
                 ),
-              ],
-            ),
-          ],
+                onChanged: (_) {
+                  if (_nameError != null) setState(() => _nameError = null);
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Business Email Address
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                style: const TextStyle(color: navyColor, fontSize: 14.5, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  labelText: 'Business Email Address',
+                  labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  prefixIcon: Icon(Icons.email_outlined, color: Colors.grey.shade600, size: 20),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: ownerColor, width: 1.8),
+                  ),
+                  errorText: _emailError,
+                ),
+                onChanged: (_) {
+                  if (_emailError != null) setState(() => _emailError = null);
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Password
+              TextField(
+                controller: _passController,
+                obscureText: _obscurePass,
+                style: const TextStyle(color: navyColor, fontSize: 14.5, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  prefixIcon: Icon(Icons.lock_outline_rounded, color: Colors.grey.shade600, size: 20),
+                  errorText: _passError,
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscurePass ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey.shade500, size: 20),
+                    onPressed: () => setState(() => _obscurePass = !_obscurePass),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: ownerColor, width: 1.8),
+                  ),
+                ),
+                onChanged: (_) {
+                  if (_passError != null) setState(() => _passError = null);
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Confirm Password
+              TextField(
+                controller: _confirmPassController,
+                obscureText: _obscureConfirmPass,
+                style: const TextStyle(color: navyColor, fontSize: 14.5, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  labelText: 'Confirm Password',
+                  labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  prefixIcon: Icon(Icons.lock_reset_rounded, color: Colors.grey.shade600, size: 20),
+                  errorText: _confirmPassError,
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscureConfirmPass ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey.shade500, size: 20),
+                    onPressed: () => setState(() => _obscureConfirmPass = !_obscureConfirmPass),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: ownerColor, width: 1.8),
+                  ),
+                ),
+                onChanged: (_) {
+                  if (_confirmPassError != null) setState(() => _confirmPassError = null);
+                },
+              ),
+              const SizedBox(height: 24),
+
+              // Register Action Button
+              SizedBox(
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _handleOwnerRegistration,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ownerColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                        )
+                      : const Text('Register Business Account', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Already registered your business?', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: () => Navigator.pushReplacementNamed(context, AppRoutes.ownerLogin),
+                    child: const Text('Log In', style: TextStyle(color: ownerColor, fontWeight: FontWeight.bold, fontSize: 14)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );

@@ -78,21 +78,20 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     }
   }
 
-  /// Returns all restaurants owned by the current user
+  /// Returns all restaurants owned by the current user fetched from Supabase
   List<RestaurantModel> get _allMyOwnerRestaurants {
     final String? currentUserId = CustomerStoreService.currentCustomer?.id ?? SupabaseService.client.auth.currentUser?.id;
     final String? currentUserEmail = CustomerStoreService.currentCustomer?.email ?? SupabaseService.client.auth.currentUser?.email;
 
-    final sourceList = _fetchedOwnerRestaurants.isNotEmpty ? _fetchedOwnerRestaurants : MockSeedData.restaurants;
+    final sourceList = _fetchedOwnerRestaurants;
 
     if (currentUserId == null || currentUserId.isEmpty) {
-      return sourceList.where((r) => r.ownerId == 'own_001').toList();
+      return sourceList;
     }
 
     return sourceList.where((r) {
       return r.ownerId == currentUserId ||
-             (currentUserEmail != null && r.ownerId == currentUserEmail) ||
-             (currentUserId == 'own_001' && r.ownerId == 'own_001');
+             (currentUserEmail != null && r.ownerId == currentUserEmail);
     }).toList();
   }
 
@@ -769,6 +768,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
             Future<void> pickBanner(ImageSource source) async {
               try {
                 final XFile? image = await picker.pickImage(
@@ -992,27 +992,54 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                             ),
                           ),
                           Positioned(
-                            bottom: 12,
+                            bottom: 14,
                             left: 16,
                             right: 16,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'Edit Premises Details',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                                const Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Edit Premises Details',
+                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: -0.3),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Update storefront info & cover photo',
+                                      style: TextStyle(fontSize: 11, color: Colors.white70),
+                                    ),
+                                  ],
                                 ),
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    foregroundColor: AppTheme.navyColor,
-                                    elevation: 2,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
                                   ),
-                                  onPressed: showChangeBannerSheet,
-                                  icon: const Icon(Icons.photo_camera_rounded, size: 15, color: AppTheme.primaryColor),
-                                  label: const Text('Change Banner', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(12),
+                                      onTap: showChangeBannerSheet,
+                                      child: const Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.photo_camera_rounded, size: 14, color: Colors.white),
+                                            SizedBox(width: 6),
+                                            Text(
+                                              'Change Banner',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.white),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
@@ -1026,43 +1053,73 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Restaurant Name
+                            Text(
+                              'Restaurant Premises Name *',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.navyColor),
+                            ),
+                            const SizedBox(height: 6),
                             TextField(
                               controller: nameCtrl,
+                              style: TextStyle(color: isDark ? Colors.white : AppTheme.navyColor, fontSize: 13),
                               decoration: InputDecoration(
-                                labelText: 'Restaurant Premises Name *',
-                                prefixIcon: const Icon(Icons.storefront_rounded, color: AppTheme.primaryColor),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                                hintText: 'Enter official restaurant name',
+                                hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade400, fontSize: 12),
+                                prefixIcon: const Icon(Icons.storefront_rounded, color: Color(0xFF0F766E), size: 20),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300)),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF0F766E), width: 1.8)),
                                 filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
+                                fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                               ),
                             ),
                             const SizedBox(height: 16),
 
-                            // Operating Hours
+                            Text(
+                              'Operating Hours *',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.navyColor),
+                            ),
+                            const SizedBox(height: 6),
                             TextField(
                               controller: hoursCtrl,
+                              style: TextStyle(color: isDark ? Colors.white : AppTheme.navyColor, fontSize: 13),
                               decoration: InputDecoration(
-                                labelText: 'Operating Hours *',
-                                prefixIcon: const Icon(Icons.access_time_rounded, color: Color(0xFF0F766E)),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                                hintText: 'e.g. 10:00 AM - 10:00 PM (Daily)',
+                                hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade400, fontSize: 12),
+                                prefixIcon: const Icon(Icons.access_time_rounded, color: Color(0xFF0F766E), size: 20),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300)),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF0F766E), width: 1.8)),
                                 filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
+                                fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                               ),
                             ),
                             const SizedBox(height: 16),
 
-                            // Address
+                            Text(
+                              'Premises Address *',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.navyColor),
+                            ),
+                            const SizedBox(height: 6),
                             TextField(
                               controller: addrCtrl,
-                              decoration: InputDecoration(
-                                labelText: 'Premises Address *',
-                                prefixIcon: const Icon(Icons.location_on_rounded, color: Color(0xFFD97706)),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                                filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
-                              ),
                               maxLines: 2,
+                              style: TextStyle(color: isDark ? Colors.white : AppTheme.navyColor, fontSize: 13),
+                              decoration: InputDecoration(
+                                hintText: 'Enter complete business premise address',
+                                hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade400, fontSize: 12),
+                                prefixIcon: const Padding(
+                                  padding: EdgeInsets.only(bottom: 24),
+                                  child: Icon(Icons.location_on_rounded, color: Color(0xFF0F766E), size: 20),
+                                ),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300)),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF0F766E), width: 1.8)),
+                                filled: true,
+                                fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                              ),
                             ),
                             const SizedBox(height: 24),
 
@@ -1073,21 +1130,36 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                   child: OutlinedButton(
                                     style: OutlinedButton.styleFrom(
                                       padding: const EdgeInsets.symmetric(vertical: 14),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      side: BorderSide(color: isDark ? Colors.white24 : Colors.grey.shade300),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                     ),
                                     onPressed: () => Navigator.pop(ctx),
-                                    child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    child: Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.grey.shade700)),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.primaryColor,
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFF0F766E), Color(0xFF0284C7)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(14),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF0F766E).withValues(alpha: 0.3),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
                                     ),
-                                    onPressed: isSaving ? null : () async {
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(14),
+                                        onTap: isSaving ? null : () async {
                                       final newName = nameCtrl.text.trim();
                                       final newHours = hoursCtrl.text.trim();
                                       final newAddr = addrCtrl.text.trim();
@@ -1173,13 +1245,20 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                         );
                                       }
                                     },
-                                    child: isSaving
-                                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                        : const Text('Save Changes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      child: Center(
+                                        child: isSaving
+                                            ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                            : const Text('Save Changes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
+                          ],
+                        ),
                           ],
                         ),
                       ),
@@ -2431,61 +2510,216 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   void _showRequestDeleteRestaurantDialog() {
     final reasonCtrl = TextEditingController();
+    bool isSubmitting = false;
 
     showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.red),
-              SizedBox(width: 8),
-              Text(
-                'Request Restaurant Deletion',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.navyColor),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Please state the reason for requesting restaurant deletion from system records:'),
-              const SizedBox(height: 12),
-              TextField(
-                controller: reasonCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  hintText: 'e.g., Outlet closed down / change of location...',
-                  border: OutlineInputBorder(),
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Premium Red Gradient Top Header Bar
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF991B1B), Color(0xFF7F1D1D)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.delete_forever_rounded, color: Colors.white, size: 24),
+                          ),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Request Restaurant Deletion',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: -0.3),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Submit official removal request for health review',
+                                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Dialog Form Body
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Info Notice Box
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.2)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.info_outline_rounded, color: Color(0xFFDC2626), size: 18),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Note: Restaurant deletion requests require official MOH health admin audit verification before permanent removal.',
+                                    style: TextStyle(fontSize: 11, color: isDark ? Colors.red.shade200 : const Color(0xFF991B1B), height: 1.35),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          Text(
+                            'Reason for Deletion Request *',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : AppTheme.navyColor,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          TextField(
+                            controller: reasonCtrl,
+                            maxLines: 4,
+                            style: TextStyle(color: isDark ? Colors.white : AppTheme.navyColor, fontSize: 13),
+                            decoration: InputDecoration(
+                              hintText: 'State your reason clearly (e.g., store closure, relocation, change of ownership)...',
+                              hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade400, fontSize: 12),
+                              filled: true,
+                              fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                              contentPadding: const EdgeInsets.all(14),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(color: Color(0xFFDC2626), width: 1.8),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Action Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    side: BorderSide(color: isDark ? Colors.white24 : Colors.grey.shade300),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  ),
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.grey.shade700)),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFFDC2626), Color(0xFF991B1B)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(14),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFFDC2626).withValues(alpha: 0.35),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(14),
+                                      onTap: isSubmitting ? null : () async {
+                                        if (reasonCtrl.text.trim().isEmpty) return;
+                                        setDialogState(() => isSubmitting = true);
+                                        await Future.delayed(const Duration(milliseconds: 300));
+                                        if (ctx.mounted) {
+                                          Navigator.pop(ctx);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: const Row(
+                                                children: [
+                                                  Icon(Icons.check_circle_rounded, color: Colors.white),
+                                                  SizedBox(width: 10),
+                                                  Expanded(child: Text('Deletion request submitted to MOH Health Admins for review.')),
+                                                ],
+                                              ),
+                                              backgroundColor: const Color(0xFFDC2626),
+                                              behavior: SnackBarBehavior.floating,
+                                              margin: const EdgeInsets.all(16),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        child: Center(
+                                          child: isSubmitting
+                                              ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                              : const Text('Submit Request', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade700,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: () {
-                if (reasonCtrl.text.trim().isNotEmpty) {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Deletion request submitted to health admins for review.'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-              child: const Text('Submit Request', style: TextStyle(color: Colors.white)),
-            ),
-          ],
+            );
+          },
         );
       },
     );
