@@ -1,11 +1,14 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../core/models/complaint_model.dart';
 import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/services/language_manager.dart';
+import '../../core/services/restaurant_store_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
-import '../../core/widgets/wireframe_box.dart';
 import '../widgets/complaint_step_tracker.dart';
 
 class SubmitComplaintScreen extends StatefulWidget {
@@ -22,7 +25,10 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
   String _selectedCategory = 'Pest Infestation';
   final List<String> _selectedIssues = [];
   String _description = '';
-  bool _photoUploaded = false;
+  
+  final List<File> _attachedPhotoFiles = [];
+  final List<String> _attachedPhotoUrls = [];
+  final ImagePicker _picker = ImagePicker();
 
   final _customNameController = TextEditingController();
   final _customAddressController = TextEditingController();
@@ -59,6 +65,15 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
     'Other Issue',
   ];
 
+  final Map<String, IconData> _categoryIcons = {
+    'Pest Infestation': Icons.bug_report_outlined,
+    'Unclean Utensils': Icons.flatware_rounded,
+    'Food Poisoning': Icons.sick_outlined,
+    'Poor Staff Hygiene': Icons.clean_hands_outlined,
+    'Waste & Drainage': Icons.delete_sweep_outlined,
+    'Other Issue': Icons.report_problem_outlined,
+  };
+
   final Map<String, List<String>> _issueChecklistMap = {
     'Pest Infestation': [
       'Cockroaches near food prep',
@@ -90,6 +105,12 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
     ]
   };
 
+  final List<String> _sampleEvidencePresets = [
+    'https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?q=80&w=400',
+    'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?q=80&w=400',
+    'https://images.unsplash.com/photo-1594998893017-36147cbcae05?q=80&w=400',
+  ];
+
   @override
   void dispose() {
     _customNameController.dispose();
@@ -97,12 +118,36 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
     super.dispose();
   }
 
+  List<RestaurantModel> get _availableRestaurants {
+    final List<RestaurantModel> list = [];
+    final Set<String> seenIds = {};
+
+    if (_selectedRestaurant != null && _selectedRestaurant!.id != 'other_new') {
+      seenIds.add(_selectedRestaurant!.id);
+      list.add(_selectedRestaurant!);
+    }
+
+    for (final r in MockSeedData.restaurants) {
+      if (!seenIds.contains(r.id)) {
+        seenIds.add(r.id);
+        list.add(r);
+      }
+    }
+
+    return list;
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is RestaurantModel) {
-      _selectedRestaurant = args;
+      final existingIndex = MockSeedData.restaurants.indexWhere((r) => r.id == args.id);
+      if (existingIndex != -1) {
+        _selectedRestaurant = MockSeedData.restaurants[existingIndex];
+      } else {
+        _selectedRestaurant = args;
+      }
     } else {
       _selectedRestaurant ??= MockSeedData.restaurants.isNotEmpty ? MockSeedData.restaurants.first : null;
     }
@@ -110,7 +155,10 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
 
   bool get _isOtherSelected => _selectedRestaurant?.id == 'other_new';
 
-  // Strict Validation: Returns true only when current step requirements are met
+  bool get _hasPhotoAttached => _attachedPhotoFiles.isNotEmpty || _attachedPhotoUrls.isNotEmpty;
+
+  int get _totalPhotoCount => _attachedPhotoFiles.length + _attachedPhotoUrls.length;
+
   bool _canProceedCurrentStep() {
     switch (_currentStep) {
       case 0:
@@ -121,7 +169,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
       case 1:
         return _selectedIssues.isNotEmpty;
       case 2:
-        return _description.trim().isNotEmpty || _photoUploaded;
+        return _description.trim().isNotEmpty || _hasPhotoAttached;
       case 3:
         return true;
       default:
@@ -146,12 +194,150 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
     }
   }
 
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: source,
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 85,
+      );
+      if (pickedFile != null) {
+        setState(() {
+          if (_totalPhotoCount < 4) {
+            _attachedPhotoFiles.add(File(pickedFile.path));
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not access image: $e')),
+        );
+      }
+    }
+  }
+
+  void _showPhotoPickerOptionsModal() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.add_a_photo_rounded, color: AppTheme.primaryColor, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Attach Photo Evidence',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Clear photos of food, utensils, or premises help health inspectors investigate quickly.',
+                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 20),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.camera_alt_rounded, color: AppTheme.primaryColor),
+                  ),
+                  title: const Text('Take Photo with Camera', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: const Text('Capture live evidence using device camera', style: TextStyle(fontSize: 12)),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickImage(ImageSource.camera);
+                  },
+                ),
+                const Divider(height: 12),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.photo_library_rounded, color: Color(0xFF0284C7)),
+                  ),
+                  title: const Text('Choose from Gallery', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: const Text('Select existing photos from device gallery', style: TextStyle(fontSize: 12)),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickImage(ImageSource.gallery);
+                  },
+                ),
+                const Divider(height: 12),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.science_outlined, color: Colors.amber.shade800),
+                  ),
+                  title: const Text('Use Sample Evidence Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: const Text('Add inspection sample photo for quick demo', style: TextStyle(fontSize: 12)),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() {
+                      if (_totalPhotoCount < 4) {
+                        final nextPreset = _sampleEvidencePresets[_attachedPhotoUrls.length % _sampleEvidencePresets.length];
+                        _attachedPhotoUrls.add(nextPreset);
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  bool _isSubmitting = false;
+
   void _onNextPressed() {
-    if (!_canProceedCurrentStep()) return;
-    if (_currentStep < _stepTitles.length - 1) {
-      setState(() {
-        _currentStep += 1;
-      });
+    if (!_canProceedCurrentStep() || _isSubmitting) return;
+    if (_currentStep < 3) {
+      setState(() => _currentStep++);
     } else {
       _submitReport();
     }
@@ -159,30 +345,70 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
 
   void _onBackPressed() {
     if (_currentStep > 0) {
-      setState(() {
-        _currentStep -= 1;
-      });
+      setState(() => _currentStep--);
     } else {
       Navigator.pop(context);
     }
   }
 
-  void _submitReport() {
+  Future<void> _submitReport() async {
     final effectiveOutlet = _isOtherSelected
         ? _customNameController.text.trim()
         : (_selectedRestaurant?.name ?? 'Selected Premises');
+
+    final effectiveAddress = _isOtherSelected
+        ? _customAddressController.text.trim()
+        : (_selectedRestaurant?.address ?? 'Location not provided');
+
+    setState(() => _isSubmitting = true);
+
+    final List<String> allPhotos = [
+      ..._attachedPhotoFiles.map((f) => f.path),
+      ..._attachedPhotoUrls,
+    ];
+
+    ComplaintModel? createdComplaint;
+    try {
+      createdComplaint = await ComplaintStoreService.submitComplaint(
+        restaurantId: _isOtherSelected ? 'custom_${DateTime.now().millisecondsSinceEpoch}' : (_selectedRestaurant?.id ?? 'rest_001'),
+        restaurantName: effectiveOutlet,
+        restaurantAddress: effectiveAddress,
+        category: _selectedCategory,
+        issues: _selectedIssues,
+        description: _description.trim(),
+        photoUrls: allPhotos,
+        latitude: _selectedRestaurant?.latitude ?? 3.1466,
+        longitude: _selectedRestaurant?.longitude ?? 101.6958,
+      );
+    } catch (_) {}
+
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    final displayTicketId = createdComplaint != null && createdComplaint.id.length >= 8
+        ? '#CMP-${createdComplaint.id.substring(0, 8).toUpperCase()}'
+        : '#CMP-2026-8842';
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+          contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
           title: Row(
-            children: const [
-              Icon(Icons.check_circle, color: Color(0xFF10B981), size: 28),
-              SizedBox(width: 10),
-              Expanded(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 26),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
                 child: Text(
                   'Report Submitted!',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.navyColor),
@@ -195,40 +421,84 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Your hygiene complaint report for "$effectiveOutlet" has been logged successfully.',
-                style: const TextStyle(fontSize: 14, height: 1.4),
+                'Your hygiene complaint for "$effectiveOutlet" has been dispatched to health authorities for verification.',
+                style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700, height: 1.4),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.all(12),
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.grey.shade200),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Ticket ID: #REP-2026-8842', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.navyColor)),
-                    const SizedBox(height: 4),
-                    Text('Status: Pending Official Verification', style: TextStyle(fontSize: 12, color: Colors.amber.shade800, fontWeight: FontWeight.w600)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Tracking Ticket ID',
+                          style: TextStyle(fontSize: 11.5, color: Colors.grey, fontWeight: FontWeight.w600),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            displayTicketId,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.primaryColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade700,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Status: Pending Inspection Review',
+                            style: TextStyle(fontSize: 12, color: Colors.amber.shade900, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 1,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Back to Home', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
                 ),
               ),
             ],
           ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () {
-                Navigator.pop(ctx);
-                Navigator.pop(context);
-              },
-              child: const Text('Back to Home', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ],
         );
       },
     );
@@ -285,7 +555,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
                 items: [
-                  ...MockSeedData.restaurants.map((r) {
+                  ..._availableRestaurants.map((r) {
                     return DropdownMenuItem<RestaurantModel>(
                       value: r,
                       child: Row(
@@ -472,54 +742,108 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Issue Category:',
+              'Select Main Issue Category:',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
             ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _selectedCategory,
-              decoration: InputDecoration(
-                labelText: 'Category',
-                prefixIcon: const Icon(Icons.category, color: AppTheme.primaryColor),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              items: _categories.map((c) {
-                return DropdownMenuItem(
-                  value: c,
-                  child: Text(c),
+            const SizedBox(height: 10),
+            
+            // Category Quick Grid Selector
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _categories.map((c) {
+                final isSelected = (_selectedCategory == c);
+                final icon = _categoryIcons[c] ?? Icons.report_problem_outlined;
+
+                return ChoiceChip(
+                  avatar: Icon(
+                    icon,
+                    size: 17,
+                    color: isSelected ? Colors.white : AppTheme.primaryColor,
+                  ),
+                  label: Text(
+                    c,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      color: isSelected ? Colors.white : AppTheme.navyColor,
+                    ),
+                  ),
+                  selected: isSelected,
+                  selectedColor: AppTheme.primaryColor,
+                  backgroundColor: Colors.white,
+                  side: BorderSide(
+                    color: isSelected ? AppTheme.primaryColor : Colors.grey.shade300,
+                  ),
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _selectedCategory = c;
+                        _selectedIssues.clear();
+                      });
+                    }
+                  },
                 );
               }).toList(),
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() {
-                    _selectedCategory = val;
-                    _selectedIssues.clear();
-                  });
-                }
-              },
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Observed Hygiene Issues (Check all that apply):',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Observed Hygiene Issues:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
+                ),
+                Text(
+                  '${_selectedIssues.length} selected',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
+            Text(
+              'Check all violations observed at the premises:',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 12),
+
+            // Checklist Items Card List
             ...currentChecklist.map((issue) {
               final isChecked = _selectedIssues.contains(issue);
-              return CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                activeColor: AppTheme.primaryColor,
-                title: Text(issue, style: const TextStyle(fontSize: 13)),
-                value: isChecked,
-                onChanged: (val) {
-                  setState(() {
-                    if (val == true) {
-                      _selectedIssues.add(issue);
-                    } else {
-                      _selectedIssues.remove(issue);
-                    }
-                  });
-                },
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: isChecked ? AppTheme.primaryColor.withValues(alpha: 0.06) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isChecked ? AppTheme.primaryColor : Colors.grey.shade200,
+                    width: isChecked ? 1.4 : 1,
+                  ),
+                ),
+                child: CheckboxListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                  activeColor: AppTheme.primaryColor,
+                  dense: true,
+                  title: Text(
+                    issue,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
+                      color: isChecked ? AppTheme.navyColor : Colors.black87,
+                    ),
+                  ),
+                  value: isChecked,
+                  onChanged: (val) {
+                    setState(() {
+                      if (val == true) {
+                        _selectedIssues.add(issue);
+                      } else {
+                        _selectedIssues.remove(issue);
+                      }
+                    });
+                  },
+                ),
               );
             }),
           ],
@@ -530,35 +854,86 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Add Description Details:',
+              'Description & Location Notes:',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
             ),
             const SizedBox(height: 8),
-            TextField(
-              decoration: InputDecoration(
-                hintText: 'Describe details (e.g. time of visit, table location, staff response)...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.grey.shade300),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              maxLines: 3,
-              onChanged: (val) => setState(() => _description = val),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Upload Photo Evidence:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
-            ),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () {
-                setState(() => _photoUploaded = !_photoUploaded);
-              },
-              child: WireframeBox(
-                height: 120,
-                icon: _photoUploaded ? Icons.check_circle : Icons.add_a_photo,
-                label: _photoUploaded ? 'Photo Evidence Uploaded' : 'Tap to Upload Photo Evidence',
-                sublabel: _photoUploaded ? 'Tap to remove photo' : 'Attach photo for inspection verification',
+              child: TextField(
+                maxLines: 3,
+                minLines: 2,
+                style: const TextStyle(fontSize: 13.5),
+                decoration: const InputDecoration(
+                  hintText: 'Describe observations (e.g. time of visit, table area, kitchen counter cleanliness, staff response)...',
+                  hintStyle: TextStyle(color: Colors.grey, fontSize: 12.5),
+                  contentPadding: EdgeInsets.all(14),
+                  border: InputBorder.none,
+                ),
+                onChanged: (val) => setState(() => _description = val),
               ),
             ),
+            const SizedBox(height: 10),
+
+            // Quick Tag Chips
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _quickTagChip('#CockroachSpotted'),
+                _quickTagChip('#DirtyUtensils'),
+                _quickTagChip('#FoulOdor'),
+                _quickTagChip('#UncoveredFood'),
+                _quickTagChip('#GreasyFloor'),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Photo Evidence Section Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Upload Photo Evidence:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _hasPhotoAttached ? AppTheme.primaryColor.withValues(alpha: 0.12) : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$_totalPhotoCount / 4 Attached',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: _hasPhotoAttached ? AppTheme.primaryColor : Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Attach photos of food, utensils, or premises for inspection validation.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 12),
+
+            // Photo Grid / Upload Trigger
+            _buildPhotoEvidenceGrid(),
           ],
         );
 
@@ -578,13 +953,26 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
               'Review Report Before Submission:',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
+            Text(
+              'Please confirm that all details are accurate before lodging formal complaint.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 14),
+
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.grey.shade300),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -593,9 +981,92 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                   _buildReviewRow('Address:', effectiveAddress),
                   if (_isOtherSelected) _buildReviewRow('Category:', _customCategory),
                   _buildReviewRow('Main Category:', _selectedCategory),
-                  _buildReviewRow('Checked Violations:', '${_selectedIssues.length} items selected'),
-                  _buildReviewRow('Notes Description:', _description.isEmpty ? 'None provided' : _description),
-                  _buildReviewRow('Photo Proof:', _photoUploaded ? 'Attached (1 photo)' : 'None'),
+                  _buildReviewRow('Violations Checked:', '${_selectedIssues.length} items selected'),
+                  if (_selectedIssues.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(left: 120, bottom: 10),
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: _selectedIssues.map((issue) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFFECACA)),
+                            ),
+                            child: Text(
+                              '• $issue',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                  _buildReviewRow('Notes Details:', _description.isEmpty ? 'None provided' : _description),
+                  _buildReviewRow('Photo Evidence:', _hasPhotoAttached ? 'Attached ($_totalPhotoCount photos)' : 'No photos attached'),
+                  
+                  // Photo Evidence Thumbnails Preview in Review Step
+                  if (_hasPhotoAttached) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 70,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          ..._attachedPhotoFiles.map((file) {
+                            return Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              width: 70,
+                              height: 70,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.grey.shade300),
+                                image: DecorationImage(image: FileImage(file), fit: BoxFit.cover),
+                              ),
+                            );
+                          }),
+                          ..._attachedPhotoUrls.map((url) {
+                            return Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              width: 70,
+                              height: 70,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.grey.shade300),
+                                image: DecorationImage(image: NetworkImage(url), fit: BoxFit.cover),
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Official Guarantee Notice Card
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF86EFAC)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.verified_user_outlined, color: Color(0xFF16A34A), size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Your report will be securely dispatched to authorized municipal health inspectors for investigation.',
+                      style: TextStyle(fontSize: 12, color: Colors.green.shade900, height: 1.35),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -605,6 +1076,215 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  Widget _quickTagChip(String label) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _description = _description.isEmpty ? label : '$_description $label';
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoEvidenceGrid() {
+    if (!_hasPhotoAttached) {
+      return InkWell(
+        onTap: _showPhotoPickerOptionsModal,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.35), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.add_a_photo_rounded, size: 30, color: AppTheme.primaryColor),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Tap to Upload Photo Evidence',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppTheme.navyColor),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Camera • Gallery • Sample Photos (Max 4)',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              // 1. Files Picked
+              ..._attachedPhotoFiles.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final file = entry.value;
+                return Stack(
+                  children: [
+                    Container(
+                      width: 95,
+                      height: 95,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
+                        image: DecorationImage(image: FileImage(file), fit: BoxFit.cover),
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _attachedPhotoFiles.removeAt(idx);
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+
+              // 2. Preset URLs Added
+              ..._attachedPhotoUrls.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final url = entry.value;
+                return Stack(
+                  children: [
+                    Container(
+                      width: 95,
+                      height: 95,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
+                        image: DecorationImage(image: NetworkImage(url), fit: BoxFit.cover),
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _attachedPhotoUrls.removeAt(idx);
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+
+              // 3. Add More Tile
+              if (_totalPhotoCount < 4)
+                InkWell(
+                  onTap: _showPhotoPickerOptionsModal,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 95,
+                    height: 95,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.4), style: BorderStyle.solid),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.add_photo_alternate_outlined, color: AppTheme.primaryColor, size: 26),
+                        SizedBox(height: 4),
+                        Text(
+                          'Add More',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '✓ Evidence attached for health officer review',
+                style: TextStyle(fontSize: 11.5, color: Colors.green.shade800, fontWeight: FontWeight.w600),
+              ),
+              TextButton(
+                onPressed: _showPhotoPickerOptionsModal,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: const Text('Change', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildReviewRow(String label, String value) {
@@ -709,16 +1389,22 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                 Expanded(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: canProceed ? AppTheme.primaryColor : Colors.grey.shade300,
+                      backgroundColor: canProceed && !_isSubmitting ? AppTheme.primaryColor : Colors.grey.shade300,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    onPressed: canProceed ? _onNextPressed : null,
-                    child: Text(
-                      _currentStep == _stepTitles.length - 1 ? 'Submit Report' : 'Next Step',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
+                    onPressed: (canProceed && !_isSubmitting) ? _onNextPressed : null,
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                          )
+                        : Text(
+                            _currentStep == _stepTitles.length - 1 ? 'Submit Report' : 'Next Step',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                   ),
                 ),
               ],

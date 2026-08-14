@@ -1,8 +1,10 @@
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import '../../core/config/app_env.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/gps_service.dart';
@@ -26,6 +28,13 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
   late PageController _pageController;
 
   RestaurantModel? _focusedRestaurant;
+  RestaurantModel? _targetRestaurant;
+  bool _isNavigationMode = false;
+  bool _hasParsedArguments = false;
+  Set<Polyline> _polylines = {};
+  int _etaMinutes = 5;
+  String _routeDistanceStr = '';
+
   Position? _userPosition;
   bool _showHeatmap = true; // Toggle for Risk Heatmap Layer
   MapType _currentMapType = MapType.normal; // Default 3D Vector Map with 3D Buildings & Tilt
@@ -39,12 +48,34 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
 
   Set<Marker> _markers = {};
   Set<Circle> _heatmapCircles = {};
+  Set<Circle> _userLocationCircles = {};
   List<RestaurantModel> _allRestaurants = [];
   List<RestaurantModel> _filteredList = [];
 
   static const LatLng _defaultCenter = LatLng(3.1466, 101.6958);
 
   bool _isMapLoading = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasParsedArguments) {
+      _hasParsedArguments = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is RestaurantModel) {
+        _targetRestaurant = args;
+        _isNavigationMode = false;
+      } else if (args is Map<String, dynamic>) {
+        _targetRestaurant = args['restaurant'] as RestaurantModel?;
+        _isNavigationMode = args['showDirections'] == true;
+      }
+
+      if (_targetRestaurant != null) {
+        _filteredList = [_targetRestaurant!];
+        _focusedRestaurant = _targetRestaurant;
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -65,12 +96,23 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
 
   Future<void> _loadRestaurantsFromSupabase() async {
     final list = await RestaurantStoreService.fetchOwnerRestaurants(null);
+    await RestaurantStoreService.preloadReviews(list.map((r) => r.id).toList());
     if (mounted) {
       setState(() {
         _allRestaurants = list;
-        _filteredList = list;
+        if (_targetRestaurant != null) {
+          final matched = list.where((r) => r.id == _targetRestaurant!.id).toList();
+          _filteredList = matched.isNotEmpty ? matched : [_targetRestaurant!];
+        } else {
+          _filteredList = list;
+        }
       });
       _initMapMarkersAndHeatmap();
+      if (_targetRestaurant != null && _isNavigationMode) {
+        _buildNavigationRoute(_targetRestaurant!);
+      } else if (_targetRestaurant != null) {
+        _animateMapToLocation(_targetRestaurant!.latitude, _targetRestaurant!.longitude);
+      }
     }
   }
 
@@ -323,19 +365,73 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
     );
   }
 
-  Future<void> _fetchUserLocation() async {
+  Future<void> _fetchUserLocation({bool showFeedback = false}) async {
     final pos = await GpsService.getCurrentLocation();
     if (pos != null && mounted) {
       setState(() {
         _userPosition = pos;
       });
+      _initMapMarkersAndHeatmap();
       _animateMapToLocation(pos.latitude, pos.longitude);
+
+      if (showFeedback) {
+        final source = GpsService.lastLocationSource;
+        final city = GpsService.lastKnownCity;
+        final locationLabel = city != null ? '$city ($source)' : source;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.my_location, color: Colors.white, size: 18),
+                const SizedBox(width: 10),
+                Expanded(child: Text('Location updated: $locationLabel')),
+              ],
+            ),
+            backgroundColor: const Color(0xFF0F766E),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
     }
   }
 
   void _initMapMarkersAndHeatmap() {
     final Set<Marker> newMarkers = {};
-    final Set<Circle> newCircles = {};
+    final Set<Circle> userCircles = {};
+    final Set<Circle> newHeatmapCircles = {};
+
+    // Native Google Style Blue Point Dot for User Location
+    if (_userPosition != null) {
+      final userLatLng = LatLng(_userPosition!.latitude, _userPosition!.longitude);
+
+      // 1. Soft Blue Accuracy / Aura Halo Ring
+      userCircles.add(
+        Circle(
+          circleId: const CircleId('user_pulse_halo'),
+          center: userLatLng,
+          radius: 28,
+          fillColor: const Color(0x334285F4),
+          strokeColor: const Color(0x554285F4),
+          strokeWidth: 1,
+          zIndex: 10,
+        ),
+      );
+
+      // 2. Core Bright Google Blue Dot with Crisp White Border
+      userCircles.add(
+        Circle(
+          circleId: const CircleId('user_core_blue_dot'),
+          center: userLatLng,
+          radius: 9,
+          fillColor: const Color(0xFF1A73E8),
+          strokeColor: Colors.white,
+          strokeWidth: 3,
+          zIndex: 11,
+        ),
+      );
+    }
 
     for (var i = 0; i < _filteredList.length; i++) {
       final r = _filteredList[i];
@@ -361,7 +457,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
           position: pos,
           icon: markerColor,
           infoWindow: InfoWindow(
-            title: r.name,
+            title: _isNavigationMode ? '🏁 Destination: ${r.name}' : r.name,
             snippet: 'Risk: ${r.hygieneRiskScore.toStringAsFixed(1)} | ${r.category}',
             onTap: () {
               Navigator.pushNamed(context, AppRoutes.restaurantDetail, arguments: r);
@@ -387,7 +483,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
           break;
       }
 
-      newCircles.add(
+      newHeatmapCircles.add(
         Circle(
           circleId: CircleId('circle_${r.id}'),
           center: pos,
@@ -401,8 +497,89 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
 
     setState(() {
       _markers = newMarkers;
-      _heatmapCircles = newCircles;
+      _heatmapCircles = newHeatmapCircles;
+      _userLocationCircles = userCircles;
     });
+
+    if (_isNavigationMode && _targetRestaurant != null) {
+      _buildNavigationRoute(_targetRestaurant!);
+    }
+  }
+
+  void _buildNavigationRoute(RestaurantModel dest) {
+    final double startLat = _userPosition?.latitude ?? AppEnv.defaultLatitude;
+    final double startLng = _userPosition?.longitude ?? AppEnv.defaultLongitude;
+    final double endLat = dest.latitude;
+    final double endLng = dest.longitude;
+
+    final double distanceMeters = Geolocator.distanceBetween(startLat, startLng, endLat, endLng);
+    final double distanceKm = distanceMeters / 1000.0;
+    final int minutes = math.max(2, (distanceKm / 0.45).round() + 2);
+
+    final List<LatLng> routePoints = _createStreetWaypoints(
+      LatLng(startLat, startLng),
+      LatLng(endLat, endLng),
+    );
+
+    setState(() {
+      _etaMinutes = minutes;
+      _routeDistanceStr = distanceKm < 1 ? '${distanceMeters.round()} m' : '${distanceKm.toStringAsFixed(1)} km';
+      _polylines = {
+        Polyline(
+          polylineId: const PolylineId('navigation_active_route'),
+          points: routePoints,
+          color: const Color(0xFF0284C7),
+          width: 6,
+          jointType: JointType.round,
+          startCap: Cap.roundCap,
+          endCap: Cap.roundCap,
+        ),
+      };
+    });
+
+    _fitRouteBounds(LatLng(startLat, startLng), LatLng(endLat, endLng));
+  }
+
+  List<LatLng> _createStreetWaypoints(LatLng start, LatLng end) {
+    final List<LatLng> pts = [start];
+    final double dLat = end.latitude - start.latitude;
+    final double dLng = end.longitude - start.longitude;
+
+    pts.add(LatLng(start.latitude + dLat * 0.25, start.longitude + dLng * 0.05));
+    pts.add(LatLng(start.latitude + dLat * 0.25, start.longitude + dLng * 0.70));
+    pts.add(LatLng(start.latitude + dLat * 0.75, start.longitude + dLng * 0.70));
+    pts.add(LatLng(start.latitude + dLat * 0.75, start.longitude + dLng * 0.95));
+    pts.add(end);
+    return pts;
+  }
+
+  void _fitRouteBounds(LatLng p1, LatLng p2) {
+    final double minLat = math.min(p1.latitude, p2.latitude);
+    final double maxLat = math.max(p1.latitude, p2.latitude);
+    final double minLng = math.min(p1.longitude, p2.longitude);
+    final double maxLng = math.max(p1.longitude, p2.longitude);
+
+    final bounds = LatLngBounds(
+      southwest: LatLng(minLat - 0.003, minLng - 0.003),
+      northeast: LatLng(maxLat + 0.003, maxLng + 0.003),
+    );
+
+    Future.delayed(const Duration(milliseconds: 400), () {
+      _mapController?.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
+    });
+  }
+
+  void _exitNavigationMode() {
+    setState(() {
+      _isNavigationMode = false;
+      _polylines.clear();
+      _targetRestaurant = null;
+      _filteredList = _allRestaurants;
+    });
+    _initMapMarkersAndHeatmap();
+    if (_userPosition != null) {
+      _animateMapToLocation(_userPosition!.latitude, _userPosition!.longitude);
+    }
   }
 
   void _onMarkerTapped(int index, RestaurantModel restaurant) {
@@ -484,11 +661,13 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
   String _calculateDistanceText(double lat, double lng) {
     if (_userPosition != null) {
       final meters = Geolocator.distanceBetween(_userPosition!.latitude, _userPosition!.longitude, lat, lng);
+      if (meters < 1000) {
+        return '${meters.round()} m away';
+      }
       final km = meters / 1000.0;
-      final miles = km * 0.621371;
-      return '${miles.toStringAsFixed(1)} mi (${km.toStringAsFixed(1)} km)';
+      return '${km.toStringAsFixed(1)} km away';
     }
-    return '0.2 mi (0.3 km)';
+    return '0.3 km away';
   }
 
   Color _getRiskColor(RiskCategory category) {
@@ -655,114 +834,234 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                 buildingsEnabled: true,
                 onMapCreated: (controller) {
                   _mapController = controller;
+                  if (_targetRestaurant != null && _isNavigationMode) {
+                    _buildNavigationRoute(_targetRestaurant!);
+                  } else if (_targetRestaurant != null) {
+                    _animateMapToLocation(_targetRestaurant!.latitude, _targetRestaurant!.longitude);
+                  }
                 },
                 markers: _markers,
-                circles: _showHeatmap ? _heatmapCircles : {},
+                polylines: _polylines,
+                circles: {
+                  ..._userLocationCircles,
+                  if (_showHeatmap) ..._heatmapCircles,
+                },
                 myLocationEnabled: true,
                 myLocationButtonEnabled: false,
                 zoomControlsEnabled: false,
               ),
 
-              // 2. FLOATING SEARCH BAR WITH SPEECH-TO-TEXT & RISK LEGEND AT TOP
-              Positioned(
-                top: widget.showAppBar ? 2 : 12,
-                left: 16,
-                right: 16,
-                child: Column(
-                  children: [
-                    // Floating Search Input Bar with Speech-to-Text Mic Icon in front of Filter Button
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(28),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Container(
+              // 2. TOP OVERLAY: NAVIGATION BANNER OR SEARCH BAR
+              if (_isNavigationMode && _targetRestaurant != null)
+                Positioned(
+                  top: widget.showAppBar ? 8 : 16,
+                  left: 16,
+                  right: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0C2340),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 14,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.88),
-                            borderRadius: BorderRadius.circular(28),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.10),
-                                blurRadius: 14,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                            color: const Color(0xFF0F766E),
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                          child: TextField(
-                            controller: _listSearchCtrl,
-                            onChanged: (_) => _filterRestaurantList(),
-                            decoration: InputDecoration(
-                              hintText: t('search_map_hint'),
-                              hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-                              prefixIcon: const Icon(Icons.search, color: AppTheme.navyColor),
-                              suffixIcon: Row(
-                                mainAxisSize: MainAxisSize.min,
+                          child: const Icon(Icons.navigation_rounded, color: Colors.white, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
                                 children: [
-                                  if (_listSearchCtrl.text.isNotEmpty)
-                                    IconButton(
-                                      icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
-                                      onPressed: () {
-                                        _listSearchCtrl.clear();
-                                        _filterRestaurantList();
-                                      },
-                                    ),
-                                  IconButton(
-                                    icon: Icon(
-                                      _isListening ? Icons.mic : Icons.mic_none,
-                                      color: _isListening ? Colors.red : AppTheme.primaryColor,
-                                    ),
-                                    tooltip: 'Voice Search',
-                                    onPressed: _startVoiceSearch,
+                                  Text(
+                                    '$_etaMinutes mins',
+                                    style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 16),
                                   ),
-                                  IconButton(
-                                    icon: const Icon(Icons.tune, color: AppTheme.primaryColor),
-                                    tooltip: 'Filter Outlets',
-                                    onPressed: _showFilterBottomSheet,
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '($_routeDistanceStr)',
+                                    style: const TextStyle(color: Colors.white70, fontSize: 13),
                                   ),
                                 ],
                               ),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Directions to ${_targetRestaurant!.name}',
+                                style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 22),
+                          tooltip: 'Exit Navigation',
+                          onPressed: _exitNavigationMode,
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if (_targetRestaurant != null)
+                Positioned(
+                  top: widget.showAppBar ? 8 : 16,
+                  left: 16,
+                  right: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.storefront_rounded, color: AppTheme.primaryColor, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Outlet: ${_targetRestaurant!.name}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.navyColor),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        InkWell(
+                          onTap: _exitNavigationMode,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text('View All', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Positioned(
+                  top: widget.showAppBar ? 2 : 12,
+                  left: 16,
+                  right: 16,
+                  child: Column(
+                    children: [
+                      // Floating Search Input Bar with Speech-to-Text Mic Icon in front of Filter Button
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(28),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.88),
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.10),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: TextField(
+                              controller: _listSearchCtrl,
+                              onChanged: (_) => _filterRestaurantList(),
+                              decoration: InputDecoration(
+                                hintText: t('search_map_hint'),
+                                hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                                prefixIcon: const Icon(Icons.search, color: AppTheme.navyColor),
+                                suffixIcon: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_listSearchCtrl.text.isNotEmpty)
+                                      IconButton(
+                                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                                        onPressed: () {
+                                          _listSearchCtrl.clear();
+                                          _filterRestaurantList();
+                                        },
+                                      ),
+                                    IconButton(
+                                      icon: Icon(
+                                        _isListening ? Icons.mic : Icons.mic_none,
+                                        color: _isListening ? Colors.red : AppTheme.primaryColor,
+                                      ),
+                                      tooltip: 'Voice Search',
+                                      onPressed: _startVoiceSearch,
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.tune, color: AppTheme.primaryColor),
+                                      tooltip: 'Filter Outlets',
+                                      onPressed: _showFilterBottomSheet,
+                                    ),
+                                  ],
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
+                      const SizedBox(height: 4),
 
-                    // Floating Risk Heatmap Legend Bar
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.88),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.08),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildLegendDot(t('safe'), Colors.green),
-                              _buildLegendDot(t('moderate'), Colors.amber),
-                              _buildLegendDot(t('high_risk'), Colors.red),
-                            ],
+                      // Floating Risk Heatmap Legend Bar
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.88),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _buildLegendDot(t('safe'), Colors.green),
+                                _buildLegendDot(t('moderate'), Colors.amber),
+                                _buildLegendDot(t('high_risk'), Colors.red),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
 
           // 3. MAP CONTROLS: GOOGLE SATELLITE LAYER, HEATMAP TOGGLE & MY LOCATION BUTTONS
           Positioned(
@@ -797,11 +1096,11 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                 const SizedBox(height: 8),
                 FloatingActionButton.small(
                   heroTag: 'btn_gps',
-                  onPressed: _fetchUserLocation,
-                  backgroundColor: AppTheme.primaryColor,
+                  onPressed: () => _fetchUserLocation(showFeedback: true),
+                  backgroundColor: const Color(0xFF0F766E),
                   foregroundColor: Colors.white,
-                  tooltip: 'Current Location',
-                  child: const Icon(Icons.my_location, size: 18),
+                  tooltip: 'Locate My Exact Position',
+                  child: const Icon(Icons.my_location_rounded, size: 20),
                 ),
               ],
             ),
@@ -942,27 +1241,46 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                                                   ),
 
                                                   // Rating & Distance Row
-                                                  Row(
-                                                    children: [
-                                                      const Icon(Icons.star, color: Colors.amber, size: 15),
-                                                      const SizedBox(width: 3),
-                                                      const Text('4.8', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                                      const SizedBox(width: 4),
-                                                      Text('(128)', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
-                                                      const SizedBox(width: 6),
-                                                      Text('•', style: TextStyle(color: Colors.grey.shade400)),
-                                                      const SizedBox(width: 6),
-                                                      const Icon(Icons.location_on_outlined, size: 13, color: Colors.grey),
-                                                      const SizedBox(width: 2),
-                                                      Expanded(
-                                                        child: Text(
-                                                          distanceText,
-                                                          style: TextStyle(color: Colors.grey.shade700, fontSize: 11, fontWeight: FontWeight.w500),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                    ],
+                                                  Builder(
+                                                    builder: (context) {
+                                                      final ratingInfo = RestaurantStoreService.getRatingSync(restaurant.id);
+                                                      return Row(
+                                                        children: [
+                                                          Icon(
+                                                            ratingInfo.hasReviews ? Icons.star_rounded : Icons.star_border_rounded,
+                                                            color: ratingInfo.hasReviews ? Colors.amber : Colors.grey.shade400,
+                                                            size: 16,
+                                                          ),
+                                                          const SizedBox(width: 3),
+                                                          Text(
+                                                            ratingInfo.ratingText,
+                                                            style: TextStyle(
+                                                              fontWeight: FontWeight.bold,
+                                                              fontSize: 12,
+                                                              color: ratingInfo.hasReviews ? Colors.black87 : Colors.grey.shade600,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            ratingInfo.hasReviews ? '(${ratingInfo.totalReviews})' : '(No Review)',
+                                                            style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+                                                          ),
+                                                          const SizedBox(width: 6),
+                                                          Text('•', style: TextStyle(color: Colors.grey.shade400)),
+                                                          const SizedBox(width: 6),
+                                                          const Icon(Icons.location_on_outlined, size: 13, color: Colors.grey),
+                                                          const SizedBox(width: 2),
+                                                          Expanded(
+                                                            child: Text(
+                                                              distanceText,
+                                                              style: TextStyle(color: Colors.grey.shade700, fontSize: 11, fontWeight: FontWeight.w500),
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      );
+                                                    },
                                                   ),
 
                                                   // Tags Row (Category & Amenities)

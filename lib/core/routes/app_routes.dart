@@ -26,6 +26,8 @@ class AppRoutes {
   static const String restaurantList = '/restaurant-list';
   static const String restaurantDetail = '/restaurant-detail';
   static const String restaurantMap = '/restaurant-map';
+  static const String savedRestaurants = '/saved-restaurants';
+  static const String wishlist = '/saved-restaurants';
   static const String addRestaurant = '/add-restaurant';
   static const String restaurantVerificationQueue = '/admin/restaurant-verification-queue';
   static const String restaurantVerificationDetail = '/admin/restaurant-verification-detail';

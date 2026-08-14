@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
+import '../../core/services/restaurant_store_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_app_bar.dart';
 
@@ -38,22 +39,17 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
   }
 
   // Determine League Tier based on User Directives:
-  // High -> Bronze, Medium -> Silver, Low -> Gold, Risk < 3 & Rating >= 4.8 -> Platinum
   RankingLeagueTier _getRestaurantTier(RestaurantModel r) {
-    // Check Platinum condition first (< 3 risk score & high rating)
-    if (r.hygieneRiskScore < 3.0) {
+    if (r.hygieneRiskScore < 15.0) {
       return RankingLeagueTier.platinum;
     }
-    // High Risk -> Bronze
-    if (r.riskCategory == RiskCategory.high || r.hygieneRiskScore > 50.0) {
-      return RankingLeagueTier.bronze;
+    if (r.hygieneRiskScore < 30.0) {
+      return RankingLeagueTier.gold;
     }
-    // Medium Risk -> Silver
-    if (r.riskCategory == RiskCategory.moderate || (r.hygieneRiskScore >= 25.0 && r.hygieneRiskScore <= 50.0)) {
+    if (r.hygieneRiskScore <= 60.0) {
       return RankingLeagueTier.silver;
     }
-    // Low Risk -> Gold
-    return RankingLeagueTier.gold;
+    return RankingLeagueTier.bronze;
   }
 
   String _getTierName(RankingLeagueTier tier) {
@@ -95,7 +91,6 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
     }
   }
 
-  // Unified Ranking Icon (Uses Medal Star Ribbon icon matching reference image)
   IconData _getTierIcon(RankingLeagueTier tier) {
     return Icons.military_tech;
   }
@@ -114,7 +109,6 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header with Icon & Title & Close X Button
                 Row(
                   children: [
                     Container(
@@ -139,64 +133,51 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                   ],
                 ),
                 const SizedBox(height: 8),
-
                 Text(
                   'Outlets are categorized into tiers based on verified hygiene risk scores and ratings:',
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
                 ),
                 const SizedBox(height: 18),
-
-                // 1. Bronze Tier
                 _buildInfoRow(
-                  tierName: 'Bronze',
-                  riskTitle: 'High Risk',
-                  subtitle: 'Hygiene Risk Score > 50.0 or High Violations',
+                  tierName: 'Bronze Tier',
+                  riskTitle: 'High Risk (>60)',
+                  subtitle: 'Requires immediate sanitation inspection & action.',
                   color: const Color(0xFFD97706),
-                  bgColor: const Color(0xFFFFFBEB),
+                  bgColor: const Color(0xFFFEF3C7),
                 ),
                 const SizedBox(height: 10),
-
-                // 2. Silver Tier
                 _buildInfoRow(
-                  tierName: 'Silver',
-                  riskTitle: 'Medium Risk',
-                  subtitle: 'Hygiene Risk Score between 25.0 and 50.0',
-                  color: const Color(0xFF475569),
-                  bgColor: const Color(0xFFF8FAFC),
+                  tierName: 'Silver Tier',
+                  riskTitle: 'Moderate Risk (30-60)',
+                  subtitle: 'Standard hygiene standards with periodic monitoring.',
+                  color: const Color(0xFF64748B),
+                  bgColor: const Color(0xFFF1F5F9),
                 ),
                 const SizedBox(height: 10),
-
-                // 3. Gold Tier
                 _buildInfoRow(
-                  tierName: 'Gold',
-                  riskTitle: 'Low Risk / Safe',
-                  subtitle: 'Hygiene Risk Score < 25.0 (Passed Inspection)',
-                  color: const Color(0xFFD97706),
-                  bgColor: const Color(0xFFFEFCE8),
+                  tierName: 'Gold Tier',
+                  riskTitle: 'Low Risk (15-30)',
+                  subtitle: 'High sanitation standards & clean dining environment.',
+                  color: const Color(0xFFEAB308),
+                  bgColor: const Color(0xFFFEF9C3),
                 ),
                 const SizedBox(height: 10),
-
-                // 4. Platinum Tier
                 _buildInfoRow(
-                  tierName: 'Platinum',
-                  riskTitle: 'Ultra-Safe Tier',
-                  subtitle: 'Risk Score < 3.0 & Customer Rating ≥ 4.8 ★',
-                  color: const Color(0xFF0284C7),
-                  bgColor: const Color(0xFFF0F9FF),
+                  tierName: 'Platinum Tier',
+                  riskTitle: 'Elite Clean (<15)',
+                  subtitle: 'Pristine hygiene score with flawless audit record.',
+                  color: const Color(0xFF0EA5E9),
+                  bgColor: const Color(0xFFE0F2FE),
                 ),
-
-                const SizedBox(height: 22),
-
-                // Full-width Modern Pill Action Button
+                const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
-                      elevation: 2,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onPressed: () => Navigator.pop(ctx),
                     child: const Text(
@@ -226,35 +207,18 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
         color: bgColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withValues(alpha: 0.35), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
       ),
       child: Row(
         children: [
-          // Icon Container
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.2),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
             child: Icon(Icons.military_tech, color: color, size: 22),
           ),
           const SizedBox(width: 12),
-
-          // Titles & Subtitle
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,9 +250,8 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
   }
 
   List<RestaurantModel> _getRankedList() {
-    List<RestaurantModel> list = List.from(MockSeedData.restaurants);
+    final List<RestaurantModel> list = List.from(MockSeedData.restaurants);
 
-    // If 'Week' tab is selected, sort with weekly variance simulation
     if (_selectedPeriod == 'Week') {
       list.sort((a, b) => (a.hygieneRiskScore - a.violationCount).compareTo(b.hygieneRiskScore - b.violationCount));
     } else {
@@ -296,7 +259,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
     }
 
     if (_selectedTierFilter != 'All') {
-      list = list.where((r) {
+      return list.where((r) {
         final tier = _getRestaurantTier(r);
         return _getTierName(tier).toLowerCase() == _selectedTierFilter.toLowerCase();
       }).toList();
@@ -309,7 +272,6 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
   Widget build(BuildContext context) {
     final rankedList = _getRankedList();
 
-    // Top 3 Podium Candidates (if available)
     final RestaurantModel? firstPlace = rankedList.isNotEmpty ? rankedList[0] : null;
     final RestaurantModel? secondPlace = rankedList.length > 1 ? rankedList[1] : null;
     final RestaurantModel? thirdPlace = rankedList.length > 2 ? rankedList[2] : null;
@@ -330,14 +292,14 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
         physics: const BouncingScrollPhysics(),
         child: Column(
           children: [
-            // 1. TOP PENTAGON LEAGUE BADGES RIBBON HEADER WITH FROSTED GLASS BACKDROP FILTER
+            // 1. TOP PENTAGON LEAGUE BADGES RIBBON HEADER
             ClipRRect(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.88),
+                    color: Colors.white.withValues(alpha: 0.94),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.03),
@@ -349,10 +311,10 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildLeagueRibbonBadge('Bronze', const Color(0xFFD97706), Icons.military_tech, isUnlocked: true),
-                      _buildLeagueRibbonBadge('Silver', const Color(0xFF64748B), Icons.military_tech, isUnlocked: true),
-                      _buildLeagueRibbonBadge('Gold', const Color(0xFFEAB308), Icons.military_tech, isUnlocked: true),
-                      _buildLeagueRibbonBadge('Platinum', const Color(0xFF0EA5E9), Icons.military_tech, isUnlocked: true),
+                      _buildLeagueRibbonBadge('Bronze', const Color(0xFFD97706), Icons.military_tech),
+                      _buildLeagueRibbonBadge('Silver', const Color(0xFF64748B), Icons.military_tech),
+                      _buildLeagueRibbonBadge('Gold', const Color(0xFFEAB308), Icons.military_tech),
+                      _buildLeagueRibbonBadge('Platinum', const Color(0xFF0EA5E9), Icons.military_tech),
                     ],
                   ),
                 ),
@@ -380,17 +342,16 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                           });
                         },
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOutCubic,
+                          duration: const Duration(milliseconds: 250),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
-                            color: _selectedPeriod == 'Today' ? const Color(0xFF1E293B) : Colors.transparent,
+                            color: _selectedPeriod == 'Today' ? const Color(0xFF00A88F) : Colors.transparent,
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: _selectedPeriod == 'Today'
                                 ? [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.12),
-                                      blurRadius: 6,
+                                      color: const Color(0xFF00A88F).withValues(alpha: 0.3),
+                                      blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
                                   ]
@@ -416,17 +377,16 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                           });
                         },
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOutCubic,
+                          duration: const Duration(milliseconds: 250),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
-                            color: _selectedPeriod == 'Week' ? const Color(0xFF1E293B) : Colors.transparent,
+                            color: _selectedPeriod == 'Week' ? const Color(0xFF00A88F) : Colors.transparent,
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: _selectedPeriod == 'Week'
                                 ? [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.12),
-                                      blurRadius: 6,
+                                      color: const Color(0xFF00A88F).withValues(alpha: 0.3),
+                                      blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
                                   ]
@@ -451,99 +411,83 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
 
             const SizedBox(height: 16),
 
-            // 3. TOP 3 WINNERS PODIUM GRAPHIC WITH FESTIVE CONFETTI PARTY PARTICLES
-            if (rankedList.length >= 3)
+            // 3. TOP WINNERS PODIUM GRAPHIC (If outlets exist)
+            if (rankedList.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(24),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.88),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 14,
-                            offset: const Offset(0, 4),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 14,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: AnimatedBuilder(
+                            animation: _celebrationController,
+                            builder: (context, child) {
+                              return CustomPaint(
+                                painter: CelebrationParticlePainter(
+                                  progress: _celebrationController.value,
+                                ),
+                              );
+                            },
                           ),
-                        ],
-                      ),
-                      child: Stack(
-                        children: [
-                          // Animated Festive Celebration Particles Over Podium
-                          Positioned.fill(
-                            child: AnimatedBuilder(
-                              animation: _celebrationController,
-                              builder: (context, child) {
-                                return CustomPaint(
-                                  painter: CelebrationParticlePainter(
-                                    progress: _celebrationController.value,
+                        ),
+                        Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Leaderboard ($_selectedPeriod)',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.navyColor),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF00A88F).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                );
-                              },
+                                  child: const Text(
+                                    'Top Outlets 🎉',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF00A88F)),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-
-                          // Podium Contents Column
-                          Column(
-                            children: [
-                              // Period Header
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Leaderboard ($_selectedPeriod)',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.navyColor),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primaryColor.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Text(
-                                      'Top Outlets 🎉',
-                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-
-                              // 3-Podium Layout: Left (#2), Center (#1), Right (#3)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  // #2 RUNNER-UP PODIUM (LEFT)
-                                  if (secondPlace != null) _buildPodiumColumn(secondPlace, 2, const Color(0xFFF97316), 110),
-
-                                  const SizedBox(width: 12),
-
-                                  // #1 WINNER PODIUM (CENTER - TALLEST WITH GOLDEN CROWN)
-                                  if (firstPlace != null) _buildPodiumColumn(firstPlace, 1, const Color(0xFF7C3AED), 145),
-
-                                  const SizedBox(width: 12),
-
-                                  // #3 THIRD PLACE PODIUM (RIGHT)
-                                  if (thirdPlace != null) _buildPodiumColumn(thirdPlace, 3, const Color(0xFFFB923C), 90),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                            const SizedBox(height: 24),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                if (secondPlace != null) _buildPodiumColumn(secondPlace, 2, const Color(0xFFF97316), 110),
+                                const SizedBox(width: 12),
+                                if (firstPlace != null) _buildPodiumColumn(firstPlace, 1, const Color(0xFF7C3AED), 145),
+                                const SizedBox(width: 12),
+                                if (thirdPlace != null) _buildPodiumColumn(thirdPlace, 3, const Color(0xFFFB923C), 90),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // 4. TIER FILTER CHIPS ROW
             Padding(
@@ -563,19 +507,27 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                           final isSelected = _selectedTierFilter == tier;
                           return Padding(
                             padding: const EdgeInsets.only(right: 6),
-                            child: ChoiceChip(
+                            child: FilterChip(
                               label: Text(tier),
                               selected: isSelected,
-                              selectedColor: AppTheme.primaryColor,
+                              selectedColor: const Color(0xFF00A88F),
+                              backgroundColor: const Color(0xFFF1F5F9),
+                              checkmarkColor: Colors.white,
                               labelStyle: TextStyle(
                                 fontSize: 12,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected ? Colors.white : Colors.black87,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                color: isSelected ? Colors.white : const Color(0xFF475569),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(
+                                  color: isSelected ? const Color(0xFF00A88F) : const Color(0xFFCBD5E1),
+                                ),
                               ),
                               onSelected: (val) {
-                                if (val) {
-                                  setState(() => _selectedTierFilter = tier);
-                                }
+                                setState(() {
+                                  _selectedTierFilter = val ? tier : 'All';
+                                });
                               },
                             ),
                           );
@@ -587,145 +539,237 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
-            // 5. RANKINGS LIST CARDS WITH FROSTED GLASS BACKDROP FILTER
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: rankedList.length,
-              itemBuilder: (context, index) {
-                final restaurant = rankedList[index];
-                final tier = _getRestaurantTier(restaurant);
-                final rankNum = index + 1;
+            // 5. RANKINGS LIST CARDS OR EMPTY STATE
+            if (rankedList.isEmpty)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                padding: const EdgeInsets.all(24),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00A88F).withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.military_tech_rounded, size: 40, color: Color(0xFF00A88F)),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'No Outlets in $_selectedTierFilter Tier',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.navyColor),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Outlets with matching risk scores will automatically appear here once audited.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00A88F),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _selectedTierFilter = 'All';
+                        });
+                      },
+                      child: const Text('Show All Tiers'),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: rankedList.length,
+                itemBuilder: (context, index) {
+                  final restaurant = rankedList[index];
+                  final tier = _getRestaurantTier(restaurant);
+                  final rankNum = index + 1;
 
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.pushNamed(context, AppRoutes.restaurantDetail, arguments: restaurant);
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.88),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey.shade200.withValues(alpha: 0.8)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.03),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.pushNamed(context, AppRoutes.restaurantDetail, arguments: restaurant);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            // Rank Number Badge
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: rankNum <= 3 ? const Color(0xFF00A88F).withValues(alpha: 0.12) : const Color(0xFFF1F5F9),
+                                shape: BoxShape.circle,
                               ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              // Rank Number Badge
-                              SizedBox(
-                                width: 32,
+                              child: Center(
                                 child: Text(
                                   rankNum < 10 ? '0$rankNum' : '$rankNum',
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: rankNum <= 3 ? AppTheme.primaryColor : Colors.grey.shade600,
+                                    color: rankNum <= 3 ? const Color(0xFF00A88F) : Colors.grey.shade600,
                                   ),
                                 ),
                               ),
+                            ),
+                            const SizedBox(width: 12),
 
-                              // Outlet Avatar Image
-                              CircleAvatar(
-                                radius: 20,
-                                backgroundColor: Colors.grey.shade200,
-                                backgroundImage: NetworkImage(restaurant.imageUrl),
-                                child: restaurant.imageUrl.isEmpty
-                                    ? Text(restaurant.name[0], style: const TextStyle(fontWeight: FontWeight.bold))
-                                    : null,
-                              ),
-                              const SizedBox(width: 12),
+                            // Outlet Avatar Image
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundColor: Colors.grey.shade200,
+                              backgroundImage: restaurant.imageUrl.isNotEmpty ? NetworkImage(restaurant.imageUrl) : null,
+                              child: restaurant.imageUrl.isEmpty
+                                  ? Text(restaurant.name[0], style: const TextStyle(fontWeight: FontWeight.bold))
+                                  : null,
+                            ),
+                            const SizedBox(width: 12),
 
-                              // Outlet Info & Tier Badge
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      restaurant.name,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        // Tier Badge Chip with Unified Medal Icon
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: _getTierBgColor(tier),
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: _getTierColor(tier).withValues(alpha: 0.4)),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(_getTierIcon(tier), size: 14, color: _getTierColor(tier)),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                _getTierName(tier),
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: _getTierColor(tier),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          restaurant.category,
-                                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // Score & Rating Column
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
+                            // Outlet Info & Tier Badge
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  Text(
+                                    restaurant.name,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
                                   Row(
                                     children: [
-                                      const Icon(Icons.star, color: Colors.amber, size: 14),
-                                      const SizedBox(width: 2),
-                                      const Text('4.8', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: _getTierBgColor(tier),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: _getTierColor(tier).withValues(alpha: 0.4)),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(_getTierIcon(tier), size: 14, color: _getTierColor(tier)),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              _getTierName(tier),
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: _getTierColor(tier),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          restaurant.category,
+                                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
                                     ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Risk: ${restaurant.hygieneRiskScore.toStringAsFixed(1)}',
-                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
+                            ),
+
+                            // Score & Rating Column
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: restaurant.hygieneRiskScore < 30
+                                        ? const Color(0xFFECFDF5)
+                                        : (restaurant.hygieneRiskScore <= 60 ? const Color(0xFFFEF3C7) : const Color(0xFFFEF2F2)),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    'Score: ${restaurant.hygieneRiskScore.toStringAsFixed(1)}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: restaurant.hygieneRiskScore < 30
+                                          ? const Color(0xFF059669)
+                                          : (restaurant.hygieneRiskScore <= 60 ? const Color(0xFFD97706) : const Color(0xFFDC2626)),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Builder(
+                                  builder: (context) {
+                                    final ratingInfo = RestaurantStoreService.getRatingSync(restaurant.id);
+                                    return Row(
+                                      children: [
+                                        Icon(
+                                          ratingInfo.hasReviews ? Icons.star_rounded : Icons.star_border_rounded,
+                                          color: ratingInfo.hasReviews ? Colors.amber : Colors.grey.shade400,
+                                          size: 14,
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          ratingInfo.ratingText,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            color: ratingInfo.hasReviews ? Colors.black87 : Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                },
+              ),
             const SizedBox(height: 24),
           ],
         ),
@@ -739,7 +783,6 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Avatar with Golden Crown on #1 or Medal Badge
         Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.topCenter,
@@ -748,39 +791,46 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: rank == 1 ? Colors.amber : color, width: 2),
+                border: Border.all(color: color, width: 2.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: CircleAvatar(
                 radius: rank == 1 ? 28 : 22,
-                backgroundColor: color.withValues(alpha: 0.2),
-                backgroundImage: NetworkImage(restaurant.imageUrl),
+                backgroundColor: Colors.grey.shade200,
+                backgroundImage: restaurant.imageUrl.isNotEmpty ? NetworkImage(restaurant.imageUrl) : null,
+                child: restaurant.imageUrl.isEmpty
+                    ? Text(
+                        restaurant.name[0],
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: rank == 1 ? 18 : 14,
+                          color: color,
+                        ),
+                      )
+                    : null,
               ),
             ),
             if (rank == 1)
-              Positioned(
-                top: -12,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(color: Colors.amber, shape: BoxShape.circle),
-                  child: const Icon(Icons.emoji_events, size: 14, color: Colors.white),
-                ),
-              )
-            else
-              Positioned(
-                top: -8,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                  child: Icon(_getTierIcon(tier), size: 14, color: _getTierColor(tier)),
+              const Positioned(
+                top: -16,
+                child: Icon(
+                  Icons.stars_rounded,
+                  color: Color(0xFFF59E0B),
+                  size: 22,
                 ),
               ),
           ],
         ),
         const SizedBox(height: 6),
 
-        // Outlet Name
         SizedBox(
-          width: 80,
+          width: 85,
           child: Text(
             restaurant.name,
             textAlign: TextAlign.center,
@@ -789,13 +839,22 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
             overflow: TextOverflow.ellipsis,
           ),
         ),
+        const SizedBox(height: 2),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          decoration: BoxDecoration(
+            color: _getTierBgColor(tier),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            _getTierName(tier),
+            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: _getTierColor(tier)),
+          ),
+        ),
         const SizedBox(height: 6),
 
-        // Animated Gradient Podium Pillar Container with Smooth Height Transition
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeInOutCubic,
-          width: 80,
+        Container(
+          width: 75,
           height: targetHeight,
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -804,27 +863,11 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
               end: Alignment.bottomCenter,
             ),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
           ),
           child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '$rank',
-                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                Text(
-                  '${restaurant.hygieneRiskScore.toStringAsFixed(1)} Risk',
-                  style: const TextStyle(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.w600),
-                ),
-              ],
+            child: Text(
+              '$rank',
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ),
         ),
@@ -832,40 +875,53 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
     );
   }
 
-  Widget _buildLeagueRibbonBadge(String name, Color color, IconData icon, {required bool isUnlocked}) {
-    return Column(
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            shape: BoxShape.circle,
-            border: Border.all(color: color, width: 1.8),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.22),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
+  Widget _buildLeagueRibbonBadge(String name, Color color, IconData icon) {
+    final isSelected = _selectedTierFilter.toLowerCase() == name.toLowerCase();
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedTierFilter = isSelected ? 'All' : name;
+        });
+      },
+      child: Column(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: isSelected ? color : color.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? Colors.white : color,
+                width: isSelected ? 2.5 : 1.8,
               ),
-            ],
+              boxShadow: [
+                BoxShadow(
+                  color: isSelected ? color.withValues(alpha: 0.45) : color.withValues(alpha: 0.18),
+                  blurRadius: isSelected ? 12 : 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Icon(
+              icon,
+              color: isSelected ? Colors.white : color,
+              size: 26,
+            ),
           ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 24,
+          const SizedBox(height: 6),
+          Text(
+            name,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+              color: isSelected ? const Color(0xFF00A88F) : AppTheme.navyColor,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          name,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.navyColor,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

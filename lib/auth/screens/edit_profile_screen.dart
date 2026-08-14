@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../core/services/customer_store_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_app_bar.dart';
-import '../../core/widgets/custom_button.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -17,13 +16,78 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _phoneCtrl;
   late String _selectedGender;
   late String _selectedCountry;
-  late TextEditingController _stateCtrl;
+  late String _selectedState;
 
   late String _avatarUrl;
   bool _isSaving = false;
 
   final List<String> _genderOptions = ['Male', 'Female', 'Other'];
   final List<String> _countryOptions = ['Malaysia 🇲🇾', 'Singapore 🇸🇬', 'Indonesia 🇮🇩', 'Thailand 🇹🇭', 'United States 🇺🇸', 'Other'];
+
+  final Map<String, List<String>> _countryStatesMap = {
+    'Malaysia 🇲🇾': [
+      'Kuala Lumpur',
+      'Selangor',
+      'Penang',
+      'Johor',
+      'Perak',
+      'Melaka',
+      'Kedah',
+      'Pahang',
+      'Negeri Sembilan',
+      'Sabah',
+      'Sarawak',
+      'Kelantan',
+      'Terengganu',
+      'Perlis',
+      'Putrajaya',
+      'Labuan',
+    ],
+    'Singapore 🇸🇬': [
+      'Central Region',
+      'East Region',
+      'North Region',
+      'North-East Region',
+      'West Region',
+    ],
+    'Indonesia 🇮🇩': [
+      'Jakarta',
+      'West Java (Bandung)',
+      'Central Java (Semarang)',
+      'East Java (Surabaya)',
+      'Bali (Denpasar)',
+      'North Sumatra (Medan)',
+      'Banten',
+      'Yogyakarta',
+      'Riau',
+      'South Sulawesi',
+    ],
+    'Thailand 🇹🇭': [
+      'Bangkok',
+      'Chiang Mai',
+      'Phuket',
+      'Chonburi (Pattaya)',
+      'Nonthaburi',
+      'Surat Thani (Koh Samui)',
+      'Krabi',
+      'Khon Kaen',
+    ],
+    'United States 🇺🇸': [
+      'California',
+      'New York',
+      'Texas',
+      'Florida',
+      'Washington',
+      'Illinois',
+      'Massachusetts',
+      'Nevada',
+      'Georgia',
+      'Hawaii',
+    ],
+    'Other': [
+      'Other / International',
+    ],
+  };
 
   final List<String> _presetAvatars = [
     'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
@@ -43,7 +107,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _phoneCtrl = TextEditingController(text: customer?.phone ?? '');
     _selectedGender = (customer?.gender != null && _genderOptions.contains(customer!.gender)) ? customer.gender! : 'Male';
     _selectedCountry = (customer?.country != null && _countryOptions.contains(customer!.country)) ? customer.country! : 'Malaysia 🇲🇾';
-    _stateCtrl = TextEditingController(text: customer?.state ?? '');
+
+    final availableStates = _countryStatesMap[_selectedCountry] ?? _countryStatesMap['Malaysia 🇲🇾']!;
+    final customerState = customer?.state?.trim();
+    if (customerState != null && customerState.isNotEmpty && availableStates.contains(customerState)) {
+      _selectedState = customerState;
+    } else {
+      _selectedState = availableStates.first;
+    }
+
     _avatarUrl = customer?.avatarUrl ?? _presetAvatars.first;
   }
 
@@ -52,7 +124,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
-    _stateCtrl.dispose();
     super.dispose();
   }
 
@@ -105,7 +176,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       const SizedBox(width: 12),
                       const Text(
                         'Change Profile Picture',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -157,19 +228,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'https://example.com/avatar.jpg',
-                      prefixIcon: const Icon(Icons.link_rounded, size: 20),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      prefixIcon: const Icon(Icons.link_rounded, size: 20, color: AppTheme.primaryColor),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.8),
+                      ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     ),
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
+                    height: 46,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryColor,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                       onPressed: () {
                         if (customUrlCtrl.text.trim().isNotEmpty) {
@@ -195,10 +271,51 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    InputDecoration buildInputDecoration({
+      required String label,
+      required IconData icon,
+      bool isReadOnly = false,
+      Widget? suffixIcon,
+    }) {
+      return InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(
+          fontSize: 13.5,
+          color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+        ),
+        prefixIcon: Icon(icon, color: AppTheme.primaryColor, size: 22),
+        suffixIcon: suffixIcon,
+        filled: true,
+        fillColor: isReadOnly
+            ? (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade100)
+            : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade50),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(
+            color: AppTheme.primaryColor,
+            width: 1.8,
+          ),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      );
+    }
+
     return Scaffold(
       appBar: const CustomAppBar(title: 'Edit Profile Details'),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -208,22 +325,51 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 children: [
                   GestureDetector(
                     onTap: _showAvatarPickerModal,
-                    child: CircleAvatar(
-                      radius: 54,
-                      backgroundColor: const Color(0xFF0284C7).withValues(alpha: 0.15),
-                      backgroundImage: NetworkImage(_avatarUrl),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.25),
+                          width: 3.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 54,
+                        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                        backgroundImage: NetworkImage(_avatarUrl),
+                      ),
                     ),
                   ),
                   Positioned(
                     bottom: 0,
                     right: 0,
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: AppTheme.primaryColor,
-                      child: IconButton(
-                        icon: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
-                        padding: EdgeInsets.zero,
-                        onPressed: _showAvatarPickerModal,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: AppTheme.primaryColor,
+                        child: IconButton(
+                          icon: const Icon(Icons.camera_alt_rounded, size: 17, color: Colors.white),
+                          padding: EdgeInsets.zero,
+                          onPressed: _showAvatarPickerModal,
+                        ),
                       ),
                     ),
                   ),
@@ -235,12 +381,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             // Full Name
             TextField(
               controller: _nameCtrl,
-              decoration: InputDecoration(
-                labelText: 'Full Name',
-                prefixIcon: const Icon(Icons.person_outline),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
+              decoration: buildInputDecoration(
+                label: 'Full Name',
+                icon: Icons.person_outline_rounded,
               ),
             ),
             const SizedBox(height: 16),
@@ -249,12 +392,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             TextField(
               controller: _emailCtrl,
               readOnly: true,
-              decoration: InputDecoration(
-                labelText: 'Email Address (Registered)',
-                prefixIcon: const Icon(Icons.email_outlined),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.grey.shade100,
+              decoration: buildInputDecoration(
+                label: 'Email Address (Registered)',
+                icon: Icons.email_outlined,
+                isReadOnly: true,
+                suffixIcon: const Icon(Icons.lock_outline_rounded, size: 18, color: Colors.grey),
               ),
             ),
             const SizedBox(height: 16),
@@ -262,12 +404,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             // Phone Number
             TextField(
               controller: _phoneCtrl,
-              decoration: InputDecoration(
-                labelText: 'Phone Number',
-                prefixIcon: const Icon(Icons.phone_outlined),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
+              keyboardType: TextInputType.phone,
+              decoration: buildInputDecoration(
+                label: 'Phone Number',
+                icon: Icons.phone_outlined,
               ),
             ),
             const SizedBox(height: 16),
@@ -275,14 +415,88 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             // Gender Selector
             DropdownButtonFormField<String>(
               initialValue: _selectedGender,
-              decoration: InputDecoration(
-                labelText: 'Gender',
-                prefixIcon: const Icon(Icons.wc_outlined),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.primaryColor, size: 24),
+              dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              elevation: 4,
+              menuMaxHeight: 260,
+              isExpanded: true,
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
               ),
-              items: _genderOptions.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+              decoration: buildInputDecoration(
+                label: 'Gender',
+                icon: Icons.wc_outlined,
+              ),
+              selectedItemBuilder: (BuildContext context) {
+                return _genderOptions.map((g) {
+                  IconData gIcon;
+                  Color gIconColor;
+                  if (g == 'Male') {
+                    gIcon = Icons.male_rounded;
+                    gIconColor = AppTheme.primaryColor;
+                  } else if (g == 'Female') {
+                    gIcon = Icons.female_rounded;
+                    gIconColor = const Color(0xFFEC4899);
+                  } else {
+                    gIcon = Icons.transgender_rounded;
+                    gIconColor = const Color(0xFF8B5CF6);
+                  }
+                  return Row(
+                    children: [
+                      Icon(gIcon, size: 20, color: gIconColor),
+                      const SizedBox(width: 10),
+                      Text(
+                        g,
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList();
+              },
+              items: _genderOptions.map((g) {
+                final isSelected = (_selectedGender == g);
+                IconData gIcon;
+                Color gIconColor;
+                if (g == 'Male') {
+                  gIcon = Icons.male_rounded;
+                  gIconColor = AppTheme.primaryColor;
+                } else if (g == 'Female') {
+                  gIcon = Icons.female_rounded;
+                  gIconColor = const Color(0xFFEC4899);
+                } else {
+                  gIcon = Icons.transgender_rounded;
+                  gIconColor = const Color(0xFF8B5CF6);
+                }
+
+                return DropdownMenuItem(
+                  value: g,
+                  child: Row(
+                    children: [
+                      Icon(gIcon, size: 20, color: gIconColor),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          g,
+                          style: TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                      if (isSelected)
+                        const Icon(Icons.check_rounded, size: 18, color: AppTheme.primaryColor),
+                    ],
+                  ),
+                );
+              }).toList(),
               onChanged: (val) {
                 if (val != null) setState(() => _selectedGender = val);
               },
@@ -292,59 +506,188 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             // Country Selector
             DropdownButtonFormField<String>(
               initialValue: _selectedCountry,
-              decoration: InputDecoration(
-                labelText: 'Country / Region',
-                prefixIcon: const Icon(Icons.public_outlined),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.primaryColor, size: 24),
+              dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              elevation: 4,
+              menuMaxHeight: 280,
+              isExpanded: true,
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
               ),
-              items: _countryOptions.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+              decoration: buildInputDecoration(
+                label: 'Country / Region',
+                icon: Icons.public_outlined,
+              ),
+              selectedItemBuilder: (BuildContext context) {
+                return _countryOptions.map((c) {
+                  return Row(
+                    children: [
+                      Text(
+                        c,
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList();
+              },
+              items: _countryOptions.map((c) {
+                final isSelected = (_selectedCountry == c);
+                return DropdownMenuItem(
+                  value: c,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          c,
+                          style: TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                      if (isSelected)
+                        const Icon(Icons.check_rounded, size: 18, color: AppTheme.primaryColor),
+                    ],
+                  ),
+                );
+              }).toList(),
               onChanged: (val) {
-                if (val != null) setState(() => _selectedCountry = val);
+                if (val != null) {
+                  setState(() {
+                    _selectedCountry = val;
+                    final availableStates = _countryStatesMap[_selectedCountry] ?? ['Other / International'];
+                    if (!availableStates.contains(_selectedState)) {
+                      _selectedState = availableStates.first;
+                    }
+                  });
+                }
               },
             ),
             const SizedBox(height: 16),
 
-            // State / City
-            TextField(
-              controller: _stateCtrl,
-              decoration: InputDecoration(
-                labelText: 'State / City',
-                prefixIcon: const Icon(Icons.location_city_outlined),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
+            // State / Region Dropdown Selector
+            DropdownButtonFormField<String>(
+              key: ValueKey('state_dropdown_$_selectedCountry'),
+              initialValue: _selectedState,
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.primaryColor, size: 24),
+              dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              elevation: 4,
+              menuMaxHeight: 280,
+              isExpanded: true,
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
               ),
+              decoration: buildInputDecoration(
+                label: 'State / Region',
+                icon: Icons.location_city_outlined,
+              ),
+              selectedItemBuilder: (BuildContext context) {
+                final states = _countryStatesMap[_selectedCountry] ?? ['Other / International'];
+                return states.map((s) {
+                  return Row(
+                    children: [
+                      Text(
+                        s,
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList();
+              },
+              items: (_countryStatesMap[_selectedCountry] ?? ['Other / International']).map((s) {
+                final isSelected = (_selectedState == s);
+                return DropdownMenuItem(
+                  value: s,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.pin_drop_outlined, size: 18, color: AppTheme.primaryColor),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          s,
+                          style: TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                      if (isSelected)
+                        const Icon(Icons.check_rounded, size: 18, color: AppTheme.primaryColor),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedState = val);
+              },
             ),
             const SizedBox(height: 28),
 
-            CustomButton(
-              label: _isSaving ? 'Saving...' : 'Save Profile Changes',
-              onPressed: () async {
-                final messenger = ScaffoldMessenger.of(context);
-                final nav = Navigator.of(context);
+            // Primary Save Changes Button
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 2,
+                ),
+                onPressed: _isSaving
+                    ? null
+                    : () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final nav = Navigator.of(context);
 
-                setState(() => _isSaving = true);
-                await CustomerStoreService.updateCustomerProfile(
-                  name: _nameCtrl.text.trim(),
-                  phone: _phoneCtrl.text.trim(),
-                  gender: _selectedGender,
-                  country: _selectedCountry,
-                  state: _stateCtrl.text.trim(),
-                  avatarUrl: _avatarUrl,
-                );
+                        setState(() => _isSaving = true);
+                        await CustomerStoreService.updateCustomerProfile(
+                          name: _nameCtrl.text.trim(),
+                          phone: _phoneCtrl.text.trim(),
+                          gender: _selectedGender,
+                          country: _selectedCountry,
+                          state: _selectedState,
+                          avatarUrl: _avatarUrl,
+                        );
 
-                if (!mounted) return;
-                setState(() => _isSaving = false);
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Profile details updated successfully!'),
-                    backgroundColor: AppTheme.primaryColor,
-                  ),
-                );
-                nav.pop();
-              },
+                        if (!mounted) return;
+                        setState(() => _isSaving = false);
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Profile details updated successfully!'),
+                            backgroundColor: AppTheme.primaryColor,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                        nav.pop();
+                      },
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                      )
+                    : const Text(
+                        'Save Profile Changes',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+              ),
             ),
           ],
         ),

@@ -47,7 +47,14 @@ class ComplaintFullDetailScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(c.id, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Flexible(
+                  child: Text(
+                    c.id,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
                 StatusBadge.fromStatus(c.status.name),
               ],
             ),

@@ -135,7 +135,13 @@ class NoticeDetailScreen extends StatelessWidget {
               children: [
                 StatusBadge.fromStatus(c.status.name),
                 const SizedBox(width: 8),
-                Text('Directive ID: ${c.id}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.w600)),
+                Expanded(
+                  child: Text(
+                    'Directive ID: ${c.id}',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),

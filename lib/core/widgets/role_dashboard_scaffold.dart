@@ -6,6 +6,7 @@ import '../models/user_model.dart';
 import '../routes/app_routes.dart';
 import '../services/customer_store_service.dart';
 import '../services/language_manager.dart';
+import '../services/restaurant_store_service.dart';
 import '../services/supabase_service.dart';
 import '../utils/translations.dart';
 import '../../gps/widgets/restaurant_card.dart';
@@ -14,6 +15,7 @@ import 'stat_card.dart';
 
 import '../../owner/screens/owner_dashboard_screen.dart';
 import '../../gps/screens/restaurant_map_screen.dart';
+import '../../risk/screens/recommendation_home_screen.dart';
 
 import 'profile_setup_focus_dialog.dart';
 
@@ -47,6 +49,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
     super.initState();
     _currentRole = widget.initialRole;
     _selectedBottomTabIndex = widget.initialTabIndex;
+    BookmarkService.init();
     if (_currentRole == UserRole.admin) {
       _loadAdminRealStats();
     }
@@ -155,6 +158,13 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
         title: Text(_getUserTabTitle(_selectedBottomTabIndex)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.bookmark_border_rounded),
+            tooltip: 'Saved Wishlist',
+            onPressed: () {
+              Navigator.pushNamed(context, AppRoutes.savedRestaurants);
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.notifications_none),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -180,8 +190,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
         items: [
           BottomNavigationBarItem(icon: const Icon(Icons.home_outlined), label: t('home')),
           BottomNavigationBarItem(icon: const Icon(Icons.map_outlined), label: t('map')),
-          BottomNavigationBarItem(icon: const Icon(Icons.add_alert_outlined), label: t('report')),
-          BottomNavigationBarItem(icon: const Icon(Icons.verified_outlined), label: t('safe_food')),
+          BottomNavigationBarItem(icon: const Icon(Icons.recommend_outlined), label: t('safe_food')),
           BottomNavigationBarItem(icon: const Icon(Icons.person_outline), label: t('my_profile')),
         ],
       ),
@@ -191,14 +200,12 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
   String _getUserTabTitle(int index) {
     switch (index) {
       case 0:
-        return t('safe_food');
+        return t('home');
       case 1:
         return t('map');
       case 2:
-        return t('submit_hygiene_report');
+        return t('safe_food');
       case 3:
-        return t('risk_rankings');
-      case 4:
         return t('my_profile');
       default:
         return t('app_title');
@@ -212,10 +219,8 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
       case 1:
         return _buildUserMapPanel(context);
       case 2:
-        return _buildUserReportPanel(context);
-      case 3:
         return _buildUserSafeFoodPanel(context);
-      case 4:
+      case 3:
         return _buildUserProfilePanel(context);
       default:
         return Container();
@@ -410,63 +415,8 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
     return const RestaurantMapScreen(showAppBar: false);
   }
 
-  Widget _buildUserReportPanel(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: Color(0xFF0284C7) == Colors.red ? MainAxisAlignment.start : MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.rate_review_outlined, size: 64, color: Color(0xFF0284C7)),
-          const SizedBox(height: 16),
-          const Text('Submit Report', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const Text('Report unhygienic outlets with photo proof.', textAlign: TextAlign.center),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.submitComplaint),
-            icon: const Icon(Icons.send),
-            label: const Text('New Report'),
-          ),
-          const SizedBox(height: 10),
-          TextButton.icon(
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.complaintHistory),
-            icon: const Icon(Icons.history),
-            label: const Text('My Reports'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildUserSafeFoodPanel(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.stars, size: 64, color: Color(0xFF10B981)),
-          const SizedBox(height: 16),
-          const Text('Safe Food', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const Text('Find cleanest outlets based on risk scores.', textAlign: TextAlign.center),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.recommendationHome),
-            icon: const Icon(Icons.verified),
-            label: const Text('Safe Food'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.riskRankingList),
-            icon: const Icon(Icons.format_list_numbered),
-            label: const Text('Risk Rankings'),
-          ),
-        ],
-      ),
-    );
+    return const RecommendationHomeScreen(showAppBar: false);
   }
 
   Widget _buildUserProfilePanel(BuildContext context) {
@@ -677,7 +627,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
                       t('activity_history'),
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A)),
                     ),
-                    subtitle: const Text('View account session logs & audit history', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    subtitle: const Text('View recent visits, submitted reports & reviews', style: TextStyle(fontSize: 12, color: Colors.grey)),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
                     onTap: () => Navigator.pushNamed(context, AppRoutes.activityHistory),
                   ),
@@ -829,8 +779,6 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
               _adminToolTile(context, icon: Icons.people_outline, title: 'Manage Users', route: AppRoutes.manageUserAccounts),
               _adminToolTile(context, icon: Icons.verified_user_outlined, title: 'Approve Outlets', route: AppRoutes.restaurantVerificationQueue),
               _adminToolTile(context, icon: Icons.checklist_rtl, title: 'All Reports', route: AppRoutes.allComplaints),
-              _adminToolTile(context, icon: Icons.fact_check_outlined, title: 'Verify Proof', route: AppRoutes.verifyEvidence),
-              _adminToolTile(context, icon: Icons.copy, title: 'Check Duplicates', route: AppRoutes.duplicateFakeReview),
               _adminToolTile(context, icon: Icons.gavel, title: 'Review Reports', route: AppRoutes.inspectionReportReview),
               _adminToolTile(context, icon: Icons.history_edu, title: 'Audit Logs', route: AppRoutes.adminActionLog),
             ],
@@ -880,8 +828,6 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
                 _buildDrawerItem(context, icon: Icons.people_alt_outlined, title: 'Manage Users', route: AppRoutes.manageUserAccounts, iconColor: const Color(0xFF0284C7), iconBgColor: const Color(0xFFE0F2FE)),
                 _buildDrawerItem(context, icon: Icons.verified_outlined, title: 'Approve Outlets', route: AppRoutes.restaurantVerificationQueue, iconColor: const Color(0xFF0D9488), iconBgColor: const Color(0xFFCCFBF1)),
                 _buildDrawerItem(context, icon: Icons.assignment_outlined, title: 'All Reports', route: AppRoutes.allComplaints, iconColor: const Color(0xFF8B5CF6), iconBgColor: const Color(0xFFF3E8FF)),
-                _buildDrawerItem(context, icon: Icons.fact_check_outlined, title: 'Verify Proof', route: AppRoutes.verifyEvidence, iconColor: const Color(0xFFEA580C), iconBgColor: const Color(0xFFFFEDD5)),
-                _buildDrawerItem(context, icon: Icons.copy_outlined, title: 'Check Duplicates', route: AppRoutes.duplicateFakeReview, iconColor: const Color(0xFFD97706), iconBgColor: const Color(0xFFFEF3C7)),
                 _buildDrawerItem(context, icon: Icons.gavel_outlined, title: 'Review Reports', route: AppRoutes.inspectionReportReview, iconColor: const Color(0xFF059669), iconBgColor: const Color(0xFFD1FAE5)),
                 _buildDrawerItem(context, icon: Icons.receipt_long_outlined, title: 'Audit Logs', route: AppRoutes.adminActionLog, iconColor: const Color(0xFF6366F1), iconBgColor: const Color(0xFFEEF2FF)),
               ],

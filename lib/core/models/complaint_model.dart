@@ -45,4 +45,114 @@ class ComplaintModel {
     required this.submittedAt,
     required this.photoUrls,
   });
+
+  factory ComplaintModel.fromJson(Map<String, dynamic> json) {
+    ComplaintStatus parsedStatus = ComplaintStatus.submitted;
+    final statusStr = (json['status'] ?? '').toString().toLowerCase();
+    if (statusStr == 'underreview' || statusStr == 'under_review') {
+      parsedStatus = ComplaintStatus.underReview;
+    } else if (statusStr == 'investigating') {
+      parsedStatus = ComplaintStatus.investigating;
+    } else if (statusStr == 'pendinginspection' || statusStr == 'pending_inspection') {
+      parsedStatus = ComplaintStatus.pendingInspection;
+    } else if (statusStr == 'resolved') {
+      parsedStatus = ComplaintStatus.resolved;
+    } else if (statusStr == 'rejected') {
+      parsedStatus = ComplaintStatus.rejected;
+    }
+
+    SeverityLevel parsedSeverity = SeverityLevel.medium;
+    final sevStr = (json['severity'] ?? '').toString().toLowerCase();
+    if (sevStr == 'high') {
+      parsedSeverity = SeverityLevel.high;
+    } else if (sevStr == 'low') {
+      parsedSeverity = SeverityLevel.low;
+    }
+
+    List<String> parsedIssues = [];
+    if (json['complaint_issues'] is List) {
+      for (final item in json['complaint_issues']) {
+        if (item is Map && item['issue_text'] != null) {
+          parsedIssues.add(item['issue_text'].toString());
+        } else if (item != null) {
+          parsedIssues.add(item.toString());
+        }
+      }
+    } else if (json['issues'] is List) {
+      parsedIssues = (json['issues'] as List).map((e) => e.toString()).toList();
+    }
+
+    List<String> parsedPhotos = [];
+    if (json['complaint_photos'] is List) {
+      for (final item in json['complaint_photos']) {
+        if (item is Map && item['photo_url'] != null) {
+          parsedPhotos.add(item['photo_url'].toString());
+        } else if (item != null) {
+          parsedPhotos.add(item.toString());
+        }
+      }
+    } else if (json['photo_urls'] is List) {
+      parsedPhotos = (json['photo_urls'] as List).map((e) => e.toString()).toList();
+    } else if (json['photos'] is List) {
+      parsedPhotos = (json['photos'] as List).map((e) => e.toString()).toList();
+    }
+
+    String rName = 'Outlet';
+    if (json['restaurants'] is Map && json['restaurants']['name'] != null) {
+      rName = json['restaurants']['name'].toString();
+    } else if (json['restaurant_name'] != null) {
+      rName = json['restaurant_name'].toString();
+    } else if (json['restaurantName'] != null) {
+      rName = json['restaurantName'].toString();
+    }
+
+    String uName = 'Citizen Diner';
+    if (json['users'] is Map && json['users']['name'] != null) {
+      uName = json['users']['name'].toString();
+    } else if (json['user_name'] != null) {
+      uName = json['user_name'].toString();
+    } else if (json['userName'] != null) {
+      uName = json['userName'].toString();
+    }
+
+    return ComplaintModel(
+      id: json['id']?.toString() ?? '',
+      restaurantId: json['restaurant_id']?.toString() ?? json['restaurantId']?.toString() ?? '',
+      restaurantName: rName,
+      userId: json['user_id']?.toString() ?? json['userId']?.toString() ?? '',
+      userName: uName,
+      category: json['category']?.toString() ?? 'Hygiene Issue',
+      issues: parsedIssues,
+      description: json['description']?.toString() ?? '',
+      status: parsedStatus,
+      severity: parsedSeverity,
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 3.1466,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 101.6958,
+      isFlaggedForReview: json['is_flagged_for_review'] == true || json['isFlaggedForReview'] == true,
+      flaggedReason: json['flagged_reason']?.toString() ?? json['flaggedReason']?.toString(),
+      submittedAt: json['submitted_at']?.toString() ?? json['submittedAt']?.toString() ?? json['created_at']?.toString() ?? '',
+      photoUrls: parsedPhotos,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'restaurant_id': restaurantId,
+      'restaurant_name': restaurantName,
+      'user_id': userId,
+      'user_name': userName,
+      'category': category,
+      'issues': issues,
+      'description': description,
+      'status': status.name,
+      'severity': severity.name,
+      'latitude': latitude,
+      'longitude': longitude,
+      'is_flagged_for_review': isFlaggedForReview,
+      'flagged_reason': flaggedReason,
+      'submitted_at': submittedAt,
+      'photo_urls': photoUrls,
+    };
+  }
 }

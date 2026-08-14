@@ -122,19 +122,25 @@ class HorizontalStepTracker extends StatelessWidget {
 
                   return SizedBox(
                     width: segmentWidth,
-                    child: Text(
-                      stepTitles[index],
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: isCurrent || isCompleted ? FontWeight.bold : FontWeight.w500,
-                        color: isCurrent
-                            ? AppTheme.navyColor
-                            : isCompleted
-                                ? activeColor
-                                : Colors.grey.shade500,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.center,
+                        child: Text(
+                          stepTitles[index],
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: isCurrent || isCompleted ? FontWeight.bold : FontWeight.w500,
+                            color: isCurrent
+                                ? AppTheme.navyColor
+                                : isCompleted
+                                    ? activeColor
+                                    : Colors.grey.shade500,
+                          ),
+                        ),
                       ),
                     ),
                   );

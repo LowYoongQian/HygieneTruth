@@ -2,6 +2,7 @@ import 'package:bcrypt/bcrypt.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/mock_seed_data.dart';
 import '../models/user_model.dart';
@@ -31,32 +32,51 @@ class CustomerStoreService {
 
   static final Map<String, Map<String, String>> _registeredCustomers = {};
 
-  /// Fetches real user profile for the current active Supabase Auth session
+  /// Fetches real user profile for the current active Supabase Auth session or current customer
   static Future<UserModel?> fetchActiveUserSession() async {
     try {
       final supabase = SupabaseService.client;
       final sessionUser = supabase.auth.currentUser;
       
-      if (sessionUser == null) {
+      String? targetUserId = sessionUser?.id ?? _currentCustomer?.id;
+      String? targetUserEmail = sessionUser?.email ?? _currentCustomer?.email;
+
+      if (targetUserId == null && (targetUserEmail == null || targetUserEmail.isEmpty)) {
         return _currentCustomer;
       }
 
-      final String userId = sessionUser.id;
-      final String userEmail = sessionUser.email ?? '';
-
       // Query real user row from public.users table in Supabase
-      final Map<String, dynamic>? data = await supabase
-          .from('users')
-          .select()
-          .eq('id', userId)
-          .maybeSingle();
+      Map<String, dynamic>? data;
+      if (targetUserId != null && targetUserId.isNotEmpty) {
+        try {
+          data = await supabase
+              .from('users')
+              .select()
+              .eq('id', targetUserId)
+              .maybeSingle();
+        } catch (_) {}
+      }
 
-      String name = sessionUser.userMetadata?['name'] as String? ?? (userEmail.isNotEmpty ? userEmail.split('@').first : 'User');
+      if (data == null && targetUserEmail != null && targetUserEmail.isNotEmpty) {
+        try {
+          data = await supabase
+              .from('users')
+              .select()
+              .eq('email', targetUserEmail.trim().toLowerCase())
+              .maybeSingle();
+        } catch (_) {}
+      }
+
+      final String finalId = data?['id']?.toString() ?? targetUserId ?? UuidHelper.generateV4();
+      final String finalEmail = data?['email']?.toString() ?? targetUserEmail ?? '';
+
+      String name = sessionUser?.userMetadata?['name'] as String? ?? (finalEmail.isNotEmpty ? finalEmail.split('@').first : 'User');
       String? phone;
       String? gender;
       String? country;
       String? state;
       String avatarUrl = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200';
+      UserRole userRole = _currentCustomer?.role ?? UserRole.user;
 
       if (data != null) {
         name = data['name']?.toString() ?? name;
@@ -67,17 +87,38 @@ class CustomerStoreService {
         if (data['avatar_url'] != null && data['avatar_url'].toString().trim().isNotEmpty) {
           avatarUrl = data['avatar_url'].toString().trim();
         }
+        if (data['role'] != null) {
+          final r = data['role'].toString().toLowerCase();
+          userRole = (r == 'businessman' || r == 'owner')
+              ? UserRole.owner
+              : (r == 'admin'
+                  ? UserRole.admin
+                  : (r == 'government' ? UserRole.government : UserRole.user));
+        }
         if (data['language'] != null) {
           final langIdx = int.tryParse(data['language'].toString());
           if (langIdx != null) {
             languageManager.updateLanguageFromDatabase(langIdx);
           }
         }
+        if (data['settings'] is Map) {
+          final settings = data['settings'] as Map<String, dynamic>;
+          if (settings['google_linked'] is Map) {
+            _cachedGoogleLinkedEmail = settings['google_linked']['email']?.toString();
+          } else if (settings['google_email'] != null) {
+            _cachedGoogleLinkedEmail = settings['google_email']?.toString();
+          }
+        }
       }
 
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        _cachedGoogleLinkedEmail ??= prefs.getString('google_linked_email_$finalId') ?? prefs.getString('google_linked_email_$finalEmail');
+      } catch (_) {}
+
       String? joinedDate;
-      final rawCreated = data?['created_at']?.toString() ?? sessionUser.createdAt;
-      if (rawCreated.isNotEmpty) {
+      final rawCreated = data?['created_at']?.toString() ?? sessionUser?.createdAt ?? _currentCustomer?.joinedDate;
+      if (rawCreated != null && rawCreated.isNotEmpty) {
         final dt = DateTime.tryParse(rawCreated);
         if (dt != null) {
           final DateTime msiaDt = dt.toUtc().add(const Duration(hours: 8));
@@ -91,11 +132,11 @@ class CustomerStoreService {
       }
 
       _currentCustomer = UserModel(
-        id: userId,
+        id: finalId,
         name: name,
-        email: userEmail,
+        email: finalEmail,
         phone: phone,
-        role: UserRole.user,
+        role: userRole,
         status: AccountStatus.active,
         avatarUrl: avatarUrl,
         gender: gender,
@@ -104,7 +145,7 @@ class CustomerStoreService {
         joinedDate: joinedDate,
       );
 
-      themeManager.loadThemeForUser(userId);
+      themeManager.loadThemeForUser(finalId);
 
       return _currentCustomer;
     } catch (e) {
@@ -121,27 +162,185 @@ class CustomerStoreService {
     return '';
   }
 
-  /// Checks if current Supabase session is linked to a Google auth provider
+  static String? _cachedGoogleLinkedEmail;
+
+  /// Checks if current Supabase session or user profile is linked to a Google auth provider
   static bool isGoogleLinked() {
+    if (_cachedGoogleLinkedEmail != null && _cachedGoogleLinkedEmail!.trim().isNotEmpty) {
+      return true;
+    }
     final user = SupabaseService.client.auth.currentUser;
-    if (user == null) return false;
-    final provider = user.appMetadata['provider']?.toString();
-    if (provider == 'google') return true;
-    final identities = user.identities;
-    if (identities != null) {
-      return identities.any((id) => id.provider.toLowerCase() == 'google');
+    if (user != null) {
+      final provider = user.appMetadata['provider']?.toString();
+      if (provider == 'google') return true;
+      final identities = user.identities;
+      if (identities != null) {
+        return identities.any((id) => id.provider.toLowerCase() == 'google');
+      }
     }
     return false;
   }
 
   /// Returns linked Google account email address if available
   static String getGoogleLinkedEmail() {
+    if (_cachedGoogleLinkedEmail != null && _cachedGoogleLinkedEmail!.trim().isNotEmpty) {
+      return _cachedGoogleLinkedEmail!;
+    }
     final user = SupabaseService.client.auth.currentUser;
-    if (user == null) return '';
-    if (isGoogleLinked()) {
+    if (user != null && isGoogleLinked()) {
       return user.email ?? '';
     }
     return '';
+  }
+
+  /// Links / binds a Google account to the currently logged in profile
+  static Future<CustomerAuthResult> linkGoogleAccount() async {
+    try {
+      final supabase = SupabaseService.client;
+      final String webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'] ??
+          '927326709623-332ted8aosmjf5efmbq3if09ur98vtl5.apps.googleusercontent.com';
+
+      // 1. Initialize Native Google Sign-In SDK
+      final GoogleSignIn googleSignIn = GoogleSignIn.instance;
+      await googleSignIn.initialize(
+        clientId: webClientId,
+        serverClientId: webClientId,
+      );
+
+      // 2. Prompt native Android / iOS "Choose an account" dialog
+      final googleUser = await googleSignIn.authenticate();
+
+      final String gEmail = googleUser.email;
+      final String gName = googleUser.displayName ?? gEmail.split('@').first;
+      final String? gAvatar = googleUser.photoUrl;
+
+      final currentCust = _currentCustomer;
+      final String? userId = currentCust?.id ?? supabase.auth.currentUser?.id;
+      final String? userEmail = currentCust?.email ?? supabase.auth.currentUser?.email;
+
+      // 3. Persist binding to Supabase users table settings column
+      if (userId != null || (userEmail != null && userEmail.isNotEmpty)) {
+        try {
+          Map<String, dynamic>? userRow;
+          if (userId != null && userId.isNotEmpty) {
+            userRow = await supabase.from('users').select('id, settings').eq('id', userId).maybeSingle();
+          }
+          if (userRow == null && userEmail != null && userEmail.isNotEmpty) {
+            userRow = await supabase.from('users').select('id, settings').eq('email', userEmail).maybeSingle();
+          }
+
+          Map<String, dynamic> settings = {};
+          if (userRow != null && userRow['settings'] is Map) {
+            settings = Map<String, dynamic>.from(userRow['settings'] as Map);
+          }
+
+          settings['google_linked'] = {
+            'email': gEmail,
+            'name': gName,
+            'avatar': gAvatar,
+            'linked_at': DateTime.now().toUtc().toIso8601String(),
+          };
+          settings['google_email'] = gEmail;
+
+          final String targetId = userRow?['id']?.toString() ?? userId ?? '';
+          if (targetId.isNotEmpty) {
+            await supabase.from('users').update({'settings': settings}).eq('id', targetId);
+          } else if (userEmail != null && userEmail.isNotEmpty) {
+            await supabase.from('users').update({'settings': settings}).eq('email', userEmail);
+          }
+          debugPrint('CustomerStoreService: Google account ($gEmail) linked in Supabase users.settings!');
+        } catch (dbErr) {
+          debugPrint('Error updating google_linked in Supabase: $dbErr');
+        }
+      }
+
+      // 4. Save to local device storage
+      _cachedGoogleLinkedEmail = gEmail;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (userId != null) await prefs.setString('google_linked_email_$userId', gEmail);
+        if (userEmail != null) await prefs.setString('google_linked_email_$userEmail', gEmail);
+      } catch (_) {}
+
+      // 5. Audit Log
+      AuditLogService.logAction(
+        actionType: 'GOOGLE_ACCOUNT_LINKED',
+        category: 'Security',
+        title: 'Google Account Linked',
+        description: 'Successfully bound Google account ($gEmail) to profile',
+        userId: userId ?? '',
+        userEmail: userEmail ?? gEmail,
+      );
+
+      return CustomerAuthResult(
+        success: true,
+        message: 'Google account ($gEmail) successfully linked to your profile!',
+      );
+    } catch (e) {
+      debugPrint('Error in linkGoogleAccount: $e');
+      return CustomerAuthResult(
+        success: false,
+        message: 'Failed to link Google account: ${e.toString().replaceAll('Exception: ', '')}',
+      );
+    }
+  }
+
+  /// Unlinks Google account from current profile
+  static Future<CustomerAuthResult> unlinkGoogleAccount() async {
+    try {
+      final supabase = SupabaseService.client;
+      final currentCust = _currentCustomer;
+      final String? userId = currentCust?.id ?? supabase.auth.currentUser?.id;
+      final String? userEmail = currentCust?.email ?? supabase.auth.currentUser?.email;
+
+      if (userId != null || (userEmail != null && userEmail.isNotEmpty)) {
+        try {
+          Map<String, dynamic>? userRow;
+          if (userId != null && userId.isNotEmpty) {
+            userRow = await supabase.from('users').select('id, settings').eq('id', userId).maybeSingle();
+          }
+          if (userRow == null && userEmail != null && userEmail.isNotEmpty) {
+            userRow = await supabase.from('users').select('id, settings').eq('email', userEmail).maybeSingle();
+          }
+
+          if (userRow != null && userRow['settings'] is Map) {
+            final settings = Map<String, dynamic>.from(userRow['settings'] as Map);
+            settings.remove('google_linked');
+            settings.remove('google_email');
+            final String targetId = userRow['id']?.toString() ?? userId ?? '';
+            if (targetId.isNotEmpty) {
+              await supabase.from('users').update({'settings': settings}).eq('id', targetId);
+            }
+          }
+        } catch (_) {}
+      }
+
+      _cachedGoogleLinkedEmail = null;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (userId != null) await prefs.remove('google_linked_email_$userId');
+        if (userEmail != null) await prefs.remove('google_linked_email_$userEmail');
+      } catch (_) {}
+
+      AuditLogService.logAction(
+        actionType: 'GOOGLE_ACCOUNT_UNLINKED',
+        category: 'Security',
+        title: 'Google Account Unlinked',
+        description: 'Unlinked Google account connection from profile',
+        userId: userId ?? '',
+        userEmail: userEmail ?? '',
+      );
+
+      return const CustomerAuthResult(
+        success: true,
+        message: 'Google account unlinked successfully.',
+      );
+    } catch (e) {
+      return CustomerAuthResult(
+        success: false,
+        message: 'Failed to unlink Google account: $e',
+      );
+    }
   }
 
   /// Updates user profile details in Supabase database and active session
@@ -158,7 +357,7 @@ class CustomerStoreService {
       final supabase = SupabaseService.client;
       final sessionUser = supabase.auth.currentUser;
       final targetId = sessionUser?.id ?? _currentCustomer?.id;
-      final targetEmail = _currentCustomer?.email;
+      final targetEmail = _currentCustomer?.email ?? email;
 
       final Map<String, dynamic> updateData = {
         'name': name.trim(),
@@ -174,18 +373,30 @@ class CustomerStoreService {
         updateData['avatar_url'] = avatarUrl;
       }
 
+      bool updated = false;
       if (targetId != null && targetId.isNotEmpty) {
-        await supabase.from('users').update(updateData).eq('id', targetId);
-      } else if (targetEmail != null && targetEmail.isNotEmpty) {
-        await supabase.from('users').update(updateData).eq('email', targetEmail);
+        try {
+          final res = await supabase.from('users').update(updateData).eq('id', targetId).select();
+          if (res.isNotEmpty) {
+            updated = true;
+          }
+        } catch (_) {}
       }
+
+      if (!updated && targetEmail != null && targetEmail.isNotEmpty) {
+        try {
+          await supabase.from('users').update(updateData).eq('email', targetEmail.trim().toLowerCase());
+          updated = true;
+        } catch (_) {}
+      }
+
       bool nameChanged = (_currentCustomer != null && _currentCustomer!.name != name.trim());
       if (_currentCustomer != null) {
         _currentCustomer = UserModel(
           id: _currentCustomer!.id,
           name: name.trim(),
           email: (email != null && email.trim().isNotEmpty) ? email.trim().toLowerCase() : _currentCustomer!.email,
-          phone: phone,
+          phone: phone?.trim(),
           role: _currentCustomer!.role,
           status: _currentCustomer!.status,
           avatarUrl: (avatarUrl != null && avatarUrl.isNotEmpty) ? avatarUrl : _currentCustomer!.avatarUrl,
@@ -196,7 +407,6 @@ class CustomerStoreService {
         );
       }
 
-      // Record audit log entry in Supabase & local history
       if (nameChanged) {
         AuditLogService.logAction(
           actionType: 'NAME_CHANGE',
@@ -206,15 +416,18 @@ class CustomerStoreService {
         );
       } else {
         AuditLogService.logAction(
-          actionType: 'PROFILE_UPDATE',
+          actionType: 'PROFILE_UPDATED',
           category: 'Account Modification',
-          title: 'Profile Updated',
-          description: 'Updated personal profile details',
+          title: 'Profile Details Updated',
+          description: 'User updated profile contact and regional details',
         );
       }
 
       return true;
-    } catch (_) {
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating customer profile: $e');
+      }
       return false;
     }
   }
@@ -414,6 +627,16 @@ class CustomerStoreService {
                 ? UserRole.admin
                 : (dbRole == 'government' ? UserRole.government : UserRole.user));
 
+        String? joinedDate;
+        final rawCreated = dbUser['created_at']?.toString();
+        if (rawCreated != null && rawCreated.isNotEmpty) {
+          final dt = DateTime.tryParse(rawCreated);
+          if (dt != null) {
+            final DateTime msiaDt = dt.toUtc().add(const Duration(hours: 8));
+            joinedDate = '${msiaDt.day} ${_monthName(msiaDt.month)} ${msiaDt.year}';
+          }
+        }
+
         _currentCustomer = UserModel(
           id: userId,
           name: dbUser['name']?.toString() ?? cleanEmail.split('@').first,
@@ -422,6 +645,10 @@ class CustomerStoreService {
           role: finalUserRole,
           status: AccountStatus.active,
           avatarUrl: dbUser['avatar_url']?.toString() ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
+          gender: dbUser['gender']?.toString(),
+          country: dbUser['country']?.toString(),
+          state: dbUser['state']?.toString(),
+          joinedDate: joinedDate,
         );
 
         // Keep registeredCustomers store updated

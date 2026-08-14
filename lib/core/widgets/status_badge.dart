@@ -62,7 +62,7 @@ class StatusBadge extends StatelessWidget {
         break;
       case 'pendinginspection':
       case 'pending inspection':
-        label = 'Pending Inspection';
+        label = 'Pending';
         bg = const Color(0xFFF59E0B);
         iconData = Icons.schedule;
         break;

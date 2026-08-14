@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/models/mock_seed_data.dart';
 import '../../core/routes/app_routes.dart';
+import '../../core/services/restaurant_store_service.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/skeleton_loader.dart';
 import '../../core/widgets/status_badge.dart';
@@ -18,20 +19,25 @@ class _ComplaintHistoryScreenState extends State<ComplaintHistoryScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 900), () {
-      if (mounted) setState(() => _isLoading = false);
-    });
+    _fetch();
+  }
+
+  Future<void> _fetch() async {
+    await ComplaintStoreService.fetchAllComplaints(forceRefresh: true);
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _handleRefresh() async {
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 900));
+    await ComplaintStoreService.fetchAllComplaints(forceRefresh: true);
     if (mounted) setState(() => _isLoading = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final myComplaints = MockSeedData.complaints;
+    final myComplaints = ComplaintStoreService.complaintsNotifier.value.isNotEmpty
+        ? ComplaintStoreService.complaintsNotifier.value
+        : MockSeedData.complaints;
 
     return Scaffold(
       appBar: const CustomAppBar(title: 'My Reports'),

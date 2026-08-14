@@ -25,7 +25,10 @@ class _OfficialGoogleGLogoPainter extends CustomPainter {
     final double s = size.width;
     final double scale = s / 24.0;
 
-    final Paint paint = Paint()..style = PaintingStyle.fill;
+    final Paint paint = Paint()
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true
+      ..filterQuality = FilterQuality.high;
 
     // 1. Blue Path (#4285F4)
     paint.color = const Color(0xFF4285F4);

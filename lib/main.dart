@@ -139,6 +139,7 @@ class RestaurantHygieneApp extends StatelessWidget {
           AppRoutes.restaurantList: (context) => const RestaurantListScreen(),
           AppRoutes.restaurantDetail: (context) => const RestaurantDetailScreen(),
           AppRoutes.restaurantMap: (context) => const RestaurantMapScreen(),
+          AppRoutes.savedRestaurants: (context) => const SavedRestaurantsScreen(),
           AppRoutes.addRestaurant: (context) => const AddRestaurantScreen(),
           AppRoutes.restaurantVerificationQueue: (context) => const RestaurantVerificationQueueScreen(),
           AppRoutes.restaurantVerificationDetail: (context) => const RestaurantVerificationDetailScreen(),

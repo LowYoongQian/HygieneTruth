@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
+import '../../core/services/restaurant_store_service.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_button.dart';
 import '../widgets/risk_score_badge.dart';
@@ -14,6 +15,7 @@ class RestaurantRiskDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments;
     final r = args is RestaurantModel ? args : MockSeedData.restaurants[1];
+    RestaurantStoreService.recordRecentVisit(r);
 
     return Scaffold(
       appBar: const CustomAppBar(title: 'Risk Details'),

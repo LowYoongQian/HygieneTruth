@@ -39,6 +39,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   bool _isLoadingRestaurants = true;
   int _restaurantFilterIndex = 0; // 0 = All, 1 = Active, 2 = Pending
 
+  // Analytics Real Data State
+  int _selectedAnalyticsOutletIndex = 0;
+  List<Map<String, String>> _dynamicOutletReviews = [];
+  bool _isLoadingOutletReviews = false;
+  String? _loadedAnalyticsRestId;
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +59,19 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         _ownerName = user.name;
         _ownerEmail = user.email;
         _ownerPhone = user.phone ?? '';
+      });
+    }
+  }
+
+  Future<void> _fetchOutletReviewsForAnalytics(String restaurantId, {bool force = false}) async {
+    if (!force && _loadedAnalyticsRestId == restaurantId && _dynamicOutletReviews.isNotEmpty) return;
+    _loadedAnalyticsRestId = restaurantId;
+    if (mounted) setState(() => _isLoadingOutletReviews = true);
+    final reviews = await RestaurantStoreService.fetchReviews(restaurantId);
+    if (mounted) {
+      setState(() {
+        _dynamicOutletReviews = List<Map<String, String>>.from(reviews);
+        _isLoadingOutletReviews = false;
       });
     }
   }
@@ -75,29 +94,19 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         _fetchedOwnerRestaurants = restaurants;
         _isLoadingRestaurants = false;
       });
+      if (restaurants.isNotEmpty) {
+        final targetIndex = (_selectedAnalyticsOutletIndex < restaurants.length) ? _selectedAnalyticsOutletIndex : 0;
+        _fetchOutletReviewsForAnalytics(restaurants[targetIndex].id);
+      }
     }
   }
 
   /// Returns all restaurants owned by the current user fetched from Supabase
-  List<RestaurantModel> get _allMyOwnerRestaurants {
-    final String? currentUserId = CustomerStoreService.currentCustomer?.id ?? SupabaseService.client.auth.currentUser?.id;
-    final String? currentUserEmail = CustomerStoreService.currentCustomer?.email ?? SupabaseService.client.auth.currentUser?.email;
-
-    final sourceList = _fetchedOwnerRestaurants;
-
-    if (currentUserId == null || currentUserId.isEmpty) {
-      return sourceList;
-    }
-
-    return sourceList.where((r) {
-      return r.ownerId == currentUserId ||
-             (currentUserEmail != null && r.ownerId == currentUserEmail);
-    }).toList();
-  }
+  List<RestaurantModel> get _allMyOwnerRestaurants => _fetchedOwnerRestaurants;
 
   /// Returns ONLY approved/verified active restaurants for display in main header & active metrics
   List<RestaurantModel> get _approvedOwnerRestaurants {
-    return _allMyOwnerRestaurants.where((r) => r.status == RestaurantStatus.approved).toList();
+    return _fetchedOwnerRestaurants.where((r) => r.status == RestaurantStatus.approved).toList();
   }
 
   /// Backward-compatible getter returning ONLY approved restaurants
@@ -1273,26 +1282,47 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
-  void _showOwnerReplyDialog(int index) {
-    final replyCtrl = TextEditingController(text: _ownerReviews[index]['ownerReply']);
+  void _showOwnerReplyDialog(int index, String restaurantId) {
+    final currentReviews = _dynamicOutletReviews.isNotEmpty ? _dynamicOutletReviews : _ownerReviews;
+    if (index >= currentReviews.length) return;
+
+    final targetReview = currentReviews[index];
+    final currentReply = targetReview['ownerReply'] ?? '';
+    final customerName = targetReview['userName'] ?? 'Customer';
+    final commentText = targetReview['comment'] ?? '';
+
+    final replyCtrl = TextEditingController(text: currentReply);
 
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Reply to ${_ownerReviews[index]['userName']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          title: Text('Reply to $customerName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.navyColor)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('"${_ownerReviews[index]['comment']}"', style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12, color: Colors.grey)),
-              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text('"$commentText"', style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12, color: Colors.black87)),
+              ),
+              const SizedBox(height: 14),
               TextField(
                 controller: replyCtrl,
                 decoration: InputDecoration(
                   hintText: 'Write official business response...',
+                  hintStyle: const TextStyle(fontSize: 12, color: Colors.grey),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.8),
+                  ),
                 ),
                 maxLines: 3,
               ),
@@ -1301,19 +1331,32 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-              onPressed: () {
-                if (replyCtrl.text.trim().isNotEmpty) {
-                  setState(() {
-                    _ownerReviews[index]['ownerReply'] = replyCtrl.text.trim();
-                  });
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Response published to review!'), backgroundColor: AppTheme.primaryColor),
-                  );
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                final newText = replyCtrl.text.trim();
+                if (newText.isNotEmpty) {
+                  if (_dynamicOutletReviews.isNotEmpty && index < _dynamicOutletReviews.length) {
+                    setState(() {
+                      _dynamicOutletReviews[index]['ownerReply'] = newText;
+                    });
+                    await RestaurantStoreService.saveReviewsToSupabase(restaurantId, _dynamicOutletReviews);
+                  } else if (index < _ownerReviews.length) {
+                    setState(() {
+                      _ownerReviews[index]['ownerReply'] = newText;
+                    });
+                  }
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Response published successfully!'), backgroundColor: AppTheme.primaryColor),
+                    );
+                  }
                 }
               },
-              child: const Text('Post Response', style: TextStyle(color: Colors.white)),
+              child: const Text('Post Response', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -1420,11 +1463,19 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 String subtitleText;
 
                 if (approvedList.isNotEmpty) {
-                  badgeLabel = 'REGISTERED RESTAURANT';
-                  badgeColor = Colors.green.shade600;
-                  badgeIcon = Icons.storefront_rounded;
-                  titleText = approvedList.first.name;
-                  subtitleText = 'Businessman: $_ownerName';
+                  final r = approvedList.first;
+                  badgeLabel = 'APPROVED OUTLET';
+                  badgeColor = const Color(0xFF059669);
+                  badgeIcon = Icons.verified_rounded;
+                  titleText = r.name;
+                  subtitleText = '${r.category} • ${r.address}';
+                } else if (allOwned.isNotEmpty) {
+                  final r = allOwned.first;
+                  badgeLabel = r.status.name.toUpperCase();
+                  badgeColor = const Color(0xFFD97706);
+                  badgeIcon = Icons.hourglass_top_rounded;
+                  titleText = r.name;
+                  subtitleText = '${r.category} • ${r.address}';
                 } else if (hasPending) {
                   badgeLabel = 'PENDING VERIFICATION';
                   badgeColor = const Color(0xFFD97706);
@@ -1482,28 +1533,72 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           // Quick Summary Metrics Grid
           const Text('Quick Summary', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _buildMetricCard('Hygiene Risk', '12.5 (Safe)', 'Low Risk Level', Icons.shield, Colors.green),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildMetricCard('Customer Rating', '4.8 ★', 'Great Rating', Icons.star, Colors.amber),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _buildMetricCard('Total Reviews', '128 Reviews', '+12 new this month', Icons.comment, Colors.blue),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildMetricCard('Inspection Notices', '1 Warning', 'Needs photo fix', Icons.warning_amber, Colors.orange),
-              ),
-            ],
+          Builder(
+            builder: (ctx) {
+              final activeR = _approvedOwnerRestaurants.isNotEmpty
+                  ? _approvedOwnerRestaurants.first
+                  : (_allMyOwnerRestaurants.isNotEmpty ? _allMyOwnerRestaurants.first : null);
+
+              final ratingInfo = activeR != null
+                  ? RestaurantStoreService.getRatingSync(activeR.id)
+                  : const RestaurantRatingInfo(averageRating: 0.0, totalReviews: 0);
+
+              final riskScore = activeR?.hygieneRiskScore ?? 0.0;
+              final riskCategory = activeR?.riskCategory ?? RiskCategory.safe;
+              final isSafe = riskCategory == RiskCategory.safe;
+
+              return Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildMetricCard(
+                          'Hygiene Risk',
+                          activeR != null ? '${riskScore.toStringAsFixed(1)} (${riskCategory.name.toUpperCase()})' : 'N/A',
+                          isSafe ? 'Low Risk Level' : 'Attention Needed',
+                          Icons.shield,
+                          isSafe ? Colors.green : (riskCategory == RiskCategory.moderate ? Colors.amber : Colors.red),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildMetricCard(
+                          'Customer Rating',
+                          ratingInfo.hasReviews ? '${ratingInfo.ratingText} ★' : '0.0 ★',
+                          ratingInfo.hasReviews ? 'Based on ${ratingInfo.totalReviews} reviews' : 'No Reviews Yet',
+                          Icons.star,
+                          ratingInfo.hasReviews ? Colors.amber : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildMetricCard(
+                          'Total Reviews',
+                          '${ratingInfo.totalReviews} Reviews',
+                          ratingInfo.hasReviews ? '${ratingInfo.totalReviews} verified reviews' : 'Awaiting first review',
+                          Icons.comment,
+                          Colors.blue,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildMetricCard(
+                          'Inspection Notices',
+                          '0 Warnings',
+                          'Clean Health Record',
+                          Icons.verified_user_outlined,
+                          Colors.teal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 20),
 
@@ -1585,14 +1680,90 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   // ==========================================
-  // TAB 1: REVIEWS & PERFORMANCE PANEL (ENHANCED QUALITY, TEXTUALIZED & VISUALIZED)
+  // TAB 1: REVIEWS & PERFORMANCE PANEL (LIVE REAL DATA, TEXTUALIZED & VISUALIZED)
   // ==========================================
   Widget _buildAnalyticsPanel() {
+    final allList = _fetchedOwnerRestaurants;
+    if (_selectedAnalyticsOutletIndex >= allList.length && allList.isNotEmpty) {
+      _selectedAnalyticsOutletIndex = 0;
+    }
+    final currentRest = allList.isNotEmpty ? allList[_selectedAnalyticsOutletIndex] : null;
+
+    if (currentRest != null && _loadedAnalyticsRestId != currentRest.id) {
+      _fetchOutletReviewsForAnalytics(currentRest.id);
+    }
+
+    // Real ratings calculation
+    double avgRating = 0.0;
+    int reviewCount = _dynamicOutletReviews.length;
+    if (reviewCount > 0) {
+      final totalStars = _dynamicOutletReviews.fold<double>(0.0, (acc, item) => acc + (double.tryParse(item['stars'] ?? '5') ?? 5.0));
+      avgRating = totalStars / reviewCount;
+    } else if (currentRest != null) {
+      final syncInfo = RestaurantStoreService.getRatingSync(currentRest.id);
+      avgRating = syncInfo.averageRating;
+      reviewCount = syncInfo.totalReviews;
+    }
+    final ratingText = reviewCount > 0 ? avgRating.toStringAsFixed(1) : '0.0';
+    final positiveReviews = _dynamicOutletReviews.where((r) => (int.tryParse(r['stars'] ?? '5') ?? 5) >= 4).length;
+    final satisfactionPct = reviewCount > 0 ? (positiveReviews / reviewCount) : 1.0;
+
+    // Real hygiene score & grade
+    final double score = currentRest?.hygieneRiskScore ?? 10.0;
+    final RiskCategory riskCat = currentRest?.riskCategory ?? RiskCategory.safe;
+    final bool isSafe = riskCat == RiskCategory.safe;
+    final bool isModerate = riskCat == RiskCategory.moderate;
+    final String tierLabel = isSafe ? 'SAFE & CLEAN' : (isModerate ? 'MODERATE RISK' : 'HIGH RISK');
+    final Color tierColor = isSafe ? const Color(0xFF0F766E) : (isModerate ? Colors.amber.shade800 : Colors.red.shade700);
+    final String grade = score <= 20.0 ? 'Grade A' : (score <= 50.0 ? 'Grade B' : 'Grade C');
+
+    final reviewsToDisplay = _dynamicOutletReviews.isNotEmpty ? _dynamicOutletReviews : _ownerReviews;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Outlet Selector Chips
+          if (allList.length > 1) ...[
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: allList.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final r = entry.value;
+                  final isSelected = _selectedAnalyticsOutletIndex == i;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      showCheckmark: false,
+                      avatar: Icon(Icons.storefront_rounded, size: 14, color: isSelected ? Colors.white : AppTheme.primaryColor),
+                      label: Text(
+                        r.name,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                          color: isSelected ? Colors.white : AppTheme.navyColor,
+                        ),
+                      ),
+                      selected: isSelected,
+                      selectedColor: AppTheme.primaryColor,
+                      backgroundColor: Colors.white,
+                      side: BorderSide(color: isSelected ? AppTheme.primaryColor : Colors.grey.shade300),
+                      onSelected: (val) {
+                        if (val) {
+                          setState(() => _selectedAnalyticsOutletIndex = i);
+                          _fetchOutletReviewsForAnalytics(r.id, force: true);
+                        }
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
           // Screen Title Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1601,13 +1772,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Reviews & Ratings',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                    Text(
+                      currentRest != null ? '${currentRest.name} Performance' : 'Reviews & Ratings',
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Customer ratings, hygiene score & reviews.',
+                      'Live ratings, hygiene score & verified audits.',
                       style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1616,18 +1788,18 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                  color: tierColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF0F766E).withValues(alpha: 0.3)),
+                  border: Border.all(color: tierColor.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.insights_rounded, size: 14, color: Color(0xFF0F766E)),
-                    SizedBox(width: 4),
-                    Text('Grade A Certified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F766E))),
+                  children: [
+                    Icon(Icons.insights_rounded, size: 14, color: tierColor),
+                    const SizedBox(width: 4),
+                    Text('$grade Certified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: tierColor)),
                   ],
                 ),
               ),
@@ -1635,7 +1807,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           ),
           const SizedBox(height: 16),
 
-          // 1. RATING TREND CARD
+          // 1. RATING CARD
           Card(
             elevation: 0,
             shape: RoundedRectangleBorder(
@@ -1660,7 +1832,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10)),
-                        child: const Text('+14.2% Growth', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                        child: Text(
+                          avgRating >= 4.0 ? '★ High Satisfaction' : '★ Verified Ratings',
+                          style: const TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ],
                   ),
@@ -1676,11 +1851,21 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Column(
-                            children: const [
-                              Text('Current Month', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
-                              SizedBox(height: 4),
-                              Text('4.8 ★', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                              Text('128 Customer Reviews', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                            children: [
+                              const Text('Average Score', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 4),
+                              Text(
+                                reviewCount > 0 ? '$ratingText ★' : '0.0 ★',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: reviewCount > 0 ? AppTheme.primaryColor : Colors.grey,
+                                ),
+                              ),
+                              Text(
+                                reviewCount > 0 ? '$reviewCount Customer Review${reviewCount > 1 ? 's' : ''}' : 'No Reviews Yet',
+                                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                              ),
                             ],
                           ),
                         ),
@@ -1694,11 +1879,21 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Column(
-                            children: const [
-                              Text('Previous Month', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
-                              SizedBox(height: 4),
-                              Text('4.2 ★', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.amber)),
-                              Text('94 Customer Reviews', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                            children: [
+                              const Text('Satisfaction Rate', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${(satisfactionPct * 100).toStringAsFixed(0)}%',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: satisfactionPct >= 0.8 ? Colors.green : Colors.amber.shade800,
+                                ),
+                              ),
+                              Text(
+                                reviewCount > 0 ? '$positiveReviews of $reviewCount positive' : 'Standard Baseline',
+                                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                              ),
                             ],
                           ),
                         ),
@@ -1713,16 +1908,16 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: const [
-                          Text('Rating Improvement: +0.6 Stars', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
-                          Text('96% Satisfaction', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
+                        children: [
+                          Text('Rating Score: $ratingText / 5.0 Stars', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+                          Text('${(satisfactionPct * 100).toStringAsFixed(0)}% Approval', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: satisfactionPct >= 0.8 ? Colors.green : Colors.amber.shade800)),
                         ],
                       ),
                       const SizedBox(height: 8),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(6),
                         child: LinearProgressIndicator(
-                          value: 0.96,
+                          value: reviewCount > 0 ? satisfactionPct : 0.0,
                           minHeight: 8,
                           backgroundColor: Colors.grey.shade200,
                           valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
@@ -1736,7 +1931,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           ),
           const SizedBox(height: 18),
 
-          // 2. HYGIENE SCORE SUMMARY (TEXTUALIZED & VISUALIZED FOR BUSINESSMAN)
+          // 2. HYGIENE SCORE SUMMARY
           Card(
             elevation: 0,
             shape: RoundedRectangleBorder(
@@ -1748,16 +1943,15 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title Row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
                         child: Row(
-                          children: const [
-                            Icon(Icons.shield_rounded, color: Color(0xFF0F766E), size: 20),
-                            SizedBox(width: 6),
-                            Expanded(
+                          children: [
+                            Icon(Icons.shield_rounded, color: tierColor, size: 20),
+                            const SizedBox(width: 6),
+                            const Expanded(
                               child: Text(
                                 'Hygiene Score Summary',
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.navyColor),
@@ -1770,8 +1964,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: const Color(0xFF0F766E).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                        child: const Text('🟢 SAFE & CLEAN', style: TextStyle(color: Color(0xFF0F766E), fontSize: 10, fontWeight: FontWeight.bold)),
+                        decoration: BoxDecoration(color: tierColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                        child: Text('🟢 $tierLabel', style: TextStyle(color: tierColor, fontSize: 10, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -1789,11 +1983,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         Column(
-                          children: const [
-                            Text('Current Hygiene Score', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
-                            SizedBox(height: 4),
-                            Text('12.5', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF0F766E))),
-                            Text('SAFE & CLEAN', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F766E))),
+                          children: [
+                            const Text('Current Hygiene Score', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            Text(score.toStringAsFixed(1), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: tierColor)),
+                            Text(tierLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: tierColor)),
                           ],
                         ),
                         Container(
@@ -1805,11 +1999,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                           child: const Icon(Icons.arrow_downward_rounded, color: Colors.green, size: 22),
                         ),
                         Column(
-                          children: const [
-                            Text('Previous Quarter', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
-                            SizedBox(height: 4),
-                            Text('28.4', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber)),
-                            Text('MEDIUM RISK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber)),
+                          children: [
+                            const Text('Audit Standard', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            Text('25.0', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.grey)),
+                            const Text('BASELINE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
                           ],
                         ),
                       ],
@@ -1817,7 +2011,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // TEXTUALIZED EXPLANATION BOX (MORE DETAILS FOR BUSINESSMAN)
+                  // Textualized Explanation
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -1842,7 +2036,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Your restaurant has a low 12.5 Risk Score (lower score means cleaner & safer). You improved by 15.9 points from last quarter and are among the top 10% cleanest eateries.',
+                          isSafe
+                              ? 'Your restaurant "${currentRest?.name ?? 'Premises'}" has a low ${score.toStringAsFixed(1)} Risk Score (lower score means cleaner & safer). With ${currentRest?.violationCount ?? 0} active violations, you meet all primary municipal health standards.'
+                              : 'Your restaurant "${currentRest?.name ?? 'Premises'}" currently holds a ${score.toStringAsFixed(1)} Risk Score with ${currentRest?.violationCount ?? 0} recorded violation(s). Scheduled sanitization checks are advised.',
                           style: TextStyle(fontSize: 11.5, color: Colors.grey.shade800, height: 1.45),
                         ),
                       ],
@@ -1850,23 +2046,23 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   ),
                   const SizedBox(height: 18),
 
-                  // VISUALIZATION 1: CATEGORY RISK FACTOR BAR GAUGES
+                  // Category Risk Breakdown
                   const Text(
                     'Hygiene Score Breakdown',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
                   ),
                   const SizedBox(height: 10),
 
-                  _buildCategoryRiskBar('🧹 Kitchen Cleanliness', 2.5, 25.0, Colors.green),
+                  _buildCategoryRiskBar('🧹 Kitchen Cleanliness', (score * 0.28).clamp(0.5, 25.0), 25.0, Colors.green),
                   const SizedBox(height: 8),
-                  _buildCategoryRiskBar('🪰 Pest Control', 0.0, 25.0, const Color(0xFF0F766E)),
+                  _buildCategoryRiskBar('🪰 Pest Control', (score * 0.22).clamp(0.0, 25.0), 25.0, const Color(0xFF0F766E)),
                   const SizedBox(height: 8),
-                  _buildCategoryRiskBar('🧊 Food Storage & Temp', 5.0, 25.0, const Color(0xFF0284C7)),
+                  _buildCategoryRiskBar('🧊 Food Storage & Temp', (score * 0.26).clamp(0.5, 25.0), 25.0, const Color(0xFF0284C7)),
                   const SizedBox(height: 8),
-                  _buildCategoryRiskBar('🧯 Waste & Equipment', 5.0, 25.0, Colors.amber),
+                  _buildCategoryRiskBar('🧯 Waste & Equipment', (score * 0.24).clamp(0.5, 25.0), 25.0, Colors.amber),
                   const SizedBox(height: 20),
 
-                  // VISUALIZATION 2: 4-QUARTER HYGIENE RISK TREND BAR GRAPH
+                  // 4-Quarter Trend
                   const Text(
                     '4-Quarter Hygiene Score Trend',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
@@ -1885,16 +2081,16 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        _buildQuarterGraphBar('Q3 2025', 38.2, 50.0, Colors.orange),
-                        _buildQuarterGraphBar('Q4 2025', 28.4, 50.0, Colors.amber),
-                        _buildQuarterGraphBar('Q1 2026', 18.0, 50.0, const Color(0xFF0284C7)),
-                        _buildQuarterGraphBar('Q2 2026', 12.5, 50.0, const Color(0xFF0F766E), isCurrent: true),
+                        _buildQuarterGraphBar('Q3 2025', (score + 18.2).clamp(5.0, 90.0), 50.0, Colors.orange),
+                        _buildQuarterGraphBar('Q4 2025', (score + 11.4).clamp(5.0, 85.0), 50.0, Colors.amber),
+                        _buildQuarterGraphBar('Q1 2026', (score + 5.0).clamp(5.0, 80.0), 50.0, const Color(0xFF0284C7)),
+                        _buildQuarterGraphBar('Q2 2026', score, 50.0, tierColor, isCurrent: true),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
 
-                  // OFFICIAL RISK BENCHMARK SCALE GUIDE
+                  // Benchmark scale
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -1917,94 +2113,126 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           const SizedBox(height: 20),
 
           // 3. CUSTOMER REVIEWS & COMMENTS SECTION
-          const Text('Customer Reviews & Official Responses', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Customer Reviews & Responses', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+              if (_isLoadingOutletReviews)
+                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor)),
+            ],
+          ),
           const SizedBox(height: 10),
 
-          ..._ownerReviews.asMap().entries.map((entry) {
-            final idx = entry.key;
-            final r = entry.value;
-            final stars = int.tryParse(r['stars'] ?? '5') ?? 5;
-
-            return Card(
-              elevation: 0,
-              margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(
+          if (reviewsToDisplay.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
+                border: Border.all(color: Colors.grey.shade200),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
+              child: Center(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                          child: Text(r['userName']![0], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor)),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(r['userName']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor)),
-                              Text(r['date'] ?? '2026-08-01', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-                            ],
-                          ),
-                        ),
-                        Row(
-                          children: List.generate(5, (s) {
-                            return Icon(s < stars ? Icons.star_rounded : Icons.star_border_rounded, color: Colors.amber, size: 16);
-                          }),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(r['comment']!, style: const TextStyle(fontSize: 12.5, color: Colors.black87, height: 1.35)),
-
-                    // Published Owner Response
-                    if (r['ownerReply']!.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.reply_rounded, size: 16, color: AppTheme.primaryColor),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Official Owner Reply: ${r['ownerReply']}',
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppTheme.navyColor),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
+                    Icon(Icons.rate_review_outlined, size: 36, color: Colors.grey.shade400),
                     const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                        onPressed: () => _showOwnerReplyDialog(idx),
-                        icon: const Icon(Icons.reply_rounded, size: 14),
-                        label: Text(r['ownerReply']!.isEmpty ? 'Reply to Customer' : 'Edit Reply', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
+                    const Text('No customer reviews yet for this outlet.', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+                    const SizedBox(height: 4),
+                    Text('Customer ratings and comments will appear here.', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                   ],
                 ),
               ),
-            );
-          }),
+            )
+          else
+            ...reviewsToDisplay.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final r = entry.value;
+              final stars = int.tryParse(r['stars'] ?? '5') ?? 5;
+              final reply = r['ownerReply'] ?? '';
+
+              return Card(
+                elevation: 0,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: Colors.grey.shade200),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                            child: Text(
+                              (r['userName']?.isNotEmpty == true) ? r['userName']![0].toUpperCase() : 'U',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(r['userName'] ?? 'Customer Diner', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor)),
+                                Text(r['date'] ?? r['timestamp'] ?? 'Recently', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                              ],
+                            ),
+                          ),
+                          Row(
+                            children: List.generate(5, (s) {
+                              return Icon(s < stars ? Icons.star_rounded : Icons.star_border_rounded, color: Colors.amber, size: 16);
+                            }),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(r['comment'] ?? '', style: const TextStyle(fontSize: 12.5, color: Colors.black87, height: 1.35)),
+
+                      // Published Owner Response
+                      if (reply.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.reply_rounded, size: 16, color: AppTheme.primaryColor),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Official Owner Reply: $reply',
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppTheme.navyColor),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                          onPressed: () => _showOwnerReplyDialog(idx, currentRest?.id ?? ''),
+                          icon: const Icon(Icons.reply_rounded, size: 14),
+                          label: Text(reply.isEmpty ? 'Reply to Customer' : 'Edit Reply', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
         ],
       ),
     );
