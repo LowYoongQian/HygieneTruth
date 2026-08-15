@@ -197,7 +197,13 @@ class CustomerStoreService {
   static Future<CustomerAuthResult> linkGoogleAccount() async {
     try {
       final supabase = SupabaseService.client;
-      final String webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'] ??
+      String? envClientId;
+      try {
+        if (dotenv.isInitialized) {
+          envClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'];
+        }
+      } catch (_) {}
+      final String webClientId = envClientId ??
           '927326709623-332ted8aosmjf5efmbq3if09ur98vtl5.apps.googleusercontent.com';
 
       // 1. Initialize Native Google Sign-In SDK
@@ -737,7 +743,13 @@ class CustomerStoreService {
   static Future<CustomerAuthResult> signInWithGoogle() async {
     try {
       final supabase = SupabaseService.client;
-      final String webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'] ??
+      String? envClientId;
+      try {
+        if (dotenv.isInitialized) {
+          envClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'];
+        }
+      } catch (_) {}
+      final String webClientId = envClientId ??
           '927326709623-332ted8aosmjf5efmbq3if09ur98vtl5.apps.googleusercontent.com';
 
       // 1. Initialize Native Google Sign-In SDK

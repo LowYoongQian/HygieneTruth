@@ -12,8 +12,10 @@ class ResendEmailService {
 
   static String get apiKey {
     try {
-      final envKey = dotenv.env['RESEND_API_KEY'];
-      if (envKey != null && envKey.isNotEmpty) return envKey;
+      if (dotenv.isInitialized) {
+        final envKey = dotenv.env['RESEND_API_KEY'];
+        if (envKey != null && envKey.isNotEmpty) return envKey;
+      }
     } catch (_) {}
     return const String.fromEnvironment('RESEND_API_KEY', defaultValue: defaultResendApiKey);
   }
@@ -55,8 +57,10 @@ class ResendEmailService {
 
   static String get fromEmail {
     try {
-      final envFrom = dotenv.env['RESEND_FROM_EMAIL'];
-      if (envFrom != null && envFrom.isNotEmpty) return envFrom;
+      if (dotenv.isInitialized) {
+        final envFrom = dotenv.env['RESEND_FROM_EMAIL'];
+        if (envFrom != null && envFrom.isNotEmpty) return envFrom;
+      }
     } catch (_) {}
     return 'HygieneTruth <noreply@contact.smartsystem.live>';
   }

@@ -71,7 +71,13 @@ class OcrScannerService {
         }
 
         if (targetScript != null) {
-          final geminiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+          String? geminiKey;
+          try {
+            if (dotenv.isInitialized) {
+              geminiKey = dotenv.env['GEMINI_API_KEY'];
+            }
+          } catch (_) {}
+          geminiKey ??= '';
           final Map<String, String> processEnv = Map.from(Platform.environment);
           if (geminiKey.isNotEmpty) {
             processEnv['GEMINI_API_KEY'] = geminiKey;

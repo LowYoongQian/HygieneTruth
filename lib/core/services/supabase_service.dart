@@ -12,11 +12,18 @@ class SupabaseService {
       await dotenv.load(fileName: '.env');
     } catch (_) {}
 
-    final supabaseUrl = dotenv.env['SUPABASE_URL'] ??
-        const String.fromEnvironment('SUPABASE_URL', defaultValue: defaultUrl);
-    final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ??
-        dotenv.env['SUPABASE_KEY'] ??
-        const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: defaultAnonKey);
+    String? supabaseUrl;
+    String? supabaseAnonKey;
+
+    try {
+      if (dotenv.isInitialized) {
+        supabaseUrl = dotenv.env['SUPABASE_URL'];
+        supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? dotenv.env['SUPABASE_KEY'];
+      }
+    } catch (_) {}
+
+    supabaseUrl ??= const String.fromEnvironment('SUPABASE_URL', defaultValue: defaultUrl);
+    supabaseAnonKey ??= const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: defaultAnonKey);
 
     final activeUrl = supabaseUrl.isNotEmpty ? supabaseUrl : defaultUrl;
     final activeKey = supabaseAnonKey.isNotEmpty ? supabaseAnonKey : defaultAnonKey;
