@@ -6,6 +6,9 @@ import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/services/language_manager.dart';
 import '../../core/services/restaurant_store_service.dart';
+import '../../core/services/customer_store_service.dart';
+import '../../core/services/notification_service.dart';
+import '../../notifications/models/notification_model.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -388,6 +391,16 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
     final displayTicketId = createdComplaint != null && createdComplaint.id.length >= 8
         ? '#CMP-${createdComplaint.id.substring(0, 8).toUpperCase()}'
         : '#CMP-2026-8842';
+
+    final currentUser = CustomerStoreService.currentCustomer;
+    NotificationService.sendNotification(
+      userId: currentUser?.id ?? 'usr_current',
+      userEmail: currentUser?.email,
+      title: '📋 Complaint Submitted: $displayTicketId',
+      message: 'Your report for "$effectiveOutlet" has been received and queued for review.',
+      type: NotificationType.complaint,
+      actionUrl: createdComplaint?.id,
+    );
 
     showDialog(
       context: context,

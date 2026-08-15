@@ -8,10 +8,12 @@ import '../services/customer_store_service.dart';
 import '../services/language_manager.dart';
 import '../services/restaurant_store_service.dart';
 import '../services/supabase_service.dart';
+import '../services/notification_service.dart';
 import '../utils/translations.dart';
 import '../../gps/widgets/restaurant_card.dart';
 import 'shimmer_skeletons.dart';
 import 'stat_card.dart';
+import 'notification_bell.dart';
 
 import '../../owner/screens/owner_dashboard_screen.dart';
 import '../../gps/screens/restaurant_map_screen.dart';
@@ -50,6 +52,12 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
     _currentRole = widget.initialRole;
     _selectedBottomTabIndex = widget.initialTabIndex;
     BookmarkService.init();
+    final currentUser = CustomerStoreService.currentCustomer;
+    NotificationService.fetchNotifications(
+      userId: currentUser?.id,
+      userEmail: currentUser?.email,
+      userRole: currentUser?.role.name,
+    );
     if (_currentRole == UserRole.admin) {
       _loadAdminRealStats();
     }
@@ -164,14 +172,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
               Navigator.pushNamed(context, AppRoutes.savedRestaurants);
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications_none),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No notifications')),
-              );
-            },
-          ),
+          const NotificationBell(),
         ],
       ),
       body: _buildUserTabContent(_selectedBottomTabIndex),

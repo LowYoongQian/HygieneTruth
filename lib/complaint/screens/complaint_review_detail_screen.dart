@@ -1,3 +1,4 @@
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter/material.dart';
 import '../../core/models/complaint_model.dart';
 import '../../core/models/mock_seed_data.dart';
@@ -369,6 +370,87 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Non-interactive GPS Map Preview for Admin
+                  Container(
+                    height: 160,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Stack(
+                        children: [
+                          IgnorePointer(
+                            ignoring: true,
+                            child: GoogleMap(
+                              initialCameraPosition: CameraPosition(
+                                target: LatLng(c.latitude, c.longitude),
+                                zoom: 16.0,
+                              ),
+                              markers: {
+                                Marker(
+                                  markerId: MarkerId(c.id),
+                                  position: LatLng(c.latitude, c.longitude),
+                                  infoWindow: InfoWindow(
+                                    title: c.restaurantName,
+                                    snippet: 'Report Location: ${c.latitude.toStringAsFixed(4)}, ${c.longitude.toStringAsFixed(4)}',
+                                  ),
+                                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                                ),
+                              },
+                              zoomControlsEnabled: false,
+                              mapToolbarEnabled: false,
+                              myLocationButtonEnabled: false,
+                              compassEnabled: false,
+                              scrollGesturesEnabled: false,
+                              zoomGesturesEnabled: false,
+                              rotateGesturesEnabled: false,
+                              tiltGesturesEnabled: false,
+                            ),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.7),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.lock_outline_rounded, color: Colors.white70, size: 12),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'GPS Preview',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),

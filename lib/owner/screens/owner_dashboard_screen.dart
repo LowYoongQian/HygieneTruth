@@ -14,6 +14,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/status_badge.dart';
 import '../../core/services/restaurant_store_service.dart';
+import '../../core/services/notification_service.dart';
+import '../../notifications/models/notification_model.dart';
 import '../../core/widgets/shimmer_skeletons.dart';
 import '../widgets/deadline_countdown_badge.dart';
 
@@ -1339,10 +1341,25 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 final newText = replyCtrl.text.trim();
                 if (newText.isNotEmpty) {
                   if (_dynamicOutletReviews.isNotEmpty && index < _dynamicOutletReviews.length) {
+                    final targetReview = _dynamicOutletReviews[index];
+                    final reviewerUserId = targetReview['userId'] ?? '';
+                    final reviewerEmail = targetReview['userEmail'] ?? '';
+                    final restName = _approvedOwnerRestaurants.isNotEmpty ? _approvedOwnerRestaurants.first.name : 'testing';
+
                     setState(() {
                       _dynamicOutletReviews[index]['ownerReply'] = newText;
                     });
-                    await RestaurantStoreService.saveReviewsToSupabase(restaurantId, _dynamicOutletReviews);
+                    await RestaurantStoreService.saveReviewsToSupabase(restaurantId, _dynamicOutletReviews, restaurantName: restName);
+
+                    // Send live push notification to reviewer
+                    NotificationService.sendNotification(
+                      userId: reviewerUserId.isNotEmpty ? reviewerUserId : 'e257a3d8-a2e2-4872-afcf-0d7324e8f0cf',
+                      userEmail: reviewerEmail.isNotEmpty ? reviewerEmail : 'lowyq-wm22@student.tarc.edu.my',
+                      title: '💬 Response to your review at $restName',
+                      message: 'Owner replied: "$newText"',
+                      type: NotificationType.review,
+                      actionUrl: 'outlet_$restaurantId',
+                    );
                   } else if (index < _ownerReviews.length) {
                     setState(() {
                       _ownerReviews[index]['ownerReply'] = newText;
@@ -1540,7 +1557,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   : (_allMyOwnerRestaurants.isNotEmpty ? _allMyOwnerRestaurants.first : null);
 
               final ratingInfo = activeR != null
-                  ? RestaurantStoreService.getRatingSync(activeR.id)
+                  ? RestaurantStoreService.getRatingSync(activeR.id, restaurantName: activeR.name)
                   : const RestaurantRatingInfo(averageRating: 0.0, totalReviews: 0);
 
               final riskScore = activeR?.hygieneRiskScore ?? 0.0;
@@ -1700,7 +1717,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       final totalStars = _dynamicOutletReviews.fold<double>(0.0, (acc, item) => acc + (double.tryParse(item['stars'] ?? '5') ?? 5.0));
       avgRating = totalStars / reviewCount;
     } else if (currentRest != null) {
-      final syncInfo = RestaurantStoreService.getRatingSync(currentRest.id);
+      final syncInfo = RestaurantStoreService.getRatingSync(currentRest.id, restaurantName: currentRest.name);
       avgRating = syncInfo.averageRating;
       reviewCount = syncInfo.totalReviews;
     }
@@ -2092,18 +2109,23 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
                   // Benchmark scale
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: const [
-                        Text('🟢 0-20: Safe Level', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
-                        Text('🟡 21-50: Medium Risk', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber)),
-                        Text('🔴 51+: High Risk', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red)),
-                      ],
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: const [
+                          Text('🟢 0-20: Safe Level', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.green)),
+                          SizedBox(width: 10),
+                          Text('🟡 21-50: Medium Risk', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.amber)),
+                          SizedBox(width: 10),
+                          Text('🔴 51+: High Risk', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.red)),
+                        ],
+                      ),
                     ),
                   ),
                 ],

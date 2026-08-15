@@ -39,14 +39,17 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
       if (restaurant.id != _loadedRestaurantId) {
         _loadedRestaurantId = restaurant.id;
         _isSaved = BookmarkService.isBookmarked(restaurant.id);
-        _loadReviewsForRestaurant(restaurant.id);
+        _loadReviewsForRestaurant(restaurant.id, restaurantName: restaurant.name);
         RestaurantStoreService.recordRecentVisit(restaurant);
       }
     }
   }
 
-  Future<void> _loadReviewsForRestaurant(String restaurantId) async {
-    final loaded = await RestaurantStoreService.fetchReviews(restaurantId);
+  Future<void> _loadReviewsForRestaurant(String restaurantId, {String? restaurantName}) async {
+    final loaded = await RestaurantStoreService.fetchReviews(
+      restaurantId,
+      restaurantName: restaurantName ?? _currentRestaurant?.name,
+    );
     if (mounted) {
       setState(() {
         _reviews = List<Map<String, String>>.from(loaded);
@@ -56,7 +59,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
   Future<void> _saveReviewsForRestaurant(String restaurantId) async {
     try {
-      await RestaurantStoreService.saveReviewsToSupabase(restaurantId, _reviews);
+      await RestaurantStoreService.saveReviewsToSupabase(
+        restaurantId,
+        _reviews,
+        restaurantName: _currentRestaurant?.name,
+      );
     } catch (_) {}
   }
 
@@ -405,48 +412,57 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Row(
-                    children: List.generate(5, (index) {
-                      final starVal = index + 1;
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedRating = starVal;
-                          });
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 2),
-                          child: Icon(
-                            starVal <= _selectedRating ? Icons.star_rounded : Icons.star_border_rounded,
-                            color: Colors.amber,
-                            size: 24,
-                          ),
-                        ),
-                      );
-                    }),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: List.generate(5, (index) {
+                          final starVal = index + 1;
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedRating = starVal;
+                              });
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 2),
+                              child: Icon(
+                                starVal <= _selectedRating ? Icons.star_rounded : Icons.star_border_rounded,
+                                color: Colors.amber,
+                                size: 22,
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        ratingLabels[_selectedRating - 1],
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    ratingLabels[_selectedRating - 1],
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber),
-                  ),
-                ],
+                ),
               ),
+              const SizedBox(width: 8),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF00A88F),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   elevation: 0,
                 ),
                 onPressed: _submitComment,
                 icon: const Icon(Icons.send_rounded, size: 14),
                 label: const Text(
                   'Post Review',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                 ),
               ),
             ],

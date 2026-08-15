@@ -10,6 +10,7 @@ import '../../core/routes/app_routes.dart';
 import '../../core/services/gps_service.dart';
 import '../../core/services/language_manager.dart';
 import '../../core/services/restaurant_store_service.dart';
+import '../../core/services/routing_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -96,7 +97,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
 
   Future<void> _loadRestaurantsFromSupabase() async {
     final list = await RestaurantStoreService.fetchOwnerRestaurants(null);
-    await RestaurantStoreService.preloadReviews(list.map((r) => r.id).toList());
+    await RestaurantStoreService.preloadRestaurants(list);
     if (mounted) {
       setState(() {
         _allRestaurants = list;
@@ -506,65 +507,100 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
     }
   }
 
-  void _buildNavigationRoute(RestaurantModel dest) {
-    final double startLat = _userPosition?.latitude ?? AppEnv.defaultLatitude;
-    final double startLng = _userPosition?.longitude ?? AppEnv.defaultLongitude;
+  Future<void> _buildNavigationRoute(RestaurantModel dest) async {
+    Position? currentPos = _userPosition;
+    if (currentPos == null) {
+      try {
+        currentPos = await GpsService.getCurrentLocation();
+        if (currentPos != null && mounted) {
+          setState(() {
+            _userPosition = currentPos;
+          });
+        }
+      } catch (_) {}
+    }
+
+    final double startLat = currentPos?.latitude ?? _userPosition?.latitude ?? AppEnv.defaultLatitude;
+    final double startLng = currentPos?.longitude ?? _userPosition?.longitude ?? AppEnv.defaultLongitude;
     final double endLat = dest.latitude;
     final double endLng = dest.longitude;
 
+    final origin = LatLng(startLat, startLng);
+    final destination = LatLng(endLat, endLng);
+
+    // Initial instant distance calculation while real road route loads
     final double distanceMeters = Geolocator.distanceBetween(startLat, startLng, endLat, endLng);
     final double distanceKm = distanceMeters / 1000.0;
     final int minutes = math.max(2, (distanceKm / 0.45).round() + 2);
 
-    final List<LatLng> routePoints = _createStreetWaypoints(
-      LatLng(startLat, startLng),
-      LatLng(endLat, endLng),
+    if (mounted) {
+      setState(() {
+        _etaMinutes = minutes;
+        _routeDistanceStr = distanceKm < 1 ? '${distanceMeters.round()} m' : '${distanceKm.toStringAsFixed(1)} km';
+      });
+    }
+
+    // Fetch real road turn-by-turn navigation following actual streets (Google / Waze / OSRM)
+    final route = await RoutingService.getRealRoadRoute(
+      origin: origin,
+      destination: destination,
     );
 
-    setState(() {
-      _etaMinutes = minutes;
-      _routeDistanceStr = distanceKm < 1 ? '${distanceMeters.round()} m' : '${distanceKm.toStringAsFixed(1)} km';
-      _polylines = {
-        Polyline(
-          polylineId: const PolylineId('navigation_active_route'),
-          points: routePoints,
-          color: const Color(0xFF0284C7),
-          width: 6,
-          jointType: JointType.round,
-          startCap: Cap.roundCap,
-          endCap: Cap.roundCap,
-        ),
-      };
-    });
+    if (mounted) {
+      setState(() {
+        _etaMinutes = route.durationMinutes;
+        _routeDistanceStr = route.distanceText;
+        _polylines = {
+          // Glow / Outline for premium Google / Waze Navigation Look
+          Polyline(
+            polylineId: const PolylineId('navigation_active_route_outline'),
+            points: route.points,
+            color: const Color(0xFF0369A1), // Deep navy blue border
+            width: 8,
+            jointType: JointType.round,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
+            zIndex: 14,
+          ),
+          // Core bright route line
+          Polyline(
+            polylineId: const PolylineId('navigation_active_route'),
+            points: route.points,
+            color: const Color(0xFF0284C7), // Google/Waze bright cyan-blue route
+            width: 6,
+            jointType: JointType.round,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
+            zIndex: 15,
+          ),
+        };
+      });
 
-    _fitRouteBounds(LatLng(startLat, startLng), LatLng(endLat, endLng));
+      _fitRouteBounds(origin, destination, routePoints: route.points);
+    }
   }
 
-  List<LatLng> _createStreetWaypoints(LatLng start, LatLng end) {
-    final List<LatLng> pts = [start];
-    final double dLat = end.latitude - start.latitude;
-    final double dLng = end.longitude - start.longitude;
+  void _fitRouteBounds(LatLng p1, LatLng p2, {List<LatLng>? routePoints}) {
+    double minLat = math.min(p1.latitude, p2.latitude);
+    double maxLat = math.max(p1.latitude, p2.latitude);
+    double minLng = math.min(p1.longitude, p2.longitude);
+    double maxLng = math.max(p1.longitude, p2.longitude);
 
-    pts.add(LatLng(start.latitude + dLat * 0.25, start.longitude + dLng * 0.05));
-    pts.add(LatLng(start.latitude + dLat * 0.25, start.longitude + dLng * 0.70));
-    pts.add(LatLng(start.latitude + dLat * 0.75, start.longitude + dLng * 0.70));
-    pts.add(LatLng(start.latitude + dLat * 0.75, start.longitude + dLng * 0.95));
-    pts.add(end);
-    return pts;
-  }
-
-  void _fitRouteBounds(LatLng p1, LatLng p2) {
-    final double minLat = math.min(p1.latitude, p2.latitude);
-    final double maxLat = math.max(p1.latitude, p2.latitude);
-    final double minLng = math.min(p1.longitude, p2.longitude);
-    final double maxLng = math.max(p1.longitude, p2.longitude);
+    if (routePoints != null && routePoints.isNotEmpty) {
+      for (final pt in routePoints) {
+        if (pt.latitude < minLat) minLat = pt.latitude;
+        if (pt.latitude > maxLat) maxLat = pt.latitude;
+        if (pt.longitude < minLng) minLng = pt.longitude;
+        if (pt.longitude > maxLng) maxLng = pt.longitude;
+      }
+    }
 
     final bounds = LatLngBounds(
       southwest: LatLng(minLat - 0.003, minLng - 0.003),
       northeast: LatLng(maxLat + 0.003, maxLng + 0.003),
     );
 
-    Future.delayed(const Duration(milliseconds: 400), () {
+    Future.delayed(const Duration(milliseconds: 300), () {
       _mapController?.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
     });
   }
@@ -1243,7 +1279,10 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                                                   // Rating & Distance Row
                                                   Builder(
                                                     builder: (context) {
-                                                      final ratingInfo = RestaurantStoreService.getRatingSync(restaurant.id);
+                                                      final ratingInfo = RestaurantStoreService.getRatingSync(
+                                                        restaurant.id,
+                                                        restaurantName: restaurant.name,
+                                                      );
                                                       return Row(
                                                         children: [
                                                           Icon(

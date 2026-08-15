@@ -40,9 +40,10 @@ class WireframeBox extends StatelessWidget {
             ),
             Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: Colors.white.withValues(alpha: 0.92),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                   boxShadow: [
@@ -53,32 +54,39 @@ class WireframeBox extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (icon != null) ...[
-                      Icon(icon, size: 28, color: const Color(0xFF64748B)),
-                      const SizedBox(height: 4),
-                    ],
-                    if (label != null)
-                      Text(
-                        label!,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF334155),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (icon != null) ...[
+                        Icon(icon, size: 24, color: const Color(0xFF64748B)),
+                        const SizedBox(height: 3),
+                      ],
+                      if (label != null)
+                        Text(
+                          label!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF334155),
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-                    if (sublabel != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        sublabel!,
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                        textAlign: TextAlign.center,
-                      ),
-                    ]
-                  ],
+                      if (sublabel != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          sublabel!,
+                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ]
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -47,6 +47,7 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
 
   Future<void> _loadRestaurantsFromSupabase() async {
     final list = await RestaurantStoreService.fetchOwnerRestaurants(null);
+    await RestaurantStoreService.preloadRestaurants(list);
     if (mounted) {
       setState(() {
         _allRestaurants = list;

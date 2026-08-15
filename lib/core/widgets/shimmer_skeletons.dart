@@ -396,3 +396,113 @@ class OutletReviewSkeleton extends StatelessWidget {
     );
   }
 }
+
+/// Notification Card Skeleton for Notification Center (100% Synced with real card layout)
+class NotificationCardSkeleton extends StatelessWidget {
+  const NotificationCardSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Shimmer.fromColors(
+        baseColor: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200,
+        highlightColor: isDark ? const Color(0xFF334155) : Colors.grey.shade50,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? Colors.white10 : Colors.grey.shade200,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Icon avatar skeleton
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Title bar
+                        Container(
+                          width: 150,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        // Date bar
+                        Container(
+                          width: 60,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Message line 1
+                    Container(
+                      width: double.infinity,
+                      height: 11,
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // Message line 2
+                    Container(
+                      width: 180,
+                      height: 11,
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Notification List Skeleton for Notification Center TabBarView
+class NotificationListSkeleton extends StatelessWidget {
+  final int itemCount;
+  const NotificationListSkeleton({super.key, this.itemCount = 5});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: itemCount,
+      itemBuilder: (context, index) => const NotificationCardSkeleton(),
+    );
+  }
+}

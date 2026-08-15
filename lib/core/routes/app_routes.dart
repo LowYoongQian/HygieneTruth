@@ -65,4 +65,7 @@ class AppRoutes {
   static const String noticeDetail = '/owner/notice-detail';
   static const String markIssueResolved = '/owner/mark-issue-resolved';
   static const String finalReport = '/owner/final-report';
+
+  // Notifications Module
+  static const String notificationCenter = '/notifications';
 }

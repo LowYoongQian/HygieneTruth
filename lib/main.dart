@@ -68,6 +68,8 @@ import 'owner/screens/final_report_screen.dart';
 
 import 'package:flutter/services.dart';
 import 'core/services/supabase_service.dart';
+import 'core/services/notification_service.dart';
+import 'notifications/screens/notification_center_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -75,6 +77,12 @@ void main() async {
     await SupabaseService.initialize();
   } catch (e) {
     debugPrint('Supabase init error: $e');
+  }
+
+  try {
+    await NotificationService.initialize();
+  } catch (e) {
+    debugPrint('NotificationService init error: $e');
   }
 
   try {
@@ -185,6 +193,9 @@ class RestaurantHygieneApp extends StatelessWidget {
           AppRoutes.noticeDetail: (context) => const NoticeDetailScreen(),
           AppRoutes.markIssueResolved: (context) => const MarkIssueResolvedScreen(),
           AppRoutes.finalReport: (context) => const FinalReportScreen(),
+
+          // Notification Center
+          AppRoutes.notificationCenter: (context) => const NotificationCenterScreen(),
         },
       ),
     );

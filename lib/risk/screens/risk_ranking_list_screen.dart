@@ -740,7 +740,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                                 const SizedBox(height: 4),
                                 Builder(
                                   builder: (context) {
-                                    final ratingInfo = RestaurantStoreService.getRatingSync(restaurant.id);
+                                    final ratingInfo = RestaurantStoreService.getRatingSync(restaurant.id, restaurantName: restaurant.name);
                                     return Row(
                                       children: [
                                         Icon(
