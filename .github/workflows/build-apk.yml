@@ -36,13 +36,20 @@ jobs:
           if [ -n "${{ secrets.ENV_FILE }}" ]; then
             echo "${{ secrets.ENV_FILE }}" > .env
           else
-            cat << 'EOF' > .env
-          SUPABASE_URL=https://edaoswrsigvpfudgxlwq.supabase.co
-          SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkYW9zd3JzaWd2cGZ1ZGd4bHdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwMTczODcsImV4cCI6MjEwMTU5MzM4Nz0.rOGAKwGLDUAzKuUSrsAECdME6vsMJNguFWX9Mongv_Y
-          GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
-          GOOGLE_WEB_CLIENT_ID=927326709623-332ted8aosmjf5efmbq3if09ur98vtl5.apps.googleusercontent.com
-          EOF
-        fi
+            touch .env
+            if [ -n "${{ secrets.SUPABASE_URL }}" ]; then
+              echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+            fi
+            if [ -n "${{ secrets.SUPABASE_ANON_KEY }}" ]; then
+              echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+            fi
+            if [ -n "${{ secrets.GOOGLE_MAPS_API_KEY }}" ]; then
+              echo "GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}" >> .env
+            fi
+            if [ -n "${{ secrets.GOOGLE_WEB_CLIENT_ID }}" ]; then
+              echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" >> .env
+            fi
+          fi
 
       - name: Install dependencies
         run: flutter pub get
