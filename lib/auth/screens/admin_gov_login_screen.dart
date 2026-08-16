@@ -1,3 +1,4 @@
+import '../../core/services/remember_me_service.dart';
 import 'package:flutter/material.dart';
 import '../../core/models/user_model.dart';
 import '../../core/routes/app_routes.dart';
@@ -37,18 +38,20 @@ class _AdminGovLoginScreenState extends State<AdminGovLoginScreen> {
 
     setState(() => _isLoading = true);
 
+    final portalType = _selectedPortalRole == UserRole.admin
+        ? PortalType.admin
+        : PortalType.government;
+
     final result = await CustomerStoreService.loginCustomer(
-      email: _emailController.text,
+      email: _emailController.text.trim(),
       password: _passwordController.text,
+      portal: portalType,
     );
 
     if (mounted) {
       setState(() => _isLoading = false);
 
       if (result.success) {
-        // Apply selected official role (Government Inspector or Administrator)
-        CustomerStoreService.updateOwnerRole(_selectedPortalRole);
-
         final targetRoute = _selectedPortalRole == UserRole.admin
             ? AppRoutes.adminDashboard
             : AppRoutes.governmentDashboard;

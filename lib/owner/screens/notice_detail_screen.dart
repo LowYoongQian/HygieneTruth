@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../core/models/complaint_model.dart';
 import '../../core/models/mock_seed_data.dart';
@@ -137,7 +138,7 @@ class NoticeDetailScreen extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Directive ID: ${c.id}',
+                    'Directive ID: ${c.id.startsWith('CMP-') ? c.id : 'CMP-${c.id.length > 8 ? c.id.substring(0, 8).toUpperCase() : c.id.toUpperCase()}'}',
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.w600),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -197,13 +198,37 @@ class NoticeDetailScreen extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 itemCount: complaint.photoUrls.isNotEmpty ? complaint.photoUrls.length : 2,
                 itemBuilder: (context, idx) {
+                  if (complaint.photoUrls.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.only(right: 8.0),
+                      child: WireframeBox(width: 140, height: 120, icon: Icons.image, label: 'Photo Proof'),
+                    );
+                  }
+                  final path = complaint.photoUrls[idx];
+                  Widget imgWidget;
+                  if (path.startsWith('http://') || path.startsWith('https://')) {
+                    imgWidget = Image.network(path, width: 140, height: 120, fit: BoxFit.cover, errorBuilder: (ctx, err, stack) => const Icon(Icons.broken_image, size: 36, color: Colors.grey));
+                  } else {
+                    String cleanPath = path;
+                    if (cleanPath.startsWith('file://')) {
+                      try {
+                        cleanPath = Uri.parse(cleanPath).toFilePath();
+                      } catch (_) {
+                        cleanPath = cleanPath.replaceFirst('file://', '');
+                      }
+                    }
+                    final f = File(cleanPath);
+                    if (f.existsSync()) {
+                      imgWidget = Image.file(f, width: 140, height: 120, fit: BoxFit.cover, errorBuilder: (ctx, err, stack) => const Icon(Icons.broken_image, size: 36, color: Colors.grey));
+                    } else {
+                      imgWidget = Image.network('https://images.unsplash.com/photo-1584483766114-2cea6facdf57?w=600', width: 140, height: 120, fit: BoxFit.cover);
+                    }
+                  }
                   return Padding(
                     padding: const EdgeInsets.only(right: 8.0),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: complaint.photoUrls.isNotEmpty
-                          ? Image.network(complaint.photoUrls[idx], width: 140, height: 120, fit: BoxFit.cover)
-                          : const WireframeBox(width: 140, height: 120, icon: Icons.image, label: 'Photo Proof'),
+                      child: imgWidget,
                     ),
                   );
                 },

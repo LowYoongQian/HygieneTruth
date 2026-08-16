@@ -3,15 +3,35 @@ import 'package:shared_preferences/shared_preferences.dart';
 enum PortalType {
   customer,
   owner,
+  government,
+  admin,
 }
 
 class RememberMeService {
   static String _getRememberKey(PortalType portal) {
-    return portal == PortalType.owner ? 'remember_me_owner' : 'remember_me_customer';
+    switch (portal) {
+      case PortalType.owner:
+        return 'remember_me_owner';
+      case PortalType.government:
+        return 'remember_me_government';
+      case PortalType.admin:
+        return 'remember_me_admin';
+      case PortalType.customer:
+        return 'remember_me_customer';
+    }
   }
 
   static String _getEmailKey(PortalType portal) {
-    return portal == PortalType.owner ? 'remembered_email_owner' : 'remembered_email_customer';
+    switch (portal) {
+      case PortalType.owner:
+        return 'remembered_email_owner';
+      case PortalType.government:
+        return 'remembered_email_government';
+      case PortalType.admin:
+        return 'remembered_email_admin';
+      case PortalType.customer:
+        return 'remembered_email_customer';
+    }
   }
 
   /// Saves or clears the remembered email based on portal type

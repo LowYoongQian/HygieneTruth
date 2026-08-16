@@ -2,14 +2,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/language_manager.dart';
 import '../../core/services/restaurant_store_service.dart';
+import '../../core/services/supabase_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
+import '../../core/widgets/shimmer_skeletons.dart';
 import '../widgets/restaurant_card.dart';
 
 class RestaurantSearchScreen extends StatefulWidget {
@@ -25,6 +26,9 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
 
   bool _isSpeechAvailable = false;
   bool _isListening = false;
+  bool _isLoading = true;
+
+  StreamSubscription? _realtimeSub;
 
   // Filter States
   String _selectedCategory = 'All';
@@ -38,27 +42,76 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
   final double _userLat = 3.1466;
   final double _userLng = 101.6958;
 
+  bool _initializedArgs = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initializedArgs) {
+      _initializedArgs = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is String && args.isNotEmpty) {
+        _selectedCategory = args;
+        _applyFilters();
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _initSpeech();
+    _setupRealtimeSubscription();
     _loadRestaurantsFromSupabase();
+    RestaurantStoreService.restaurantsNotifier.addListener(_onRestaurantsUpdated);
+  }
+
+  void _onRestaurantsUpdated() {
+    if (mounted) {
+      setState(() {
+        _allRestaurants = RestaurantStoreService.restaurantsNotifier.value;
+      });
+      _applyFilters();
+    }
   }
 
   Future<void> _loadRestaurantsFromSupabase() async {
-    final list = await RestaurantStoreService.fetchOwnerRestaurants(null);
-    await RestaurantStoreService.preloadRestaurants(list);
+    setState(() => _isLoading = true);
+    final list = await RestaurantStoreService.fetchAllRestaurants(forceRefresh: true);
     if (mounted) {
       setState(() {
         _allRestaurants = list;
-        _filteredList = list;
+        _isLoading = false;
       });
+      _applyFilters();
+    }
+  }
+
+  void _setupRealtimeSubscription() {
+    try {
+      final supabase = SupabaseService.client;
+      _realtimeSub = supabase
+          .from('restaurants')
+          .stream(primaryKey: ['id'])
+          .listen((data) async {
+            final updatedList = await RestaurantStoreService.fetchAllRestaurants(forceRefresh: true);
+            if (mounted) {
+              setState(() {
+                _allRestaurants = updatedList;
+              });
+              _applyFilters();
+            }
+          });
+    } catch (e) {
+      debugPrint('Realtime search stream error: $e');
     }
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _realtimeSub?.cancel();
+    RestaurantStoreService.restaurantsNotifier.removeListener(_onRestaurantsUpdated);
     super.dispose();
   }
 
@@ -286,7 +339,7 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
   void _openFilterBottomSheet() {
     final List<String> categories = [
       'All',
-      ...MockSeedData.restaurants.map((r) => r.category).toSet(),
+      ..._allRestaurants.map((r) => r.category).where((c) => c.isNotEmpty).toSet(),
     ];
 
     showModalBottomSheet(
@@ -321,49 +374,70 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
                           color: AppTheme.navyColor,
                         ),
                       ),
-                      TextButton(
-                        onPressed: () {
-                          setFilterState(() {
-                            _selectedCategory = 'All';
-                            _selectedRanking = 'All';
-                            _isNearbyOnly = false;
-                          });
-                        },
-                        child: const Text(
-                          'Reset All',
-                          style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
-                        ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
                   const Divider(),
                   const SizedBox(height: 12),
 
+                  // Cuisine Category Dropdown
                   const Text(
-                    'Hygiene Ranking / Risk Level',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                    'Cuisine Category',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: categories.contains(_selectedCategory) ? _selectedCategory : 'All',
+                        isExpanded: true,
+                        items: categories.map((cat) {
+                          return DropdownMenuItem(
+                            value: cat,
+                            child: Text(cat),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setFilterState(() {
+                              _selectedCategory = val;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Hygiene Risk Level Selector
+                  const Text(
+                    'Hygiene Risk Level',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
-                    runSpacing: 8,
                     children: ['All', 'Low', 'Medium', 'High'].map((rank) {
                       final isSelected = _selectedRanking == rank;
-                      Color chipColor = AppTheme.primaryColor;
-                      if (rank == 'Low') chipColor = AppTheme.safeColor;
-                      if (rank == 'Medium') chipColor = AppTheme.moderateColor;
-                      if (rank == 'High') chipColor = AppTheme.highRiskColor;
-
-                      return FilterChip(
-                        selected: isSelected,
+                      return ChoiceChip(
                         label: Text(
-                          rank == 'All' ? 'All Rankings' : '$rank Risk',
+                          rank == 'All' ? 'All Risk Levels' : '$rank Risk',
                           style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.black87,
+                            color: isSelected ? Colors.white : AppTheme.navyColor,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
-                        selectedColor: chipColor,
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryColor,
                         backgroundColor: Colors.grey.shade100,
                         onSelected: (selected) {
                           setFilterState(() {
@@ -373,48 +447,21 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                  const Text(
-                    'Cuisine / Category',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: categories.map((cat) {
-                      final isSelected = _selectedCategory == cat;
-                      return ChoiceChip(
-                        selected: isSelected,
-                        label: Text(
-                          cat,
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.black87,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                        selectedColor: AppTheme.primaryColor,
-                        backgroundColor: Colors.grey.shade100,
-                        onSelected: (selected) {
-                          setFilterState(() {
-                            _selectedCategory = selected ? cat : 'All';
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 20),
-
+                  // Nearby Only Toggle
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text(
-                      'Nearby Outlets Only (Within 8km)',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                      'Nearby Outlets Only (< 8 km)',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
                     ),
-                    subtitle: const Text('Sorts & filters closest outlets to your current position'),
+                    subtitle: const Text(
+                      'Sort outlets closest to your current GPS location',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                     value: _isNearbyOnly,
-                    activeTrackColor: AppTheme.primaryColor,
+                    activeThumbColor: AppTheme.primaryColor,
                     onChanged: (val) {
                       setFilterState(() {
                         _isNearbyOnly = val;
@@ -423,6 +470,7 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
                   ),
                   const SizedBox(height: 24),
 
+                  // Apply Filter Button
                   ElevatedButton(
                     onPressed: () {
                       Navigator.pop(context);
@@ -464,206 +512,228 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
             onTap: () => FocusScope.of(context).unfocus(),
             behavior: HitTestBehavior.opaque,
             child: Column(
-          children: [
-          // Search Input Bar with Speech-to-Text Mic and Custom Equalizer Filter Icon at Far Right
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    onChanged: (_) => _applyFilters(),
-                    decoration: InputDecoration(
-                      hintText: 'Search outlets...',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_searchCtrl.text.isNotEmpty)
-                            IconButton(
-                              icon: const Icon(Icons.clear, size: 20),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                _applyFilters();
-                              },
+                // Search Input Bar with Speech-to-Text Mic and Custom Equalizer Filter Icon at Far Right
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _searchCtrl,
+                          onChanged: (_) => _applyFilters(),
+                          decoration: InputDecoration(
+                            hintText: 'Search outlets...',
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_searchCtrl.text.isNotEmpty)
+                                  IconButton(
+                                    icon: const Icon(Icons.clear, size: 20),
+                                    onPressed: () {
+                                      _searchCtrl.clear();
+                                      _applyFilters();
+                                    },
+                                  ),
+                                IconButton(
+                                  icon: Icon(
+                                    _isListening ? Icons.mic : Icons.mic_none,
+                                    color: _isListening ? Colors.red : AppTheme.primaryColor,
+                                  ),
+                                  tooltip: 'Voice Search',
+                                  onPressed: _startVoiceSearch,
+                                ),
+                              ],
                             ),
-                          IconButton(
-                            icon: Icon(
-                              _isListening ? Icons.mic : Icons.mic_none,
-                              color: _isListening ? Colors.red : AppTheme.primaryColor,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            tooltip: 'Voice Search',
-                            onPressed: _startVoiceSearch,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+
+                      // Custom Equalizer Slider Filter Button at FAR RIGHT
+                      Stack(
+                        children: [
+                          Container(
+                            height: 52,
+                            width: 52,
+                            decoration: BoxDecoration(
+                              color: _hasActiveFilters ? AppTheme.primaryColor : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _hasActiveFilters ? AppTheme.primaryColor : Colors.grey.shade300,
+                                width: 1.2,
+                              ),
+                            ),
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.tune_rounded,
+                                color: _hasActiveFilters ? Colors.white : AppTheme.navyColor,
+                              ),
+                              tooltip: 'Filter Outlets',
+                              onPressed: _openFilterBottomSheet,
+                            ),
+                          ),
+                          if (_hasActiveFilters)
+                            Positioned(
+                              top: 6,
+                              right: 6,
+                              child: Container(
+                                width: 10,
+                                height: 10,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF80EE98),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 10),
 
-                // Custom Equalizer Slider Filter Button at FAR RIGHT
-                Stack(
-                  children: [
-                    Container(
-                      height: 52,
-                      width: 52,
-                      decoration: BoxDecoration(
-                        color: _hasActiveFilters ? AppTheme.primaryColor : Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _hasActiveFilters ? AppTheme.primaryColor : Colors.grey.shade300,
-                          width: 1.2,
-                        ),
-                      ),
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.tune_rounded,
-                          color: _hasActiveFilters ? Colors.white : AppTheme.navyColor,
-                        ),
-                        tooltip: 'Filter Outlets',
-                        onPressed: _openFilterBottomSheet,
+                // Active Filter Chips Summary (if any)
+                if (_hasActiveFilters)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: SizedBox(
+                      height: 36,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          if (_selectedCategory != 'All')
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: Chip(
+                                label: Text('Category: $_selectedCategory'),
+                                deleteIcon: const Icon(Icons.close, size: 14),
+                                onDeleted: () {
+                                  setState(() {
+                                    _selectedCategory = 'All';
+                                    _applyFilters();
+                                  });
+                                },
+                                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                              ),
+                            ),
+                          if (_selectedRanking != 'All')
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: Chip(
+                                label: Text('Risk: $_selectedRanking'),
+                                deleteIcon: const Icon(Icons.close, size: 14),
+                                onDeleted: () {
+                                  setState(() {
+                                    _selectedRanking = 'All';
+                                    _applyFilters();
+                                  });
+                                },
+                                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                              ),
+                            ),
+                          if (_isNearbyOnly)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: Chip(
+                                label: const Text('Nearby Only (< 8 km)'),
+                                deleteIcon: const Icon(Icons.close, size: 14),
+                                onDeleted: () {
+                                  setState(() {
+                                    _isNearbyOnly = false;
+                                    _applyFilters();
+                                  });
+                                },
+                                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                    if (_hasActiveFilters)
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: Container(
-                          width: 10,
-                          height: 10,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF80EE98),
-                            shape: BoxShape.circle,
+                  ),
+
+                // Outlets Count & Map View Header
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${_filteredList.length} Outlets',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.map, size: 16),
+                        label: const Text('Map View'),
+                        onPressed: () => Navigator.pushNamed(context, AppRoutes.restaurantMap),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Outlet Results List with Pull to Refresh & Shimmer Loading
+                Expanded(
+                  child: _isLoading
+                      ? ListView.builder(
+                          padding: const EdgeInsets.all(12),
+                          itemCount: 4,
+                          itemBuilder: (context, index) => const Padding(
+                            padding: EdgeInsets.only(bottom: 12),
+                            child: BaseSkeleton(
+                              width: double.infinity,
+                              height: 230,
+                              borderRadius: 16,
+                            ),
                           ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _loadRestaurantsFromSupabase,
+                          color: AppTheme.primaryColor,
+                          child: _filteredList.isEmpty
+                              ? ListView(
+                                  children: [
+                                    const SizedBox(height: 80),
+                                    Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
+                                          const SizedBox(height: 12),
+                                          const Text(
+                                            'No outlets match your filters',
+                                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          TextButton(
+                                            onPressed: () {
+                                              setState(() {
+                                                _searchCtrl.clear();
+                                                _selectedCategory = 'All';
+                                                _selectedRanking = 'All';
+                                                _isNearbyOnly = false;
+                                                _applyFilters();
+                                              });
+                                            },
+                                            child: const Text('Reset All Search Filters'),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : ListView.builder(
+                                  padding: const EdgeInsets.all(12),
+                                  itemCount: _filteredList.length,
+                                  itemBuilder: (context, index) {
+                                    return RestaurantCard(restaurant: _filteredList[index]);
+                                  },
+                                ),
                         ),
-                      ),
-                  ],
                 ),
-              ],
-            ),
-          ),
-
-          // Active Filter Chips Summary (if any)
-          if (_hasActiveFilters)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: SizedBox(
-                height: 36,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    if (_selectedCategory != 'All')
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: Chip(
-                          label: Text('Category: $_selectedCategory'),
-                          deleteIcon: const Icon(Icons.close, size: 14),
-                          onDeleted: () {
-                            setState(() {
-                              _selectedCategory = 'All';
-                              _applyFilters();
-                            });
-                          },
-                          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                        ),
-                      ),
-                    if (_selectedRanking != 'All')
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: Chip(
-                          label: Text('Risk: $_selectedRanking'),
-                          deleteIcon: const Icon(Icons.close, size: 14),
-                          onDeleted: () {
-                            setState(() {
-                              _selectedRanking = 'All';
-                              _applyFilters();
-                            });
-                          },
-                          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                        ),
-                      ),
-                    if (_isNearbyOnly)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: Chip(
-                          label: const Text('Nearby (<=8km)'),
-                          deleteIcon: const Icon(Icons.close, size: 14),
-                          onDeleted: () {
-                            setState(() {
-                              _isNearbyOnly = false;
-                              _applyFilters();
-                            });
-                          },
-                          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-
-          // Outlets Count & Map View Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${_filteredList.length} Outlets',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
-                ),
-                TextButton.icon(
-                  icon: const Icon(Icons.map, size: 16),
-                  label: const Text('Map View'),
-                  onPressed: () => Navigator.pushNamed(context, AppRoutes.restaurantMap),
-                ),
-              ],
-            ),
-          ),
-
-          // Outlet Results List
-          Expanded(
-            child: _filteredList.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'No outlets match your filters',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: () {
-                            setState(() {
-                              _searchCtrl.clear();
-                              _selectedCategory = 'All';
-                              _selectedRanking = 'All';
-                              _isNearbyOnly = false;
-                              _applyFilters();
-                            });
-                          },
-                          child: const Text('Reset All Search Filters'),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _filteredList.length,
-                    itemBuilder: (context, index) {
-                      return RestaurantCard(restaurant: _filteredList[index]);
-                    },
-                  ),
-          ),
               ],
             ),
           ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/models/user_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/customer_store_service.dart';
 import '../../core/services/remember_me_service.dart';
@@ -93,9 +92,6 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
       setState(() => _isLoading = false);
 
       if (result.success) {
-        // Enforce owner role override for business portal access
-        CustomerStoreService.updateOwnerRole(UserRole.owner);
-
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Welcome to Businessman Portal!'),

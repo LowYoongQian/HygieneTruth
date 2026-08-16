@@ -1,3 +1,5 @@
+import '../../notifications/models/notification_model.dart';
+import 'notification_service.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -27,6 +29,48 @@ class RestaurantRatingInfo {
 }
 
 class RestaurantStoreService {
+  static final ValueNotifier<List<RestaurantModel>> restaurantsNotifier = ValueNotifier<List<RestaurantModel>>(MockSeedData.restaurants);
+    static final Map<String, String> restaurantNameCache = {};
+  static void cacheRestaurantName(String id, String name) {
+    if (name.isNotEmpty && !isRawUuid(name)) {
+      restaurantNameCache[id] = name;
+      restaurantNameCache[name] = name;
+    }
+  }
+
+  /// Check if a string is a raw UUID
+  static bool isRawUuid(String? str) {
+    if (str == null || str.isEmpty) return false;
+    return RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}').hasMatch(str) ||
+           RegExp(r'^[0-9a-fA-F-]{20,}$').hasMatch(str);
+  }
+
+  /// Resolve a human-readable display name for any restaurant ID or name
+  static String resolveRestaurantName(String? idOrName, {String fallback = 'Restaurant'}) {
+    if (idOrName == null || idOrName.trim().isEmpty) return fallback;
+    final trimmed = idOrName.trim();
+
+    // 1. Check in-memory cache
+    if (restaurantNameCache.containsKey(trimmed) && !isRawUuid(restaurantNameCache[trimmed])) {
+      return restaurantNameCache[trimmed]!;
+    }
+
+    // 2. If it is already a clean human-readable name, return it directly
+    if (!isRawUuid(trimmed)) {
+      restaurantNameCache[trimmed] = trimmed;
+      return trimmed;
+    }
+
+    // 3. Search MockSeedData
+    final mock = MockSeedData.restaurants.where((r) => r.id == trimmed || r.name == trimmed).firstOrNull;
+    if (mock != null && mock.name.isNotEmpty && !isRawUuid(mock.name)) {
+      restaurantNameCache[trimmed] = mock.name;
+      return mock.name;
+    }
+
+    return fallback;
+  }
+
   /// In-memory override store for reviewed outlet statuses: restaurantId -> status string
   static final Map<String, String> _reviewedOutletStatuses = {};
   static final Map<String, String> _reviewedOutletRegNos = {};
@@ -230,6 +274,71 @@ class RestaurantStoreService {
 
   /// Fetches all restaurants belonging to the given owner from Supabase.
   /// Merges with local custom storage and mock seed data.
+  /// Fetches all public and verified restaurants from Supabase database `restaurants` table.
+  /// Merges with local custom restaurants and updates real-time listeners.
+  static Future<List<RestaurantModel>> fetchAllRestaurants({bool forceRefresh = false}) async {
+    final List<RestaurantModel> fetchedList = [];
+    final Set<String> seenIds = {};
+
+    // 1. Fetch from Supabase `restaurants` table
+    try {
+      final supabase = SupabaseService.client;
+      final res = await supabase
+          .from('restaurants')
+          .select()
+          .order('created_at', ascending: false);
+      final List<dynamic> rows = res as List<dynamic>;
+
+      for (final r in rows) {
+        final mapData = Map<String, dynamic>.from(r as Map<String, dynamic>);
+        final String rId = mapData['id']?.toString() ?? '';
+        if (rId.isNotEmpty && !seenIds.contains(rId)) {
+          seenIds.add(rId);
+          await _applyOverridesToMap(mapData);
+          fetchedList.add(RestaurantModel.fromMap(mapData));
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching all restaurants from Supabase: $e');
+      }
+    }
+
+    // 2. Fetch from SharedPreferences local_custom_restaurants
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final localJson = prefs.getString('local_custom_restaurants');
+      if (localJson != null && localJson.isNotEmpty) {
+        final List<dynamic> decoded = jsonDecode(localJson);
+        for (final item in decoded) {
+          final mapData = Map<String, dynamic>.from(item as Map);
+          final String rId = mapData['id']?.toString() ?? '';
+          if (rId.isNotEmpty && !seenIds.contains(rId)) {
+            seenIds.add(rId);
+            await _applyOverridesToMap(mapData);
+            fetchedList.insert(0, RestaurantModel.fromMap(mapData));
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 3. Ensure seed restaurants are merged
+    for (final local in MockSeedData.restaurants) {
+      if (!seenIds.contains(local.id)) {
+        seenIds.add(local.id);
+        final mapData = local.toMap();
+        await _applyOverridesToMap(mapData);
+        fetchedList.add(RestaurantModel.fromMap(mapData));
+      }
+    }
+
+    // Update in-memory cache and notifier
+    MockSeedData.restaurants = List.from(fetchedList);
+    restaurantsNotifier.value = List.from(fetchedList);
+
+    return fetchedList;
+  }
+
   static Future<List<RestaurantModel>> fetchOwnerRestaurants(String? ownerId, {String? ownerEmail}) async {
     final List<RestaurantModel> fetchedList = [];
     final Set<String> seenIds = {};
@@ -482,6 +591,25 @@ class RestaurantStoreService {
         category: 'Government',
         title: auditTitle,
         description: auditDesc,
+      );
+
+      // Send real-time heads-up push notification to Owner & Public
+      final cleanRestName = resolveRestaurantName(restaurantId);
+      final notifTitle = status == 'approved'
+          ? '🎉 Outlet Application Approved!'
+          : (status == 'needsRevision' ? '⚠️ Outlet Application Needs Revision' : '❌ Outlet Application Rejected');
+      final notifMessage = status == 'approved'
+          ? '$cleanRestName has been verified (Reg: ${businessRegNo ?? "SSM-VERIFIED"}). It is now live for diners!'
+          : (status == 'needsRevision'
+              ? 'Revision requested for $cleanRestName. $notesText'
+              : 'Application for $cleanRestName was rejected. $notesText');
+
+      NotificationService.sendNotification(
+        userId: 'own_001',
+        title: notifTitle,
+        message: notifMessage,
+        type: NotificationType.outlet,
+        actionUrl: 'restaurant_$restaurantId',
       );
 
       return true;
@@ -982,6 +1110,16 @@ class RestaurantStoreService {
       comment: comment,
       timestamp: newReview['timestamp'],
     );
+
+    // Send real-time heads-up push notification to Restaurant Owner & Reviewer
+    final cleanRestName = resolveRestaurantName(restaurantName != null && restaurantName.isNotEmpty && !isRawUuid(restaurantName) ? restaurantName : restaurantId);
+    NotificationService.sendNotification(
+      userId: 'own_001',
+      title: '⭐ New Customer Review: $cleanRestName',
+      message: '$userName left a $stars★ review: "$comment"',
+      type: NotificationType.review,
+      actionUrl: 'outlet_$restaurantId',
+    );
   }
 
   /// Log a user review activity
@@ -992,6 +1130,7 @@ class RestaurantStoreService {
     required String comment,
     String? timestamp,
   }) async {
+    final cleanName = resolveRestaurantName(restaurantName.isNotEmpty && !isRawUuid(restaurantName) ? restaurantName : restaurantId);
     final currentUser = CustomerStoreService.currentCustomer;
     final userKey = (currentUser?.id != null && currentUser!.id.isNotEmpty)
         ? currentUser.id
@@ -1001,7 +1140,7 @@ class RestaurantStoreService {
     final record = {
       'id': 'act_rev_${now.millisecondsSinceEpoch}',
       'restaurantId': restaurantId,
-      'restaurantName': restaurantName,
+      'restaurantName': cleanName,
       'stars': '$stars',
       'comment': comment,
       'timestamp': timestamp ?? now.toIso8601String(),
@@ -1091,11 +1230,7 @@ class RestaurantStoreService {
             ));
 
             if (isMatch) {
-              String restName = restId;
-              final matchingRest = MockSeedData.restaurants.where((x) => x.id == restId).firstOrNull;
-              if (matchingRest != null) {
-                restName = matchingRest.name;
-              }
+              String restName = resolveRestaurantName(rMap['restaurantName'] ?? restId);
 
               final revKey = '${restName}_${rMap['comment']}';
               if (!seenReviews.contains(revKey)) {
@@ -1126,10 +1261,13 @@ class RestaurantStoreService {
         ? currentUser.id
         : (currentUser?.email ?? 'anonymous_user');
 
+    final cleanName = resolveRestaurantName(restaurant.name.isNotEmpty && !isRawUuid(restaurant.name) ? restaurant.name : restaurant.id);
+    restaurantNameCache[restaurant.id] = cleanName;
+
     final now = DateTime.now();
     final visitRecord = {
       'id': restaurant.id,
-      'name': restaurant.name,
+      'name': cleanName,
       'category': restaurant.category,
       'address': restaurant.address,
       'hygieneRiskScore': restaurant.hygieneRiskScore,
@@ -1206,8 +1344,9 @@ class RestaurantStoreService {
       // 3. Also include restaurants where user has submitted reviews
       final reviewActivities = await fetchUserReviewActivities();
       for (final rev in reviewActivities) {
-        final rName = rev['restaurantName']?.toString() ?? '';
         final rId = rev['restaurantId']?.toString() ?? '';
+        final rawName = rev['restaurantName']?.toString() ?? '';
+        final rName = resolveRestaurantName(rawName.isNotEmpty && !isRawUuid(rawName) ? rawName : rId);
         if (rName.isNotEmpty && !seen.contains(rName)) {
           seen.add(rName);
           results.add({

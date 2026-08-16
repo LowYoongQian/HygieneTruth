@@ -48,6 +48,15 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
   }
 
   Future<void> _loadActivities() async {
+    try {
+      final all = await RestaurantStoreService.fetchOwnerRestaurants(null);
+      for (final r in all) {
+        if (r.name.isNotEmpty && !RestaurantStoreService.isRawUuid(r.name)) {
+          RestaurantStoreService.cacheRestaurantName(r.id, r.name);
+        }
+      }
+    } catch (_) {}
+
     final reviews = await RestaurantStoreService.fetchUserReviewActivities();
     final visits = await RestaurantStoreService.fetchRecentVisits();
     if (mounted) {
@@ -84,7 +93,8 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
     for (final rev in _userReviews) {
       final stars = rev['stars'] ?? '5';
       final comment = rev['comment'] ?? '';
-      final rName = rev['restaurantName'] ?? 'Restaurant';
+      final rawRName = rev['restaurantName'] ?? rev['restaurantId'] ?? 'Restaurant';
+      final rName = RestaurantStoreService.resolveRestaurantName(rawRName, fallback: 'Restaurant');
       final rawTime = rev['timestamp'] ?? '';
       final key = '${rName}_$comment';
       seenReviewKeys.add(key);
@@ -133,7 +143,8 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
     // 2. Recent Visit Items (Live & Cached)
     final Set<String> seenVisitNames = {};
     for (final visit in _recentVisits) {
-      final name = visit['name']?.toString() ?? 'Premises';
+      final rawName = visit['name']?.toString() ?? visit['id']?.toString() ?? 'Premises';
+      final name = RestaurantStoreService.resolveRestaurantName(rawName, fallback: 'Premises');
       final rawTime = visit['timestamp']?.toString() ?? '';
       seenVisitNames.add(name);
 

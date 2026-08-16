@@ -12,6 +12,7 @@ class AppRoutes {
   static const String editProfile = '/edit-profile';
   static const String settings = '/settings';
   static const String activityHistory = '/activity-history';
+  static const String userSettingsHistory = '/user-settings-history';
   static const String manageUserAccounts = '/admin/manage-user-accounts';
   static const String accountDetail = '/admin/account-detail';
 
@@ -48,6 +49,7 @@ class AppRoutes {
 
   // Inspection & Enforcement (Government / PIC)
   static const String verifiedComplaintsList = '/gov/verified-complaints-list';
+  static const String governmentAuditLog = '/gov/audit-log';
   static const String complaintFullDetail = '/gov/complaint-full-detail';
   static const String scheduleInspection = '/gov/schedule-inspection';
   static const String conductInspection = '/gov/conduct-inspection';

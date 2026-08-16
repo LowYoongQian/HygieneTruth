@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/routes/app_routes.dart';
-import '../../core/services/audit_log_service.dart';
 import '../../core/services/customer_store_service.dart';
 import '../../core/services/language_manager.dart';
-import '../../core/services/supabase_service.dart';
 import '../../core/services/user_settings_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_manager.dart';
@@ -281,20 +278,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                                     setDialogState(() => isSaving = true);
 
-                                    try {
-                                      final supabase = SupabaseService.client;
-                                      try {
-                                        await supabase.auth.updateUser(UserAttributes(password: newPass));
-                                      } catch (_) {}
+                                    final result = await CustomerStoreService.changePassword(
+                                      oldPassword: oldPass,
+                                      newPassword: newPass,
+                                    );
 
-                                      AuditLogService.logAction(
-                                        actionType: 'PASSWORD_CHANGE',
-                                        category: 'Account Modification',
-                                        title: 'Password Changed',
-                                        description: 'Updated account login credentials',
-                                      );
+                                    setDialogState(() => isSaving = false);
+                                    if (!mounted) return;
 
-                                      if (!mounted) return;
+                                    if (result.success) {
                                       nav.pop();
                                       messenger.showSnackBar(
                                         SnackBar(
@@ -311,11 +303,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                         ),
                                       );
-                                    } catch (e) {
-                                      setDialogState(() => isSaving = false);
-                                      if (!mounted) return;
+                                    } else {
                                       messenger.showSnackBar(
-                                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                                        SnackBar(
+                                          content: Text(result.message),
+                                          backgroundColor: Colors.red,
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
                                       );
                                     }
                                   },

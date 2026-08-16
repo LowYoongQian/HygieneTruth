@@ -580,6 +580,99 @@ class CustomerStoreService {
     }
   }
 
+  static Future<CustomerAuthResult> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final user = _currentCustomer;
+    if (user == null) {
+      return const CustomerAuthResult(
+        success: false,
+        message: 'No active login session found. Please log in again.',
+      );
+    }
+
+    final cleanEmail = user.email.trim().toLowerCase();
+    final supabase = SupabaseService.client;
+
+    // 1. Verify old password against Supabase `users` table or local store
+    Map<String, dynamic>? dbUser;
+    try {
+      dbUser = await supabase
+          .from('users')
+          .select()
+          .ilike('email', cleanEmail)
+          .maybeSingle();
+    } catch (e) {
+      debugPrint('Error verifying current password: $e');
+    }
+
+    bool oldPasswordValid = false;
+    if (dbUser != null) {
+      final storedPassword = dbUser['user_password']?.toString() ?? '';
+      if (storedPassword.startsWith(r'$2a$') ||
+          storedPassword.startsWith(r'$2b$') ||
+          storedPassword.startsWith(r'$2y$')) {
+        try {
+          oldPasswordValid = BCrypt.checkpw(oldPassword, storedPassword);
+        } catch (_) {}
+      } else {
+        oldPasswordValid = (storedPassword == oldPassword);
+      }
+    } else if (_registeredCustomers.containsKey(cleanEmail)) {
+      final localPass = _registeredCustomers[cleanEmail]?['password'] ?? '';
+      oldPasswordValid = (localPass == oldPassword);
+    }
+
+    if (!oldPasswordValid) {
+      return const CustomerAuthResult(
+        success: false,
+        message: 'Current password is incorrect.',
+      );
+    }
+
+    // 2. Hash new password with BCrypt
+    final String hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt(logRounds: 6));
+
+    // 3. Update Supabase `users` table
+    try {
+      await supabase
+          .from('users')
+          .update({
+            'user_password': hashedPassword,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .ilike('email', cleanEmail);
+    } catch (e) {
+      debugPrint('Error updating password in Supabase: $e');
+    }
+
+    // 4. Update Supabase Auth user if active session exists
+    try {
+      await supabase.auth.updateUser(UserAttributes(password: newPassword));
+    } catch (_) {}
+
+    // 5. Update local in-memory store
+    _registeredCustomers[cleanEmail] = {
+      'password': newPassword,
+      'role': user.role.name,
+    };
+
+    AuditLogService.logAction(
+      actionType: 'PASSWORD_CHANGE',
+      category: 'Account Modification',
+      title: 'Password Changed',
+      description: 'Account login password updated successfully',
+      userId: user.id,
+      userEmail: cleanEmail,
+    );
+
+    return const CustomerAuthResult(
+      success: true,
+      message: 'Password changed successfully!',
+    );
+  }
+
   static Future<CustomerAuthResult> loginCustomer({
     required String email,
     required String password,
@@ -624,14 +717,51 @@ class CustomerStoreService {
       }
 
       if (passwordMatches) {
-        // Stored password match confirmed! Complete login!
+        // Stored password match confirmed!
+        final String rawDbRole = (dbUser['role']?.toString() ?? 'customer').toLowerCase().trim();
+
+        // STRICT ROLE-BASED ACCESS CONTROL (RBAC) ENFORCEMENT
+        bool isRoleAuthorized = false;
+
+        switch (portal) {
+          case PortalType.customer:
+            isRoleAuthorized = (rawDbRole == 'customer' || rawDbRole == 'user');
+            break;
+
+          case PortalType.owner:
+            isRoleAuthorized = (rawDbRole == 'businessman' || rawDbRole == 'owner');
+            break;
+
+          case PortalType.government:
+            isRoleAuthorized = (rawDbRole == 'government' || rawDbRole == 'inspector' || rawDbRole == 'officer');
+            break;
+
+          case PortalType.admin:
+            isRoleAuthorized = (rawDbRole == 'admin' || rawDbRole == 'administrator');
+            break;
+        }
+
+        if (!isRoleAuthorized) {
+          AuditLogService.logAction(
+            actionType: 'SECURITY_ALERT',
+            category: 'Unauthorized Portal Access',
+            title: 'Cross-Portal Access Blocked',
+            description: 'Account with role [$rawDbRole] rejected attempting to login to [${portal.name}] portal.',
+            userEmail: cleanEmail,
+          );
+          // Generic secure response preventing role and account enumeration
+          return const CustomerAuthResult(
+            success: false,
+            message: 'No account was found with these credentials. Please try again.',
+          );
+        }
+
         final String userId = dbUser['id']?.toString() ?? UuidHelper.generateV4();
-        final String dbRole = dbUser['role']?.toString() ?? (portal == PortalType.owner ? 'businessman' : 'customer');
-        final UserRole finalUserRole = (dbRole == 'businessman' || dbRole == 'owner')
+        final UserRole finalUserRole = (rawDbRole == 'businessman' || rawDbRole == 'owner')
             ? UserRole.owner
-            : (dbRole == 'admin'
+            : (rawDbRole == 'admin'
                 ? UserRole.admin
-                : (dbRole == 'government' ? UserRole.government : UserRole.user));
+                : (rawDbRole == 'government' ? UserRole.government : UserRole.user));
 
         String? joinedDate;
         final rawCreated = dbUser['created_at']?.toString();
@@ -660,7 +790,7 @@ class CustomerStoreService {
         // Keep registeredCustomers store updated
         _registeredCustomers[cleanEmail] = {
           'password': password,
-          'role': dbRole,
+          'role': rawDbRole,
         };
 
         // Try syncing auth.users in background if active
@@ -675,7 +805,7 @@ class CustomerStoreService {
           actionType: 'LOGIN',
           category: 'Session Activity',
           title: 'User Login Session',
-          description: 'Logged into account session successfully',
+          description: 'Logged into account session successfully as ${finalUserRole.name}',
           userId: userId,
           userEmail: cleanEmail,
         );
@@ -697,7 +827,7 @@ class CustomerStoreService {
         // Password does not match DB hash -> Invalid Credentials!
         return const CustomerAuthResult(
           success: false,
-          message: 'Account not found or wrong password.',
+          message: 'No account was found with these credentials. Please try again.',
         );
       }
     }
@@ -706,8 +836,39 @@ class CustomerStoreService {
     if (_registeredCustomers.containsKey(cleanEmail)) {
       final regData = _registeredCustomers[cleanEmail]!;
       final storedPass = regData['password'] ?? '';
+      final storedRole = (regData['role'] ?? 'customer').toString().toLowerCase();
+
       if (storedPass == password) {
-        final UserRole role = portal == PortalType.owner ? UserRole.owner : UserRole.user;
+        // RBAC validation in fallback mode
+        bool isRoleAuthorized = false;
+        switch (portal) {
+          case PortalType.customer:
+            isRoleAuthorized = (storedRole == 'customer' || storedRole == 'user');
+            break;
+          case PortalType.owner:
+            isRoleAuthorized = (storedRole == 'businessman' || storedRole == 'owner');
+            break;
+          case PortalType.government:
+            isRoleAuthorized = (storedRole == 'government' || storedRole == 'inspector');
+            break;
+          case PortalType.admin:
+            isRoleAuthorized = (storedRole == 'admin' || storedRole == 'administrator');
+            break;
+        }
+
+        if (!isRoleAuthorized) {
+          return const CustomerAuthResult(
+            success: false,
+            message: 'No account was found with these credentials. Please try again.',
+          );
+        }
+
+        final UserRole role = (storedRole == 'businessman' || storedRole == 'owner')
+            ? UserRole.owner
+            : (storedRole == 'admin'
+                ? UserRole.admin
+                : (storedRole == 'government' ? UserRole.government : UserRole.user));
+
         _currentCustomer = UserModel(
           id: UuidHelper.generateV4(),
           name: cleanEmail.split('@').first,
@@ -735,7 +896,7 @@ class CustomerStoreService {
 
     return const CustomerAuthResult(
       success: false,
-      message: 'Account not found or wrong password.',
+      message: 'No account was found with these credentials. Please try again.',
     );
   }
 

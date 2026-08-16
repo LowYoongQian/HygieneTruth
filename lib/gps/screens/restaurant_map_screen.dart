@@ -96,7 +96,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
   }
 
   Future<void> _loadRestaurantsFromSupabase() async {
-    final list = await RestaurantStoreService.fetchOwnerRestaurants(null);
+    final list = await RestaurantStoreService.fetchAllRestaurants(forceRefresh: true);
     await RestaurantStoreService.preloadRestaurants(list);
     if (mounted) {
       setState(() {
@@ -104,8 +104,19 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
         if (_targetRestaurant != null) {
           final matched = list.where((r) => r.id == _targetRestaurant!.id).toList();
           _filteredList = matched.isNotEmpty ? matched : [_targetRestaurant!];
+          _focusedRestaurant = _targetRestaurant;
         } else {
-          _filteredList = list;
+          _filteredList = List.from(list);
+          if (_userPosition != null) {
+            _filteredList.sort((a, b) {
+              final distA = Geolocator.distanceBetween(_userPosition!.latitude, _userPosition!.longitude, a.latitude, a.longitude);
+              final distB = Geolocator.distanceBetween(_userPosition!.latitude, _userPosition!.longitude, b.latitude, b.longitude);
+              return distA.compareTo(distB);
+            });
+          }
+          if (_filteredList.isNotEmpty) {
+            _focusedRestaurant = _filteredList.first;
+          }
         }
       });
       _initMapMarkersAndHeatmap();
@@ -366,14 +377,30 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
     );
   }
 
-  Future<void> _fetchUserLocation({bool showFeedback = false}) async {
+  Future<void> _fetchUserLocation({bool showFeedback = false, bool shouldAnimate = false}) async {
     final pos = await GpsService.getCurrentLocation();
     if (pos != null && mounted) {
       setState(() {
         _userPosition = pos;
       });
       _initMapMarkersAndHeatmap();
-      _animateMapToLocation(pos.latitude, pos.longitude);
+
+      // ONLY animate to user location if explicitly requested by tapping the GPS button
+      if (shouldAnimate) {
+        if (_targetRestaurant == null && _filteredList.isNotEmpty) {
+          _filteredList.sort((a, b) {
+            final distA = Geolocator.distanceBetween(pos.latitude, pos.longitude, a.latitude, a.longitude);
+            final distB = Geolocator.distanceBetween(pos.latitude, pos.longitude, b.latitude, b.longitude);
+            return distA.compareTo(distB);
+          });
+          _focusedRestaurant = _filteredList.first;
+          _currentPageIndex = 0;
+          if (_pageController.hasClients) {
+            _pageController.jumpToPage(0);
+          }
+        }
+        _animateMapToLocation(pos.latitude, pos.longitude);
+      }
 
       if (showFeedback) {
         final source = GpsService.lastLocationSource;
@@ -874,6 +901,8 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                     _buildNavigationRoute(_targetRestaurant!);
                   } else if (_targetRestaurant != null) {
                     _animateMapToLocation(_targetRestaurant!.latitude, _targetRestaurant!.longitude);
+                  } else if (_focusedRestaurant != null) {
+                    _animateMapToLocation(_focusedRestaurant!.latitude, _focusedRestaurant!.longitude);
                   }
                 },
                 markers: _markers,
@@ -1132,7 +1161,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                 const SizedBox(height: 8),
                 FloatingActionButton.small(
                   heroTag: 'btn_gps',
-                  onPressed: () => _fetchUserLocation(showFeedback: true),
+                  onPressed: () => _fetchUserLocation(showFeedback: true, shouldAnimate: true),
                   backgroundColor: const Color(0xFF0F766E),
                   foregroundColor: Colors.white,
                   tooltip: 'Locate My Exact Position',

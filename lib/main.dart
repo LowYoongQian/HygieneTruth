@@ -1,3 +1,4 @@
+import 'auth/screens/user_settings_history_screen.dart';
 import 'package:flutter/material.dart';
 import 'core/services/language_manager.dart';
 import 'core/theme/app_theme.dart';
@@ -48,6 +49,7 @@ import 'complaint/screens/admin_action_log_screen.dart';
 
 // Inspection & Enforcement Module (inspect)
 import 'inspect/screens/verified_complaints_list_screen.dart';
+import 'inspect/screens/government_audit_log_screen.dart';
 import 'inspect/screens/complaint_full_detail_screen.dart';
 import 'inspect/screens/schedule_inspection_screen.dart';
 import 'inspect/screens/conduct_inspection_screen.dart';
@@ -141,6 +143,7 @@ class RestaurantHygieneApp extends StatelessWidget {
           AppRoutes.editProfile: (context) => const EditProfileScreen(),
           AppRoutes.settings: (context) => const SettingsScreen(),
           AppRoutes.activityHistory: (context) => const ActivityHistoryScreen(),
+          AppRoutes.userSettingsHistory: (context) => const UserSettingsHistoryScreen(),
           AppRoutes.manageUserAccounts: (context) => const ManageUserAccountsScreen(),
           AppRoutes.accountDetail: (context) => const AccountDetailScreen(),
 
@@ -176,6 +179,7 @@ class RestaurantHygieneApp extends StatelessWidget {
 
           // Inspection & Enforcement
           AppRoutes.verifiedComplaintsList: (context) => const VerifiedComplaintsListScreen(),
+          AppRoutes.governmentAuditLog: (context) => const GovernmentAuditLogScreen(),
           AppRoutes.complaintFullDetail: (context) => const ComplaintFullDetailScreen(),
           AppRoutes.scheduleInspection: (context) => const ScheduleInspectionScreen(),
           AppRoutes.conductInspection: (context) => const ConductInspectionScreen(),

@@ -51,7 +51,7 @@ class FinalReportScreen extends StatelessWidget {
                   const Icon(Icons.verified, size: 64, color: Colors.green),
                   const SizedBox(height: 8),
                   Text(c.restaurantName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  Text('Notice ID: ${c.id}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                  Text('Notice ID: ${c.id.startsWith('CMP-') ? c.id : 'CMP-${c.id.length > 8 ? c.id.substring(0, 8).toUpperCase() : c.id.toUpperCase()}'}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
                   const SizedBox(height: 8),
                   StatusBadge.fromStatus(c.status.name),
                 ],

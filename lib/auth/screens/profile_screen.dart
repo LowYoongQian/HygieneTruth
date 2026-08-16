@@ -57,8 +57,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.history_toggle_off),
-                tooltip: t('activity_history'),
-                onPressed: () => Navigator.pushNamed(context, AppRoutes.activityHistory),
+                tooltip: 'Settings & Security Log',
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.userSettingsHistory),
               ),
               IconButton(
                 icon: const Icon(Icons.settings_outlined),
@@ -215,34 +215,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 24),
 
                         // Section 1: Personal Details
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Personal Details',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: textColor,
-                              ),
-                            ),
-                            TextButton.icon(
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppTheme.primaryColor,
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              onPressed: () async {
-                                await Navigator.pushNamed(context, AppRoutes.editProfile);
-                                _loadUserSession();
-                              },
-                              icon: const Icon(Icons.edit_outlined, size: 16),
-                              label: const Text(
-                                'Edit',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                            ),
-                          ],
+                        Text(
+                          'Personal Details',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
                         ),
                         const SizedBox(height: 8),
 

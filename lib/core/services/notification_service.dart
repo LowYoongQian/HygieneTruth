@@ -13,9 +13,59 @@ import 'supabase_service.dart';
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
     await Firebase.initializeApp();
-  } catch (_) {}
-  if (kDebugMode) {
-    print('Handling background FCM message: ${message.messageId}');
+    final FlutterLocalNotificationsPlugin bgNotifPlugin = FlutterLocalNotificationsPlugin();
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidInit);
+    await bgNotifPlugin.initialize(initSettings);
+
+    const androidChannel = AndroidNotificationChannel(
+      'hygienetruth_live_alerts',
+      'HygieneTruth Alerts & Updates',
+      description: 'High priority alerts for restaurant approvals, owner replies, complaints, and reviews',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+      showBadge: true,
+    );
+
+    final androidImplementation = bgNotifPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (androidImplementation != null) {
+      await androidImplementation.createNotificationChannel(androidChannel);
+    }
+
+    const androidDetails = AndroidNotificationDetails(
+      'hygienetruth_live_alerts',
+      'HygieneTruth Alerts & Updates',
+      channelDescription: 'High priority alerts for restaurant approvals, owner replies, complaints, and reviews',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+      icon: '@mipmap/ic_launcher',
+      enableVibration: true,
+      playSound: true,
+      fullScreenIntent: true,
+      category: AndroidNotificationCategory.message,
+      visibility: NotificationVisibility.public,
+    );
+
+    final title = message.notification?.title ?? message.data['title'] ?? 'HygieneTruth Alert';
+    final body = message.notification?.body ?? message.data['message'] ?? message.data['body'] ?? '';
+
+    if (title.isNotEmpty || body.isNotEmpty) {
+      final int notifId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      await bgNotifPlugin.show(
+        notifId,
+        title,
+        body,
+        const NotificationDetails(android: androidDetails),
+        payload: message.data['action_url'] ?? message.data['actionUrl'],
+      );
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('Background FCM notification error: $e');
+    }
   }
 }
 
@@ -76,7 +126,20 @@ class NotificationService {
         final androidImplementation = _localNotifPlugin
             .resolvePlatformSpecificImplementation<
                 AndroidFlutterLocalNotificationsPlugin>();
-        await androidImplementation?.requestNotificationsPermission();
+        if (androidImplementation != null) {
+          await androidImplementation.createNotificationChannel(
+            const AndroidNotificationChannel(
+              'hygienetruth_live_alerts',
+              'HygieneTruth Alerts & Updates',
+              description: 'High priority alerts for restaurant approvals, owner replies, complaints, and reviews',
+              importance: Importance.max,
+              playSound: true,
+              enableVibration: true,
+              showBadge: true,
+            ),
+          );
+          await androidImplementation.requestNotificationsPermission();
+        }
       }
     } catch (e) {
       if (kDebugMode) {
@@ -97,6 +160,11 @@ class NotificationService {
         sound: true,
       );
 
+      await messaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
       _fcmToken = await messaging.getToken();
       if (kDebugMode) {
         print('Device FCM Token: $_fcmToken');
@@ -218,13 +286,16 @@ class NotificationService {
       const androidDetails = AndroidNotificationDetails(
         'hygienetruth_live_alerts',
         'HygieneTruth Alerts & Updates',
-        channelDescription: 'Live updates for food hygiene reports, outlet reviews, and audit actions',
+        channelDescription: 'High priority alerts for restaurant approvals, owner replies, complaints, and reviews',
         importance: Importance.max,
         priority: Priority.high,
         showWhen: true,
         icon: '@mipmap/ic_launcher',
         enableVibration: true,
         playSound: true,
+        fullScreenIntent: true,
+        category: AndroidNotificationCategory.message,
+        visibility: NotificationVisibility.public,
       );
 
       const darwinDetails = DarwinNotificationDetails(

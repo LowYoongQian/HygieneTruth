@@ -1,3 +1,4 @@
+import 'audit_log_service.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'supabase_service.dart';
@@ -146,6 +147,14 @@ class UserSettingsService {
           'theme_mode': modeStr,
         }).eq('id', cleanId);
       } catch (_) {}
+
+      AuditLogService.logAction(
+        actionType: 'THEME_CHANGE',
+        category: 'Preferences',
+        title: 'App Theme Changed',
+        description: 'Switched display theme to ${modeStr.toUpperCase()} mode',
+        userId: cleanId,
+      );
     } catch (_) {}
   }
 
@@ -173,6 +182,19 @@ class UserSettingsService {
           'settings': settingsMap,
         }).eq('id', cleanId);
       } catch (_) {}
+
+      final String readableKey = key == 'enable_push'
+          ? 'Push Notifications'
+          : (key == 'risk_alerts'
+              ? 'Hygiene Risk Alerts'
+              : (key == 'complaint_alerts' ? 'Complaint Status Alerts' : 'Inspection Updates'));
+      AuditLogService.logAction(
+        actionType: 'NOTIFICATION_TOGGLE',
+        category: 'Notifications',
+        title: '$readableKey ${value ? "Enabled" : "Disabled"}',
+        description: '${value ? "Activated" : "Deactivated"} preference for $readableKey',
+        userId: cleanId,
+      );
     } catch (_) {}
   }
 
@@ -199,6 +221,16 @@ class UserSettingsService {
           'settings': settingsMap,
         }).eq('id', cleanId);
       } catch (_) {}
+
+      if (key == 'language') {
+        AuditLogService.logAction(
+          actionType: 'LANGUAGE_CHANGE',
+          category: 'Preferences',
+          title: 'Language Updated',
+          description: 'Changed application language to $value',
+          userId: cleanId,
+        );
+      }
     } catch (_) {}
   }
 }

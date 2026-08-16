@@ -288,31 +288,38 @@ class _RestaurantVerificationDetailScreenState extends State<RestaurantVerificat
                 borderRadius: BorderRadius.circular(16),
                 child: Stack(
                   children: [
-                    GoogleMap(
-                      onMapCreated: (_) {
-                        if (mounted) {
-                          setState(() => _isMapLoading = false);
-                        }
-                      },
-                      initialCameraPosition: CameraPosition(
-                        target: LatLng(r.latitude, r.longitude),
-                        zoom: 15.5,
-                      ),
-                      markers: {
-                        Marker(
-                          markerId: MarkerId(r.id),
-                          position: LatLng(r.latitude, r.longitude),
-                          infoWindow: InfoWindow(
-                            title: r.name,
-                            snippet: r.address,
-                          ),
-                          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                    IgnorePointer(
+                      ignoring: true,
+                      child: GoogleMap(
+                        onMapCreated: (_) {
+                          if (mounted) {
+                            setState(() => _isMapLoading = false);
+                          }
+                        },
+                        initialCameraPosition: CameraPosition(
+                          target: LatLng(r.latitude, r.longitude),
+                          zoom: 15.5,
                         ),
-                      },
-                      zoomControlsEnabled: false,
-                      mapToolbarEnabled: false,
-                      myLocationButtonEnabled: false,
-                      compassEnabled: true,
+                        markers: {
+                          Marker(
+                            markerId: MarkerId(r.id),
+                            position: LatLng(r.latitude, r.longitude),
+                            infoWindow: InfoWindow(
+                              title: r.name,
+                              snippet: r.address,
+                            ),
+                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                          ),
+                        },
+                        zoomControlsEnabled: false,
+                        mapToolbarEnabled: false,
+                        myLocationButtonEnabled: false,
+                        compassEnabled: false,
+                        scrollGesturesEnabled: false,
+                        zoomGesturesEnabled: false,
+                        rotateGesturesEnabled: false,
+                        tiltGesturesEnabled: false,
+                      ),
                     ),
                     if (_isMapLoading)
                       const BaseSkeleton(

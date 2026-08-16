@@ -57,7 +57,7 @@ class _ComplaintHistoryScreenState extends State<ComplaintHistoryScreen> {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('ID: ${c.id} • ${c.category}'),
+                      Text('ID: ${c.id.startsWith('CMP-') ? c.id : 'CMP-${c.id.length > 8 ? c.id.substring(0, 8).toUpperCase() : c.id.toUpperCase()}'} • ${c.category}'),
                       Text('Submitted: ${c.submittedAt}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                       const SizedBox(height: 6),
                       StatusBadge.fromStatus(c.status.name),

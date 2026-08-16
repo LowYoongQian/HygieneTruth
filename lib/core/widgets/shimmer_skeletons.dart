@@ -506,3 +506,296 @@ class NotificationListSkeleton extends StatelessWidget {
     );
   }
 }
+
+/// Assigned Cases List Screen Skeleton (with Stats, Search, and Cards)
+class AssignedCasesSkeleton extends StatelessWidget {
+  final int itemCount;
+  const AssignedCasesSkeleton({super.key, this.itemCount = 4});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Column(
+        children: [
+          // Top Stats Row
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Expanded(child: BaseSkeleton(width: double.infinity, height: 50, borderRadius: 12)),
+                const SizedBox(width: 8),
+                Expanded(child: BaseSkeleton(width: double.infinity, height: 50, borderRadius: 12)),
+                const SizedBox(width: 8),
+                Expanded(child: BaseSkeleton(width: double.infinity, height: 50, borderRadius: 12)),
+              ],
+            ),
+          ),
+          // Search Bar
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: BaseSkeleton(width: double.infinity, height: 44, borderRadius: 12),
+          ),
+          // Filter Chips Row
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Row(
+              children: List.generate(
+                4,
+                (i) => Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: BaseSkeleton(width: 70 + (i * 10), height: 32, borderRadius: 16),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // List Cards
+          ...List.generate(
+            itemCount,
+            (index) => Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const BaseSkeleton(width: 44, height: 44, borderRadius: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const BaseSkeleton(width: 160, height: 16, borderRadius: 4),
+                        const SizedBox(height: 8),
+                        const BaseSkeleton(width: 220, height: 12, borderRadius: 4),
+                        const SizedBox(height: 6),
+                        const BaseSkeleton(width: 130, height: 11, borderRadius: 4),
+                        const SizedBox(height: 8),
+                        const BaseSkeleton(width: 80, height: 20, borderRadius: 6),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Case Details Screen Skeleton
+class CaseDetailsSkeleton extends StatelessWidget {
+  const CaseDetailsSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const SingleChildScrollView(
+      physics: NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Card
+          BaseSkeleton(width: double.infinity, height: 110, borderRadius: 18),
+          SizedBox(height: 16),
+          // Description Card
+          BaseSkeleton(width: double.infinity, height: 120, borderRadius: 16),
+          SizedBox(height: 16),
+          // Evidence Photos Card
+          BaseSkeleton(width: double.infinity, height: 240, borderRadius: 16),
+          SizedBox(height: 16),
+          // GPS Map Card
+          BaseSkeleton(width: double.infinity, height: 220, borderRadius: 16),
+          SizedBox(height: 24),
+          // Action Buttons
+          BaseSkeleton(width: double.infinity, height: 48, borderRadius: 12),
+          SizedBox(height: 12),
+          BaseSkeleton(width: double.infinity, height: 48, borderRadius: 12),
+        ],
+      ),
+    );
+  }
+}
+
+/// Settings & Security History Screen Skeleton
+class SettingsHistorySkeleton extends StatelessWidget {
+  final int itemCount;
+  const SettingsHistorySkeleton({super.key, this.itemCount = 5});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Column(
+        children: [
+          // Top Summary Banner
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: BaseSkeleton(width: double.infinity, height: 95, borderRadius: 16),
+          ),
+          // Search Input
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: BaseSkeleton(width: double.infinity, height: 42, borderRadius: 12),
+          ),
+          // Chips
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(
+              children: List.generate(
+                4,
+                (i) => Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: BaseSkeleton(width: 75, height: 32, borderRadius: 16),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Timeline Cards
+          ...List.generate(
+            itemCount,
+            (index) => Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const BaseSkeleton(width: 40, height: 40, borderRadius: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            BaseSkeleton(width: 140, height: 15, borderRadius: 4),
+                            BaseSkeleton(width: 60, height: 16, borderRadius: 6),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        const BaseSkeleton(width: double.infinity, height: 12, borderRadius: 4),
+                        const SizedBox(height: 4),
+                        const BaseSkeleton(width: 180, height: 12, borderRadius: 4),
+                        const SizedBox(height: 8),
+                        const BaseSkeleton(width: 90, height: 10, borderRadius: 4),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Enforcement Action History Screen Skeleton
+class ActionHistorySkeleton extends StatelessWidget {
+  final int itemCount;
+  const ActionHistorySkeleton({super.key, this.itemCount = 4});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Column(
+        children: [
+          // Top Summary Metrics
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Expanded(child: BaseSkeleton(width: double.infinity, height: 52, borderRadius: 12)),
+                const SizedBox(width: 8),
+                Expanded(child: BaseSkeleton(width: double.infinity, height: 52, borderRadius: 12)),
+                const SizedBox(width: 8),
+                Expanded(child: BaseSkeleton(width: double.infinity, height: 52, borderRadius: 12)),
+              ],
+            ),
+          ),
+          // Search Input
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: BaseSkeleton(width: double.infinity, height: 42, borderRadius: 12),
+          ),
+          // Filter Chips
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Row(
+              children: List.generate(
+                4,
+                (i) => Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: BaseSkeleton(width: 70 + (i * 10), height: 32, borderRadius: 16),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Cards
+          ...List.generate(
+            itemCount,
+            (index) => Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const BaseSkeleton(width: 44, height: 44, borderRadius: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            BaseSkeleton(width: 160, height: 16, borderRadius: 4),
+                            BaseSkeleton(width: 70, height: 18, borderRadius: 6),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        const BaseSkeleton(width: 220, height: 12, borderRadius: 4),
+                        const SizedBox(height: 6),
+                        const BaseSkeleton(width: 120, height: 12, borderRadius: 4),
+                        const SizedBox(height: 8),
+                        const BaseSkeleton(width: 90, height: 10, borderRadius: 4),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

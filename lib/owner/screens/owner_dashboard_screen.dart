@@ -689,14 +689,15 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                       final nav = Navigator.of(dialogCtx);
                                       setDialogState(() => isSaving = true);
 
-                                      AuditLogService.logAction(
-                                        actionType: 'PASSWORD_CHANGE',
-                                        category: 'Account Modification',
-                                        title: 'Password Changed',
-                                        description: 'Updated businessman account login password',
+                                      final result = await CustomerStoreService.changePassword(
+                                        oldPassword: currentPass,
+                                        newPassword: newPass,
                                       );
 
-                                      if (mounted) {
+                                      setDialogState(() => isSaving = false);
+                                      if (!mounted) return;
+
+                                      if (result.success) {
                                         nav.pop();
                                         messenger.showSnackBar(
                                           SnackBar(
@@ -711,6 +712,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                             behavior: SnackBarBehavior.floating,
                                             margin: const EdgeInsets.all(16),
                                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          ),
+                                        );
+                                      } else {
+                                        messenger.showSnackBar(
+                                          SnackBar(
+                                            content: Text(result.message),
+                                            backgroundColor: Colors.red,
+                                            behavior: SnackBarBehavior.floating,
                                           ),
                                         );
                                       }
@@ -2652,6 +2661,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
+  String _formatNoticeId(String rawId) {
+    if (rawId.startsWith('CMP-') || rawId.startsWith('cmp_')) {
+      return rawId.toUpperCase().replaceAll('_', '-');
+    }
+    final short = rawId.length > 8 ? rawId.substring(0, 8) : rawId;
+    return 'CMP-${short.toUpperCase()}';
+  }
+
   Widget _buildEnhancedNoticeCard(ComplaintModel c, Map<String, dynamic> info, int daysLeft) {
     final String authorityName = info['authorityName'];
     final IconData authorityIcon = info['icon'];
@@ -2679,31 +2696,38 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Authority Issuer Header Bar
+            // Authority Issuer Header Bar (Responsive & Overflow-Safe)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: authorityColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: authorityColor.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(authorityIcon, size: 14, color: authorityColor),
-                      const SizedBox(width: 6),
-                      Text(
-                        authorityName,
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: authorityColor),
-                      ),
-                    ],
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: authorityColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: authorityColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(authorityIcon, size: 13, color: authorityColor),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            authorityName,
+                            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: authorityColor),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
-                  'ID: ${c.id}',
+                  'ID: ${_formatNoticeId(c.id)}',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600),
                 ),
               ],

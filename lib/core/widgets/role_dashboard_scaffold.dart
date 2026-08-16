@@ -1,9 +1,12 @@
+import 'package:geolocator/geolocator.dart';
+import 'top_eat_carousel.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/mock_seed_data.dart';
 import '../models/restaurant_model.dart';
 import '../models/user_model.dart';
 import '../routes/app_routes.dart';
+import '../services/gps_service.dart';
 import '../services/customer_store_service.dart';
 import '../services/language_manager.dart';
 import '../services/restaurant_store_service.dart';
@@ -39,6 +42,10 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
   late UserRole _currentRole;
   late int _selectedBottomTabIndex;
   bool _hasCheckedProfileSetup = false;
+  double _userLat = 3.1466;
+  double _userLng = 101.6958;
+  bool _hasUserLocation = false;
+  bool _isCategoryListExpanded = false;
 
   int _adminPendingCount = 0;
   int _adminUsersCount = 0;
@@ -52,6 +59,8 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
     _currentRole = widget.initialRole;
     _selectedBottomTabIndex = widget.initialTabIndex;
     BookmarkService.init();
+    _fetchUserGpsLocation();
+    RestaurantStoreService.fetchAllRestaurants(forceRefresh: true);
     final currentUser = CustomerStoreService.currentCustomer;
     NotificationService.fetchNotifications(
       userId: currentUser?.id,
@@ -60,6 +69,21 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
     );
     if (_currentRole == UserRole.admin) {
       _loadAdminRealStats();
+    }
+  }
+
+  Future<void> _fetchUserGpsLocation() async {
+    try {
+      final position = await GpsService.getCurrentLocation();
+      if (position != null && mounted) {
+        setState(() {
+          _userLat = position.latitude;
+          _userLng = position.longitude;
+          _hasUserLocation = true;
+        });
+      }
+    } catch (_) {
+      // Graceful fallback to default KL location
     }
   }
 
@@ -228,8 +252,37 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
     }
   }
 
+  List<RestaurantModel> _getTopRankedRestaurants(List<RestaurantModel> allRestaurants) {
+    final safeList = allRestaurants
+        .where((r) => r.status == RestaurantStatus.approved && r.riskCategory == RiskCategory.safe)
+        .toList();
+
+    safeList.sort((a, b) {
+      final ratingA = RestaurantStoreService.getRatingSync(a.id, restaurantName: a.name);
+      final ratingB = RestaurantStoreService.getRatingSync(b.id, restaurantName: b.name);
+
+      final distA = Geolocator.distanceBetween(_userLat, _userLng, a.latitude, a.longitude) / 1000.0;
+      final distB = Geolocator.distanceBetween(_userLat, _userLng, b.latitude, b.longitude) / 1000.0;
+
+      // Effective rating score (real review stars or high safety default)
+      final effectiveRatingA = ratingA.hasReviews ? ratingA.averageRating : (5.0 - (a.hygieneRiskScore * 0.04));
+      final effectiveRatingB = ratingB.hasReviews ? ratingB.averageRating : (5.0 - (b.hygieneRiskScore * 0.04));
+
+      // Composite proximity score: High Star Rating + Nearby Proximity
+      // Score formula gives strong weight to high stars, while prioritizing closer outlets
+      final scoreA = (effectiveRatingA * 10.0) + (ratingA.totalReviews * 0.1) - (distA * 0.35) - (a.violationCount * 2.0) - (a.hygieneRiskScore * 0.05);
+      final scoreB = (effectiveRatingB * 10.0) + (ratingB.totalReviews * 0.1) - (distB * 0.35) - (b.violationCount * 2.0) - (b.hygieneRiskScore * 0.05);
+
+      return scoreB.compareTo(scoreA);
+    });
+
+    if (safeList.isEmpty) {
+      return allRestaurants.take(3).toList();
+    }
+    return safeList.take(3).toList();
+  }
+
   Widget _buildUserHomePanel(BuildContext context) {
-    final safeRestaurants = MockSeedData.restaurants.where((r) => r.riskCategory == RiskCategory.safe).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -267,77 +320,12 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
           ),
           const SizedBox(height: 16),
 
-          // Cuisine Chips
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _cuisineChip('🍜 ${t('noodles')}', context),
-                _cuisineChip('🍚 ${t('rice')}', context),
-                _cuisineChip('🍣 ${t('seafood')}', context),
-                _cuisineChip('🍔 ${t('fast_food')}', context),
-                _cuisineChip('🥗 ${t('healthy')}', context),
-                _cuisineChip('🧋 ${t('drinks')}', context),
-              ],
-            ),
-          ),
+          // Dynamic Registered Cuisine Categories
+          _buildDynamicCuisineChips(context),
           const SizedBox(height: 20),
 
-          // Featured Banner
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0284C7), Color(0xFF0F766E)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          '⭐ Top Eat',
-                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Sakura Sushi Bar',
-                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const Text(
-                        'Risk Score: 5.0 (Safe)',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF0284C7),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                        onPressed: () => Navigator.pushNamed(context, AppRoutes.restaurantDetail, arguments: safeRestaurants.first),
-                        child: const Text('View Details'),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.verified_user, size: 64, color: Colors.white24),
-              ],
-            ),
-          ),
+          // Featured Top Eat Swipable Carousel
+          TopEatCarousel(restaurants: MockSeedData.restaurants, userLat: _userLat, userLng: _userLng),
           const SizedBox(height: 20),
 
           // Quick Action Round Buttons Grid
@@ -366,31 +354,236 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
           ),
           const SizedBox(height: 20),
 
-          // Safe Eats List
+          // Top Rated Safe Restaurants Leaderboard (Top 3 in Sequence)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(t('top_rated_safe'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              Row(
+                children: [
+                  const Text('⭐', style: TextStyle(fontSize: 15)),
+                  const SizedBox(width: 6),
+                  Text(
+                    t('top_rated_safe'),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                  if (_hasUserLocation) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.near_me_rounded, size: 10, color: Color(0xFF0284C7)),
+                          SizedBox(width: 2),
+                          Text(
+                            'Nearby',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0284C7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
               TextButton(
                 onPressed: () => Navigator.pushNamed(context, AppRoutes.restaurantList),
-                child: const Text('View All'),
+                child: const Text('View All ›', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
-          for (final r in safeRestaurants) RestaurantCard(restaurant: r),
+          const SizedBox(height: 6),
+
+          Builder(
+            builder: (context) {
+              final top3 = _getTopRankedRestaurants(MockSeedData.restaurants);
+              return Column(
+                children: [
+                  for (int i = 0; i < top3.length; i++)
+                    RestaurantCard(
+                      restaurant: top3[i],
+                      rankIndex: i,
+                      userLat: _userLat,
+                      userLng: _userLng,
+                    ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
   }
 
-  Widget _cuisineChip(String label, BuildContext context) {
+  String _formatCategoryLabel(String cat) {
+    final lower = cat.toLowerCase();
+    if (lower.contains('noodle')) return '🍜 $cat';
+    if (lower.contains('rice') || lower.contains('kandar') || lower.contains('malay')) return '🍚 $cat';
+    if (lower.contains('seafood') || lower.contains('fish')) return '🍣 $cat';
+    if (lower.contains('japanese') || lower.contains('sushi')) return '🍱 $cat';
+    if (lower.contains('burger') || lower.contains('fast')) return '🍔 $cat';
+    if (lower.contains('chinese') || lower.contains('dim sum')) return '🥟 $cat';
+    if (lower.contains('western') || lower.contains('steak') || lower.contains('grill')) return '🥩 $cat';
+    if (lower.contains('cafe') || lower.contains('coffee') || lower.contains('bakery')) return '☕ $cat';
+    if (lower.contains('healthy') || lower.contains('salad')) return '🥗 $cat';
+    if (lower.contains('drink') || lower.contains('tea') || lower.contains('boba')) return '🧋 $cat';
+    if (lower.contains('hawker') || lower.contains('local')) return '🍢 $cat';
+    if (lower.contains('indian') || lower.contains('mamak') || lower.contains('curry')) return '🍛 $cat';
+    return '🍽️ $cat';
+  }
+
+  Widget _buildDynamicCuisineChips(BuildContext context) {
+    return ValueListenableBuilder<List<RestaurantModel>>(
+      valueListenable: RestaurantStoreService.restaurantsNotifier,
+      builder: (context, allRestaurants, _) {
+        // Collect all distinct categories from real registered restaurants in Supabase
+        final activeCategories = allRestaurants
+            .map((r) => r.category.trim())
+            .where((c) => c.isNotEmpty && c.toLowerCase() != 'general')
+            .toSet()
+            .toList();
+
+        if (activeCategories.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        // If categories <= 2, show all directly in swipe row
+        if (activeCategories.length <= 2) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: activeCategories.map((category) {
+                return _cuisineChip(
+                  category: category,
+                  displayLabel: _formatCategoryLabel(category),
+                  context: context,
+                );
+              }).toList(),
+            ),
+          );
+        }
+
+        // Collapsed mode: shows first 2 + "More (N)"
+        // Expanded mode: shows all categories with smooth left & right horizontal scroll + "Less"
+        final displayedCategories = _isCategoryListExpanded
+            ? activeCategories
+            : activeCategories.take(2).toList();
+        final remainingCount = activeCategories.length - 2;
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              for (final category in displayedCategories)
+                _cuisineChip(
+                  category: category,
+                  displayLabel: _formatCategoryLabel(category),
+                  context: context,
+                ),
+              if (!_isCategoryListExpanded && remainingCount > 0)
+                _moreChip(
+                  count: remainingCount,
+                  onTap: () {
+                    setState(() {
+                      _isCategoryListExpanded = true;
+                    });
+                  },
+                )
+              else if (_isCategoryListExpanded)
+                _lessChip(
+                  onTap: () {
+                    setState(() {
+                      _isCategoryListExpanded = false;
+                    });
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _moreChip({required int count, required VoidCallback onTap}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: ActionChip(
-        label: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-        backgroundColor: Colors.white,
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
-        onPressed: () => Navigator.pushNamed(context, AppRoutes.restaurantSearch),
+        avatar: const Icon(Icons.apps_rounded, size: 14, color: Color(0xFF0284C7)),
+        label: Text(
+          'More (+$count)',
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0284C7),
+          ),
+        ),
+        backgroundColor: isDark ? const Color(0xFF0C4A6E).withValues(alpha: 0.3) : const Color(0xFFE0F2FE),
+        side: BorderSide(color: const Color(0xFF0284C7).withValues(alpha: 0.4)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        onPressed: onTap,
+      ),
+    );
+  }
+
+  Widget _lessChip({required VoidCallback onTap}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ActionChip(
+        avatar: Icon(Icons.arrow_back_ios_new_rounded, size: 11, color: isDark ? Colors.white70 : Colors.grey.shade600),
+        label: Text(
+          'Less',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white70 : Colors.grey.shade700,
+          ),
+        ),
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        side: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        onPressed: onTap,
+      ),
+    );
+  }
+
+  Widget _cuisineChip({
+    required String category,
+    required String displayLabel,
+    required BuildContext context,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ActionChip(
+        label: Text(
+          displayLabel,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white : const Color(0xFF0F172A),
+          ),
+        ),
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        side: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        onPressed: () {
+          Navigator.pushNamed(
+            context,
+            AppRoutes.restaurantSearch,
+            arguments: category,
+          );
+        },
       ),
     );
   }
@@ -939,8 +1132,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
             const SizedBox(height: 8),
 
             _govToolTile(context, icon: Icons.list_alt, title: 'Assigned Cases', route: AppRoutes.verifiedComplaintsList),
-            _govToolTile(context, icon: Icons.edit_calendar, title: 'Schedule Visit', route: AppRoutes.scheduleInspection),
-            _govToolTile(context, icon: Icons.assignment_outlined, title: 'Record Visit', route: AppRoutes.conductInspection),
+            _govToolTile(context, icon: Icons.history_edu_rounded, title: 'Government Audit Log', route: AppRoutes.governmentAuditLog),
             _govToolTile(context, icon: Icons.gavel_outlined, title: 'Issue Action', route: AppRoutes.issueEnforcement),
             _govToolTile(context, icon: Icons.inventory, title: 'Action History', route: AppRoutes.enforcementHistory),
             _govToolTile(context, icon: Icons.folder_off, title: 'Close Case', route: AppRoutes.closeCase),
@@ -993,8 +1185,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
               children: [
                 _buildDrawerSectionHeader('Field Operations'),
                 _buildDrawerItem(context, icon: Icons.verified_outlined, title: 'Assigned Cases', route: AppRoutes.verifiedComplaintsList, iconColor: const Color(0xFF0284C7), iconBgColor: const Color(0xFFE0F2FE)),
-                _buildDrawerItem(context, icon: Icons.edit_calendar_outlined, title: 'Schedule Visit', route: AppRoutes.scheduleInspection, iconColor: const Color(0xFFD97706), iconBgColor: const Color(0xFFFEF3C7)),
-                _buildDrawerItem(context, icon: Icons.assignment_turned_in_outlined, title: 'Record Visit', route: AppRoutes.conductInspection, iconColor: const Color(0xFF059669), iconBgColor: const Color(0xFFD1FAE5)),
+                _buildDrawerItem(context, icon: Icons.history_edu_rounded, title: 'Government Audit Log', route: AppRoutes.governmentAuditLog, iconColor: const Color(0xFF0F766E), iconBgColor: const Color(0xFFCCFBF1)),
                 _buildDrawerItem(context, icon: Icons.warning_amber_rounded, title: 'Issue Action', route: AppRoutes.issueEnforcement, iconColor: const Color(0xFFDC2626), iconBgColor: const Color(0xFFFEE2E2)),
                 _buildDrawerItem(context, icon: Icons.history_rounded, title: 'Action History', route: AppRoutes.enforcementHistory, iconColor: const Color(0xFF8B5CF6), iconBgColor: const Color(0xFFF3E8FF)),
                 _buildDrawerItem(context, icon: Icons.folder_off_outlined, title: 'Close Case', route: AppRoutes.closeCase, iconColor: const Color(0xFF475569), iconBgColor: const Color(0xFFF1F5F9)),

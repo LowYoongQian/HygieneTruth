@@ -2,111 +2,95 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../core/models/complaint_model.dart';
-import '../../core/routes/app_routes.dart';
-import '../../core/services/restaurant_store_service.dart';
+import '../../core/models/audit_log_model.dart';
+import '../../core/services/audit_log_service.dart';
 import '../../core/services/supabase_service.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/shimmer_skeletons.dart';
-import '../../core/widgets/status_badge.dart';
 
-class VerifiedComplaintsListScreen extends StatefulWidget {
-  const VerifiedComplaintsListScreen({super.key});
+class GovernmentAuditLogScreen extends StatefulWidget {
+  const GovernmentAuditLogScreen({super.key});
 
   @override
-  State<VerifiedComplaintsListScreen> createState() => _VerifiedComplaintsListScreenState();
+  State<GovernmentAuditLogScreen> createState() => _GovernmentAuditLogScreenState();
 }
 
-class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScreen> {
+class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
   final ScrollController _scrollController = ScrollController();
   RealtimeChannel? _realtimeChannel;
-  List<ComplaintModel> _realCases = [];
-  String _selectedStatus = 'All';
+  List<AuditLogModel> _allLogs = [];
+  String _selectedCategory = 'All';
   String _searchQuery = '';
   bool _isLoading = true;
   bool _isLoadingMore = false;
-  int _displayedCount = 4;
-  final int _pageSize = 4;
+  int _displayedCount = 6;
+  final int _pageSize = 6;
 
-  final List<String> _statusFilters = [
+  final List<String> _categories = [
     'All',
-    'Pending',
-    'Under Review',
-    'Investigating',
-    'Resolved',
+    'Admin Assigned',
+    'Field Visits',
+    'Enforcement',
+    'Case Closures',
   ];
 
   @override
   void initState() {
     super.initState();
-    _loadRealData();
-    _setupRealtimeSubscription();
-    ComplaintStoreService.complaintsNotifier.addListener(_onNotifierUpdate);
+    _loadLogs();
+    _setupRealtime();
     _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _realtimeChannel?.unsubscribe();
-    ComplaintStoreService.complaintsNotifier.removeListener(_onNotifierUpdate);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _onNotifierUpdate() {
-    if (mounted) {
-      setState(() {
-        _realCases = List.from(ComplaintStoreService.complaintsNotifier.value);
-      });
-    }
-  }
-
-  Future<void> _loadRealData({bool isRefresh = false}) async {
-    if (!isRefresh && _realCases.isEmpty) {
-      setState(() => _isLoading = true);
-    }
-
-    try {
-      final fetched = await ComplaintStoreService.fetchAllComplaints(forceRefresh: true);
-      if (mounted) {
-        setState(() {
-          _realCases = fetched;
-          _displayedCount = _pageSize;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (kDebugMode) print('Error fetching real complaints from Supabase: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  void _setupRealtimeSubscription() {
+  void _setupRealtime() {
     try {
       _realtimeChannel = SupabaseService.client
-          .channel('public:complaints:live_sync')
+          .channel('public:audit:gov_sync')
           .onPostgresChanges(
             event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'complaints',
             callback: (payload) async {
-              if (kDebugMode) {
-                print('⚡ Realtime Complaint DB Event received: ${payload.eventType}');
-              }
-              final freshList = await ComplaintStoreService.fetchAllComplaints(forceRefresh: true);
+              if (kDebugMode) print('⚡ Realtime Complaint update received for Gov Audit: ${payload.eventType}');
+              final fresh = await AuditLogService.fetchGovernmentAuditLogs();
               if (mounted) {
-                setState(() {
-                  _realCases = freshList;
-                });
+                setState(() => _allLogs = fresh);
               }
             },
           )
           .subscribe();
     } catch (e) {
-      if (kDebugMode) print('Supabase realtime channel error: $e');
+      if (kDebugMode) print('Realtime channel error: $e');
+    }
+  }
+
+  Future<void> _loadLogs({bool isRefresh = false}) async {
+    if (!isRefresh && _allLogs.isEmpty) {
+      setState(() => _isLoading = true);
+    }
+
+    try {
+      final fetched = await AuditLogService.fetchGovernmentAuditLogs();
+      if (mounted) {
+        setState(() {
+          _allLogs = fetched;
+          _displayedCount = _pageSize;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) print('Error loading gov audit logs: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -114,12 +98,12 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 150 &&
         !_isLoadingMore &&
         !_isLoading) {
-      _loadMoreCases();
+      _loadMoreLogs();
     }
   }
 
-  Future<void> _loadMoreCases() async {
-    final filtered = _getFilteredCases();
+  Future<void> _loadMoreLogs() async {
+    final filtered = _getFilteredLogs();
     if (_displayedCount >= filtered.length) return;
 
     setState(() => _isLoadingMore = true);
@@ -133,104 +117,204 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
     }
   }
 
-  String _formatCaseId(String rawId) {
-    if (rawId.startsWith('CMP-') || rawId.startsWith('cmp_')) {
-      return rawId.toUpperCase();
-    }
-    final short = rawId.length > 8 ? rawId.substring(0, 8) : rawId;
-    return 'CMP-${short.toUpperCase()}';
-  }
+  List<AuditLogModel> _getFilteredLogs() {
+    return _allLogs.where((log) {
+      final act = log.actionType.toUpperCase();
+      final cat = log.category.toLowerCase();
+      final title = log.title.toLowerCase();
+      final desc = log.description.toLowerCase();
 
-  List<ComplaintModel> _getFilteredCases() {
-    return _realCases.where((c) {
-      final statusName = c.status.name.toLowerCase();
-      final restName = RestaurantStoreService.resolveRestaurantName(c.restaurantName, fallback: c.restaurantName).toLowerCase();
-      final caseId = _formatCaseId(c.id).toLowerCase();
-      final category = c.category.toLowerCase();
-
-      if (_selectedStatus != 'All') {
-        if (_selectedStatus == 'Pending' && (statusName != 'pending' && statusName != 'pendinginspection' && statusName != 'pending_inspection')) return false;
-        if (_selectedStatus == 'Under Review' && (statusName != 'underreview' && statusName != 'under_review' && statusName != 'submitted')) return false;
-        if (_selectedStatus == 'Investigating' && statusName != 'investigating') return false;
-        if (_selectedStatus == 'Resolved' && statusName != 'resolved') return false;
+      if (_selectedCategory != 'All') {
+        if (_selectedCategory == 'Admin Assigned' && !cat.contains('admin') && !act.contains('ASSIGN') && !title.contains('assign')) {
+          return false;
+        }
+        if (_selectedCategory == 'Field Visits' && !act.contains('INSPECT') && !title.contains('inspect') && !title.contains('visit')) {
+          return false;
+        }
+        if (_selectedCategory == 'Enforcement' && !act.contains('ENFORCE') && !title.contains('enforce') && !title.contains('closure') && !title.contains('fine')) {
+          return false;
+        }
+        if (_selectedCategory == 'Case Closures' && !act.contains('CASE_CLOSED') && !title.contains('closed') && !title.contains('archive')) {
+          return false;
+        }
       }
 
       if (_searchQuery.isNotEmpty) {
-        final query = _searchQuery.toLowerCase();
-        return restName.contains(query) || caseId.contains(query) || category.contains(query);
+        final q = _searchQuery.toLowerCase();
+        return title.contains(q) || desc.contains(q) || cat.contains(q) || log.userEmail.toLowerCase().contains(q);
       }
 
       return true;
     }).toList();
   }
 
-  Map<String, dynamic> _getCategoryIconInfo(String category) {
-    final low = category.toLowerCase();
-    if (low.contains('pest') || low.contains('rat') || low.contains('cockroach')) {
+  String _formatTimestamp(DateTime dt) {
+    final now = DateTime.now();
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final min = dt.minute.toString().padLeft(2, '0');
+
+    if (now.year == dt.year && now.month == dt.month && now.day == dt.day) {
+      return 'Today, $hour:$min';
+    } else if (now.year == dt.year && now.month == dt.month && now.day - dt.day == 1) {
+      return 'Yesterday, $hour:$min';
+    }
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}, $hour:$min';
+  }
+
+  Map<String, dynamic> _getLogVisuals(AuditLogModel log) {
+    final act = log.actionType.toUpperCase();
+    final cat = log.category.toLowerCase();
+    final title = log.title.toLowerCase();
+
+    if (cat.contains('admin') || act.contains('ASSIGN') || title.contains('assign')) {
       return {
-        'icon': Icons.pest_control_rounded,
+        'icon': Icons.move_to_inbox_rounded,
+        'color': const Color(0xFF0284C7),
+        'bg': const Color(0xFFE0F2FE),
+        'tag': 'Incoming Admin Assigned',
+      };
+    } else if (act.contains('ENFORCE') || title.contains('closure') || title.contains('fine')) {
+      return {
+        'icon': Icons.gavel_rounded,
         'color': const Color(0xFFDC2626),
         'bg': const Color(0xFFFEE2E2),
+        'tag': 'Enforcement Decree',
       };
-    } else if (low.contains('poison') || low.contains('vomit') || low.contains('diarrhea')) {
+    } else if (act.contains('CASE_CLOSED') || title.contains('closed')) {
       return {
-        'icon': Icons.medical_services_outlined,
-        'color': const Color(0xFF7C3AED),
-        'bg': const Color(0xFFF3E8FF),
+        'icon': Icons.verified_user_rounded,
+        'color': const Color(0xFF059669),
+        'bg': const Color(0xFFD1FAE5),
+        'tag': 'Case Closed & Archive',
       };
-    } else if (low.contains('hygiene') || low.contains('staff') || low.contains('clean')) {
+    } else if (title.contains('scheduled') || act.contains('SCHEDULED')) {
       return {
-        'icon': Icons.cleaning_services_rounded,
-        'color': const Color(0xFF0F766E),
-        'bg': const Color(0xFFCCFBF1),
+        'icon': Icons.event_available_rounded,
+        'color': const Color(0xFFD97706),
+        'bg': const Color(0xFFFEF3C7),
+        'tag': 'Inspection Scheduled',
       };
     } else {
       return {
-        'icon': Icons.verified_user_rounded,
-        'color': const Color(0xFF0284C7),
-        'bg': const Color(0xFFE0F2FE),
+        'icon': Icons.fact_check_rounded,
+        'color': const Color(0xFF0F766E),
+        'bg': const Color(0xFFCCFBF1),
+        'tag': 'Field Inspection',
       };
     }
+  }
+
+  void _showDetailDialog(BuildContext context, AuditLogModel log) {
+    final visuals = _getLogVisuals(log);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (visuals['color'] as Color).withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(visuals['icon'] as IconData, color: visuals['color'] as Color, size: 20),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text('Government Audit Record', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(log.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 6),
+            Text(log.description, style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.grey.shade700)),
+            const SizedBox(height: 14),
+            const Divider(),
+            const SizedBox(height: 8),
+            _buildDialogRow('Activity Tag:', visuals['tag'] as String, isDark),
+            _buildDialogRow('Timestamp:', _formatTimestamp(log.timestamp), isDark),
+            _buildDialogRow('Initiator Officer:', log.userEmail, isDark),
+            _buildDialogRow('Record ID:', log.id, isDark),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDialogRow(String label, String value, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(label, style: TextStyle(fontSize: 11.5, color: isDark ? Colors.white60 : Colors.grey.shade600, fontWeight: FontWeight.bold)),
+          ),
+          Expanded(
+            child: Text(value, style: TextStyle(fontSize: 11.5, color: isDark ? Colors.white : Colors.black87)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final allCases = _realCases;
-    final filteredCases = _getFilteredCases();
-    final paginatedCases = filteredCases.take(_displayedCount).toList();
-    final bool hasMore = _displayedCount < filteredCases.length;
+    final allLogs = _allLogs;
+    final filtered = _getFilteredLogs();
+    final paginated = filtered.take(_displayedCount).toList();
+    final hasMore = _displayedCount < filtered.length;
 
-    final pendingCount = allCases.where((c) {
-      final s = c.status.name.toLowerCase();
-      return s == 'pending' || s == 'pendinginspection' || s == 'pending_inspection';
+    final adminAssignedCount = allLogs.where((l) {
+      final act = l.actionType.toUpperCase();
+      final cat = l.category.toLowerCase();
+      final t = l.title.toLowerCase();
+      return cat.contains('admin') || act.contains('ASSIGN') || t.contains('assign');
     }).length;
 
-    final activeInspectCount = allCases.where((c) {
-      final s = c.status.name.toLowerCase();
-      return s == 'investigating' || s == 'underreview' || s == 'under_review' || s == 'submitted';
+    final enforcementCount = allLogs.where((l) {
+      final act = l.actionType.toUpperCase();
+      final t = l.title.toLowerCase();
+      return act.contains('ENFORCE') || t.contains('closure') || t.contains('fine');
     }).length;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       appBar: CustomAppBar(
-        title: 'Assigned Cases',
+        title: 'Government Audit Log',
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Live Sync Supabase',
-            onPressed: () => _loadRealData(isRefresh: true),
+            tooltip: 'Live Refresh',
+            onPressed: () => _loadLogs(isRefresh: true),
           ),
         ],
       ),
       body: _isLoading
-          ? const AssignedCasesSkeleton()
+          ? const ActionHistorySkeleton()
           : RefreshIndicator(
-              onRefresh: () => _loadRealData(isRefresh: true),
+              onRefresh: () => _loadLogs(isRefresh: true),
               color: const Color(0xFF0F766E),
               child: Column(
                 children: [
-                  // 1. TOP SUMMARY METRICS (REAL SUPABASE COUNTS)
+                  // 1. TOP SUMMARY METRICS
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
@@ -239,11 +323,11 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
                     ),
                     child: Row(
                       children: [
-                        _buildStatPill('Total Cases', '${allCases.length}', const Color(0xFF0F766E), isDark),
+                        _buildStatPill('Total Logs', '${allLogs.length}', const Color(0xFF0F766E), isDark),
                         const SizedBox(width: 8),
-                        _buildStatPill('Pending Visit', '$pendingCount', const Color(0xFFD97706), isDark),
+                        _buildStatPill('Admin Assigned', '$adminAssignedCount', const Color(0xFF0284C7), isDark),
                         const SizedBox(width: 8),
-                        _buildStatPill('Active Inspect', '$activeInspectCount', const Color(0xFF0284C7), isDark),
+                        _buildStatPill('Enforcements', '$enforcementCount', const Color(0xFFDC2626), isDark),
                       ],
                     ),
                   ),
@@ -260,7 +344,7 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
                       },
                       style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
                       decoration: InputDecoration(
-                        hintText: 'Search by outlet, case ID, or category...',
+                        hintText: 'Search audit trail by outlet, case ID, officer...',
                         hintStyle: TextStyle(fontSize: 13, color: isDark ? Colors.white38 : Colors.grey),
                         prefixIcon: const Icon(Icons.search_rounded, size: 20),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -278,18 +362,18 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
                     ),
                   ),
 
-                  // 3. STATUS FILTER CHIPS
+                  // 3. CATEGORY FILTER CHIPS
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: _statusFilters.map((st) {
-                          final isSelected = (_selectedStatus == st);
+                        children: _categories.map((cat) {
+                          final isSelected = (_selectedCategory == cat);
                           return Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: FilterChip(
-                              label: Text(st),
+                              label: Text(cat),
                               selected: isSelected,
                               selectedColor: const Color(0xFF0F766E),
                               backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
@@ -307,7 +391,7 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
                               ),
                               onSelected: (val) {
                                 setState(() {
-                                  _selectedStatus = val ? st : 'All';
+                                  _selectedCategory = val ? cat : 'All';
                                   _displayedCount = _pageSize;
                                 });
                               },
@@ -320,36 +404,32 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
 
                   const SizedBox(height: 6),
 
-                  // 4. ASSIGNED CASES LIST WITH INFINITE SCROLL
+                  // 4. TIMELINE AUDIT LIST WITH INFINITE SCROLL
                   Expanded(
-                    child: filteredCases.isEmpty
+                    child: filtered.isEmpty
                         ? _buildEmptyState(isDark)
                         : ListView.builder(
                             controller: _scrollController,
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                            itemCount: paginatedCases.length + (hasMore ? 1 : 0),
+                            itemCount: paginated.length + (hasMore ? 1 : 0),
                             itemBuilder: (context, index) {
-                              if (index == paginatedCases.length) {
+                              if (index == paginated.length) {
                                 return _buildLoadingMoreIndicator(isDark);
                               }
 
-                              final c = paginatedCases[index];
-                              final formattedId = _formatCaseId(c.id);
-                              final restName = RestaurantStoreService.resolveRestaurantName(c.restaurantName, fallback: c.restaurantName);
-                              final iconInfo = _getCategoryIconInfo(c.category);
-                              final IconData catIcon = iconInfo['icon'] as IconData;
-                              final Color catColor = iconInfo['color'] as Color;
-                              final Color catBg = iconInfo['bg'] as Color;
+                              final log = paginated[index];
+                              final visuals = _getLogVisuals(log);
+                              final IconData icon = visuals['icon'] as IconData;
+                              final Color iconColor = visuals['color'] as Color;
+                              final Color iconBg = visuals['bg'] as Color;
+                              final String tag = visuals['tag'] as String;
 
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 12),
                                 decoration: BoxDecoration(
                                   color: isDark ? const Color(0xFF1E293B) : Colors.white,
                                   borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
-                                    width: 1,
-                                  ),
+                                  border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
@@ -362,13 +442,7 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
                                   color: Colors.transparent,
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(16),
-                                    onTap: () {
-                                      Navigator.pushNamed(
-                                        context,
-                                        AppRoutes.complaintFullDetail,
-                                        arguments: c,
-                                      );
-                                    },
+                                    onTap: () => _showDetailDialog(context, log),
                                     child: Padding(
                                       padding: const EdgeInsets.all(14),
                                       child: Row(
@@ -377,10 +451,10 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
                                           Container(
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
-                                              color: isDark ? catColor.withValues(alpha: 0.2) : catBg,
+                                              color: isDark ? iconColor.withValues(alpha: 0.2) : iconBg,
                                               shape: BoxShape.circle,
                                             ),
-                                            child: Icon(catIcon, color: catColor, size: 22),
+                                            child: Icon(icon, color: iconColor, size: 20),
                                           ),
                                           const SizedBox(width: 12),
                                           Expanded(
@@ -392,44 +466,58 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
                                                   children: [
                                                     Expanded(
                                                       child: Text(
-                                                        restName,
+                                                        log.title,
                                                         style: TextStyle(
                                                           fontWeight: FontWeight.bold,
-                                                          fontSize: 15,
+                                                          fontSize: 14,
                                                           color: isDark ? Colors.white : const Color(0xFF0F172A),
                                                         ),
                                                         maxLines: 1,
                                                         overflow: TextOverflow.ellipsis,
                                                       ),
                                                     ),
-                                                    const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: Colors.grey),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  'ID: $formattedId • Category: ${c.category}',
-                                                  style: TextStyle(
-                                                    fontSize: 12.5,
-                                                    fontWeight: FontWeight.w500,
-                                                    color: isDark ? Colors.white70 : const Color(0xFF475569),
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 6),
-                                                Row(
-                                                  children: [
-                                                    const Icon(Icons.location_on_outlined, size: 13, color: Color(0xFF0284C7)),
-                                                    const SizedBox(width: 4),
-                                                    Text(
-                                                      'GPS: ${c.latitude.toStringAsFixed(4)}, ${c.longitude.toStringAsFixed(4)}',
-                                                      style: TextStyle(
-                                                        fontSize: 11,
-                                                        color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: iconColor.withValues(alpha: 0.1),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                      ),
+                                                      child: Text(
+                                                        tag,
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: iconColor,
+                                                        ),
                                                       ),
                                                     ),
                                                   ],
                                                 ),
+                                                const SizedBox(height: 5),
+                                                Text(
+                                                  log.description,
+                                                  style: TextStyle(
+                                                    fontSize: 12.5,
+                                                    color: isDark ? Colors.white70 : const Color(0xFF475569),
+                                                    height: 1.35,
+                                                  ),
+                                                ),
                                                 const SizedBox(height: 8),
-                                                StatusBadge.fromStatus(c.status.name),
+                                                Row(
+                                                  children: [
+                                                    Icon(Icons.access_time_rounded, size: 12, color: isDark ? Colors.white38 : Colors.grey),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      _formatTimestamp(log.timestamp),
+                                                      style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade500),
+                                                    ),
+                                                    const Spacer(),
+                                                    Text(
+                                                      'View Details ›',
+                                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0F766E)),
+                                                    ),
+                                                  ],
+                                                ),
                                               ],
                                             ),
                                           ),
@@ -462,12 +550,8 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
           ),
           const SizedBox(width: 10),
           Text(
-            'Loading more assigned cases...',
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? Colors.white60 : const Color(0xFF64748B),
-              fontWeight: FontWeight.w500,
-            ),
+            'Loading more audit records...',
+            style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : const Color(0xFF64748B), fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -492,7 +576,7 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
             const SizedBox(height: 2),
             Text(
               label,
-              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: color),
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -515,30 +599,18 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
                 color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.assignment_turned_in_outlined,
-                size: 40,
-                color: isDark ? Colors.white38 : Colors.grey.shade400,
-              ),
+              child: Icon(Icons.assignment_turned_in_outlined, size: 40, color: isDark ? Colors.white38 : Colors.grey.shade400),
             ),
             const SizedBox(height: 14),
             Text(
-              'No Assigned Cases Found',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
-              ),
+              'No Government Audit Logs Found',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : const Color(0xFF0F172A)),
             ),
             const SizedBox(height: 6),
             Text(
-              'No complaint inspection cases match your selected filter or search term.',
+              'All health inspections, incoming admin assigned complaints, and enforcement actions will be logged here.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.5,
-                color: isDark ? Colors.white60 : Colors.grey.shade600,
-                height: 1.4,
-              ),
+              style: TextStyle(fontSize: 12.5, color: isDark ? Colors.white60 : Colors.grey.shade600, height: 1.4),
             ),
           ],
         ),
