@@ -221,20 +221,24 @@ class CustomerStoreService {
       final String webClientId = envClientId ??
           '927326709623-332ted8aosmjf5efmbq3if09ur98vtl5.apps.googleusercontent.com';
 
-      final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
       // 1. Initialize Native Google Sign-In SDK
-      final GoogleSignIn googleSignIn = GoogleSignIn.instance;
-      await googleSignIn.initialize(
-        clientId: isAndroid ? null : webClientId,
+      final GoogleSignIn googleSignIn = GoogleSignIn(
         serverClientId: webClientId,
+        scopes: ['email', 'profile'],
       );
 
-      // Clear any stale cached session to prevent [16] account reauth failed
+      // Clear any stale cached session to prevent reauth issues
       try {
         await googleSignIn.signOut();
       } catch (_) {}
 
-      final googleUser = await googleSignIn.authenticate();
+      final googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        return const CustomerAuthResult(
+          success: false,
+          message: 'Google link operation was cancelled.',
+        );
+      }
 
       final String gEmail = googleUser.email;
       final String gName = googleUser.displayName ?? gEmail.split('@').first;
@@ -1002,78 +1006,43 @@ class CustomerStoreService {
       final String webClientId = envClientId ??
           '927326709623-332ted8aosmjf5efmbq3if09ur98vtl5.apps.googleusercontent.com';
 
-      final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-
-      // 1. Initialize Native Google Sign-In SDK
-      final GoogleSignIn googleSignIn = GoogleSignIn.instance;
-      await googleSignIn.initialize(
-        clientId: isAndroid ? null : webClientId,
+      // 1. Initialize Google Sign-In with serverClientId matching mobile_project
+      final GoogleSignIn googleSignIn = GoogleSignIn(
         serverClientId: webClientId,
+        scopes: ['email', 'profile'],
       );
 
-      // Clear any stale cached Google credentials to prevent code [16] account reauth failed
+      // Clear any stale cached Google credentials
       try {
         await googleSignIn.signOut();
       } catch (_) {}
 
-      // 2. Prompt native Android / iOS "Choose an account" dialog
-      GoogleSignInAccount? googleUser;
-      try {
-        googleUser = await googleSignIn.authenticate();
-      } catch (authErr) {
-        if (kDebugMode) {
-          print('GoogleSignIn.authenticate error: $authErr');
-        }
+      // 2. Trigger native Google Sign-In account selector
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        return const CustomerAuthResult(
+          success: false,
+          message: 'Google Sign-In was cancelled.',
+        );
+      }
 
-        final errText = authErr.toString().toLowerCase();
+      // 3. Obtain authentication ID Token & Access Token from native Google SDK
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      final accessToken = googleAuth.accessToken;
 
-        // If it failed with account reauth failed (code 16), force reset and retry once
-        if (errText.contains('16') || errText.contains('reauth') || errText.contains('account reauth failed')) {
-          try {
-            await googleSignIn.signOut();
-            googleUser = await googleSignIn.authenticate();
-          } catch (retryErr) {
-            if (kDebugMode) {
-              print('GoogleSignIn retry failed: $retryErr');
-            }
-          }
-        }
-
-        if (googleUser == null) {
-          // Check if user specifically cancelled / dismissed the dialog
-          final bool isUserExplicitCancel = errText.contains('canceled_by_user') ||
-              errText.contains('user_canceled') ||
-              errText.contains('user canceled') ||
-              errText.contains('activity was cancelled by the user');
-
-          if (isUserExplicitCancel) {
-            return const CustomerAuthResult(
-              success: false,
-              message: 'Google Sign-In was cancelled.',
-            );
-          }
-
-          if (errText.contains('16') || errText.contains('reauth')) {
-            return const CustomerAuthResult(
-              success: false,
-              message: 'Google account reauthorization expired. Please select your account again or log in with Email.',
-            );
-          }
-
-          return CustomerAuthResult(
-            success: false,
-            message: errText.contains('10') || errText.contains('developer')
-                ? 'Google Sign-In configuration mismatch (Developer 10). Please ensure SHA-1 fingerprint is registered in Google Cloud Console.'
-                : 'Google Sign-In failed ($errText). Please try again or use Email/Password.',
-          );
-        }
+      if (idToken == null) {
+        return const CustomerAuthResult(
+          success: false,
+          message: 'Failed to retrieve Google ID token.',
+        );
       }
 
       final String gEmail = googleUser.email.trim().toLowerCase();
       final String gName = googleUser.displayName ?? gEmail.split('@').first;
       final String gAvatar = googleUser.photoUrl ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200';
 
-      // 3. PRE-CHECK: Query Supabase public.users table BEFORE calling signInWithIdToken
+      // 4. PRE-CHECK: Query Supabase public.users table BEFORE calling signInWithIdToken
       // This prevents Supabase auth trigger from creating an account on the Login screen
       Map<String, dynamic>? existingUserPre;
       try {
@@ -1102,21 +1071,11 @@ class CustomerStoreService {
         );
       }
 
-      // 4. Obtain authentication ID Token from native Google SDK
-      final googleAuth = googleUser.authentication;
-      final idToken = googleAuth.idToken;
-
-      if (idToken == null) {
-        return const CustomerAuthResult(
-          success: false,
-          message: 'Failed to retrieve Google ID token.',
-        );
-      }
-
-      // 5. Authenticate with Supabase using idToken
+      // 5. Authenticate with Supabase using idToken & accessToken
       final AuthResponse authRes = await supabase.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
+        accessToken: accessToken,
       );
 
       final sessionUser = authRes.user ?? supabase.auth.currentUser;
@@ -1240,11 +1199,11 @@ class CustomerStoreService {
       );
     } catch (e) {
       if (kDebugMode) {
-        print('Native Google Sign-In error: $e');
+        print('Google Sign-In error: $e');
       }
 
       final errStr = e.toString().toLowerCase();
-      if (errStr.contains('canceled_by_user') || errStr.contains('user_canceled')) {
+      if (errStr.contains('canceled_by_user') || errStr.contains('user_canceled') || errStr.contains('canceled')) {
         return const CustomerAuthResult(
           success: false,
           message: 'Google Sign-In was cancelled.',
