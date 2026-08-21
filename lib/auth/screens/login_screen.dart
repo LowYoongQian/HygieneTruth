@@ -56,7 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _isGoogleLoading = true;
     });
 
-    final result = await CustomerStoreService.signInWithGoogle();
+    final result = await CustomerStoreService.signInWithGoogle(isRegistration: false);
 
     if (mounted) {
       setState(() {
@@ -79,10 +79,18 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.message),
-            backgroundColor: result.message.contains('cancelled') ? Colors.grey.shade800 : const Color(0xFFDC2626),
+            backgroundColor: result.isAccountNotFound
+                ? const Color(0xFFD97706)
+                : (result.message.contains('cancelled') ? Colors.grey.shade800 : const Color(0xFFDC2626)),
             behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: result.isAccountNotFound ? 3 : 4),
           ),
         );
+
+        if (result.isAccountNotFound) {
+          // Redirect user to registration page
+          Navigator.pushNamed(context, AppRoutes.register);
+        }
       }
     }
   }

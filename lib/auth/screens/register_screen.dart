@@ -102,7 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _isGoogleLoading = true;
     });
 
-    final result = await CustomerStoreService.signInWithGoogle();
+    final result = await CustomerStoreService.signInWithGoogle(isRegistration: true);
 
     if (mounted) {
       setState(() {

@@ -1,3 +1,4 @@
+import '../../core/constants/country_location_data.dart';
 import '../../core/services/customer_store_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -223,7 +224,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                     const Text('Country / Region', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.navyColor)),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
-                      initialValue: ['Malaysia', 'Singapore', 'Indonesia', 'Thailand', 'Other'].contains(_selectedCountry) ? _selectedCountry : (_selectedCountry != null ? 'Other' : null),
+                      initialValue: CountryLocationData.countryList.contains(_selectedCountry) ? _selectedCountry : (_selectedCountry != null ? 'Other' : null),
                       borderRadius: BorderRadius.circular(16),
                       dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
                       menuMaxHeight: 280,
@@ -237,13 +238,21 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
-                      items: ['Malaysia', 'Singapore', 'Indonesia', 'Thailand', 'Other'].map((c) {
+                      items: CountryLocationData.countryList.map((c) {
                         return DropdownMenuItem(
                           value: c,
                           child: Text(c, style: TextStyle(fontWeight: FontWeight.w500, color: isDark ? Colors.white : Colors.black87)),
                         );
                       }).toList(),
-                      onChanged: (val) => setState(() => _selectedCountry = val),
+                      onChanged: (val) {
+                        setState(() {
+                          _selectedCountry = val;
+                          final validStates = CountryLocationData.getStatesForCountry(val);
+                          if (_selectedState != null && !validStates.contains(_selectedState)) {
+                            _selectedState = null;
+                          }
+                        });
+                      },
                     ),
                     if (_selectedCountry == 'Other') ...[
                       const SizedBox(height: 8),
@@ -263,28 +272,36 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                     // State Dropdown
                     const Text('State / City', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.navyColor)),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      initialValue: ['Kuala Lumpur', 'Selangor', 'Johor', 'Penang', 'Perak', 'Sabah', 'Sarawak', 'Other'].contains(_selectedState) ? _selectedState : (_selectedState != null ? 'Other' : null),
-                      borderRadius: BorderRadius.circular(16),
-                      dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-                      menuMaxHeight: 280,
-                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.primaryColor),
-                      decoration: InputDecoration(
-                        hintText: 'Select State / City',
-                        prefixIcon: const Icon(Icons.location_city_rounded, size: 20),
-                        filled: true,
-                        fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      ),
-                      items: ['Kuala Lumpur', 'Selangor', 'Johor', 'Penang', 'Perak', 'Sabah', 'Sarawak', 'Other'].map((s) {
-                        return DropdownMenuItem(
-                          value: s,
-                          child: Text(s, style: TextStyle(fontWeight: FontWeight.w500, color: isDark ? Colors.white : Colors.black87)),
+                    Builder(
+                      builder: (context) {
+                        final currentStates = CountryLocationData.getStatesForCountry(_selectedCountry);
+                        final validStateInitial = (_selectedState != null && currentStates.contains(_selectedState)) ? _selectedState : null;
+
+                        return DropdownButtonFormField<String>(
+                          key: ValueKey('account_state_dd_${_selectedCountry ?? "none"}'),
+                          initialValue: validStateInitial,
+                          borderRadius: BorderRadius.circular(16),
+                          dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          menuMaxHeight: 280,
+                          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.primaryColor),
+                          decoration: InputDecoration(
+                            hintText: _selectedCountry == null ? 'Select Country First' : 'Select State / City',
+                            prefixIcon: const Icon(Icons.location_city_rounded, size: 20),
+                            filled: true,
+                            fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          ),
+                          items: currentStates.map((s) {
+                            return DropdownMenuItem(
+                              value: s,
+                              child: Text(s, style: TextStyle(fontWeight: FontWeight.w500, color: isDark ? Colors.white : Colors.black87)),
+                            );
+                          }).toList(),
+                          onChanged: (val) => setState(() => _selectedState = val),
                         );
-                      }).toList(),
-                      onChanged: (val) => setState(() => _selectedState = val),
+                      },
                     ),
                     if (_selectedState == 'Other') ...[
                       const SizedBox(height: 8),

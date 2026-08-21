@@ -380,44 +380,55 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
 
               // Top Rated Safe Restaurants Leaderboard (Top 3 in Sequence)
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Text('⭐', style: TextStyle(fontSize: 15)),
-                      const SizedBox(width: 6),
-                      Text(
-                        t('top_rated_safe'),
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                      ),
-                      if (_hasUserLocation) ...[
+                  Expanded(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('⭐', style: TextStyle(fontSize: 15)),
                         const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0284C7).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.near_me_rounded, size: 10, color: Color(0xFF0284C7)),
-                              SizedBox(width: 2),
-                              Text(
-                                'Nearby',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0284C7),
-                                ),
-                              ),
-                            ],
+                        Flexible(
+                          child: Text(
+                            t('top_rated_safe'),
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (_hasUserLocation) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.near_me_rounded, size: 10, color: Color(0xFF0284C7)),
+                                SizedBox(width: 2),
+                                Text(
+                                  'Nearby',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0284C7),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
+                  const SizedBox(width: 4),
                   TextButton(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
                     onPressed: () => Navigator.pushNamed(context, AppRoutes.restaurantList),
                     child: const Text('View All ›', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:bcrypt/bcrypt.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -17,11 +18,13 @@ class CustomerAuthResult {
   final bool success;
   final String message;
   final UserModel? user;
+  final bool isAccountNotFound;
 
   const CustomerAuthResult({
     required this.success,
     required this.message,
     this.user,
+    this.isAccountNotFound = false,
   });
 }
 
@@ -226,7 +229,11 @@ class CustomerStoreService {
         serverClientId: webClientId,
       );
 
-      // 2. Prompt native Android / iOS "Choose an account" dialog
+      // Clear any stale cached session to prevent [16] account reauth failed
+      try {
+        await googleSignIn.signOut();
+      } catch (_) {}
+
       final googleUser = await googleSignIn.authenticate();
 
       final String gEmail = googleUser.email;
@@ -686,6 +693,76 @@ class CustomerStoreService {
     );
   }
 
+  /// Generates a random 10-character alphanumeric secure password
+  static String generateSecurePassword() {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#%*';
+    final random = Random();
+    return List.generate(10, (index) => chars[random.nextInt(chars.length)]).join();
+  }
+
+  /// Sets or generates an initial password for a user (e.g. during Google onboarding or account setup)
+  static Future<CustomerAuthResult> setInitialPassword({
+    required String newPassword,
+    String? email,
+  }) async {
+    final targetEmail = (email ?? _currentCustomer?.email)?.trim().toLowerCase();
+    if (targetEmail == null || targetEmail.isEmpty) {
+      return const CustomerAuthResult(
+        success: false,
+        message: 'No active user email found to set password.',
+      );
+    }
+
+    if (newPassword.length < 6) {
+      return const CustomerAuthResult(
+        success: false,
+        message: 'Password must be at least 6 characters long.',
+      );
+    }
+
+    final supabase = SupabaseService.client;
+    final String hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt(logRounds: 6));
+
+    // 1. Update Supabase users table with BCrypt hashed password
+    try {
+      await supabase
+          .from('users')
+          .update({
+            'user_password': hashedPassword,
+            'password': hashedPassword,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .ilike('email', targetEmail);
+    } catch (e) {
+      debugPrint('CustomerStoreService: Supabase user_password update error: $e');
+    }
+
+    // 2. Sync password with Supabase Auth so traditional email/password login works
+    try {
+      await supabase.auth.updateUser(UserAttributes(password: newPassword));
+    } catch (_) {}
+
+    // 3. Update in-memory cache
+    _registeredCustomers[targetEmail] = {
+      'password': newPassword,
+      'role': _currentCustomer?.role.name ?? 'customer',
+    };
+
+    AuditLogService.logAction(
+      actionType: 'PASSWORD_SET',
+      category: 'Account Security',
+      title: 'Account Password Configured',
+      description: 'User configured password for direct login access',
+      userId: _currentCustomer?.id ?? '',
+      userEmail: targetEmail,
+    );
+
+    return const CustomerAuthResult(
+      success: true,
+      message: 'Account password configured successfully!',
+    );
+  }
+
   static Future<CustomerAuthResult> loginCustomer({
     required String email,
     required String password,
@@ -911,7 +988,9 @@ class CustomerStoreService {
   }
 
   /// Triggers Native Google Sign-In Account Selector & authenticates with Supabase via ID Token
-  static Future<CustomerAuthResult> signInWithGoogle() async {
+  /// [isRegistration]: If false (Login page), checks if user exists in Supabase. If not found, aborts login and returns isAccountNotFound: true.
+  /// If true (Register page), creates a new user record in Supabase.
+  static Future<CustomerAuthResult> signInWithGoogle({bool isRegistration = false}) async {
     try {
       final supabase = SupabaseService.client;
       String? envClientId;
@@ -932,6 +1011,11 @@ class CustomerStoreService {
         serverClientId: webClientId,
       );
 
+      // Clear any stale cached Google credentials to prevent code [16] account reauth failed
+      try {
+        await googleSignIn.signOut();
+      } catch (_) {}
+
       // 2. Prompt native Android / iOS "Choose an account" dialog
       GoogleSignInAccount? googleUser;
       try {
@@ -943,41 +1027,82 @@ class CustomerStoreService {
 
         final errText = authErr.toString().toLowerCase();
 
-        // Check if user specifically cancelled / dismissed the dialog
-        final bool isUserExplicitCancel = errText.contains('canceled_by_user') ||
-            errText.contains('user_canceled') ||
-            errText.contains('user canceled') ||
-            errText.contains('activity was cancelled by the user');
-
-        if (isUserExplicitCancel) {
-          return const CustomerAuthResult(
-            success: false,
-            message: 'Google Sign-In was cancelled.',
-          );
-        }
-
-        // Check if an active user session is already present
-        final sessionUser = supabase.auth.currentUser;
-        if (sessionUser != null) {
-          final activeUser = await fetchActiveUserSession();
-          if (activeUser != null) {
-            return CustomerAuthResult(
-              success: true,
-              message: 'Signed in with Google as ${activeUser.email}',
-              user: activeUser,
-            );
+        // If it failed with account reauth failed (code 16), force reset and retry once
+        if (errText.contains('16') || errText.contains('reauth') || errText.contains('account reauth failed')) {
+          try {
+            await googleSignIn.signOut();
+            googleUser = await googleSignIn.authenticate();
+          } catch (retryErr) {
+            if (kDebugMode) {
+              print('GoogleSignIn retry failed: $retryErr');
+            }
           }
         }
 
+        if (googleUser == null) {
+          // Check if user specifically cancelled / dismissed the dialog
+          final bool isUserExplicitCancel = errText.contains('canceled_by_user') ||
+              errText.contains('user_canceled') ||
+              errText.contains('user canceled') ||
+              errText.contains('activity was cancelled by the user');
+
+          if (isUserExplicitCancel) {
+            return const CustomerAuthResult(
+              success: false,
+              message: 'Google Sign-In was cancelled.',
+            );
+          }
+
+          if (errText.contains('16') || errText.contains('reauth')) {
+            return const CustomerAuthResult(
+              success: false,
+              message: 'Google account reauthorization expired. Please select your account again or log in with Email.',
+            );
+          }
+
+          return CustomerAuthResult(
+            success: false,
+            message: errText.contains('10') || errText.contains('developer')
+                ? 'Google Sign-In configuration mismatch (Developer 10). Please ensure SHA-1 fingerprint is registered in Google Cloud Console.'
+                : 'Google Sign-In failed ($errText). Please try again or use Email/Password.',
+          );
+        }
+      }
+
+      final String gEmail = googleUser.email.trim().toLowerCase();
+      final String gName = googleUser.displayName ?? gEmail.split('@').first;
+      final String gAvatar = googleUser.photoUrl ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200';
+
+      // 3. PRE-CHECK: Query Supabase public.users table BEFORE calling signInWithIdToken
+      // This prevents Supabase auth trigger from creating an account on the Login screen
+      Map<String, dynamic>? existingUserPre;
+      try {
+        existingUserPre = await supabase
+            .from('users')
+            .select()
+            .ilike('email', gEmail)
+            .maybeSingle();
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error checking existing user in users table: $e');
+        }
+      }
+
+      // CASE A: LOGIN FLOW (isRegistration == false) & NO RECORD IN SUPABASE
+      if (!isRegistration && existingUserPre == null && !_registeredCustomers.containsKey(gEmail)) {
+        try {
+          await googleSignIn.signOut();
+        } catch (_) {}
+        _currentCustomer = null;
+
         return CustomerAuthResult(
           success: false,
-          message: errText.contains('10') || errText.contains('developer')
-              ? 'Google Sign-In configuration mismatch (Developer 10). Please ensure SHA-1 fingerprint is registered in Google Cloud Console.'
-              : 'Google Sign-In failed ($errText). Please try again or use Email/Password.',
+          isAccountNotFound: true,
+          message: 'No account found for $gEmail. Please register your account first.',
         );
       }
 
-      // 3. Obtain authentication ID Token from native Google SDK
+      // 4. Obtain authentication ID Token from native Google SDK
       final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
 
@@ -988,44 +1113,107 @@ class CustomerStoreService {
         );
       }
 
-      // 4. Authenticate with Supabase using idToken
+      // 5. Authenticate with Supabase using idToken
       final AuthResponse authRes = await supabase.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
       );
 
       final sessionUser = authRes.user ?? supabase.auth.currentUser;
-      final String gEmail = googleUser.email;
-      final String gName = googleUser.displayName ?? gEmail.split('@').first;
-      final String gAvatar = googleUser.photoUrl ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200';
       final String userId = sessionUser?.id ?? UuidHelper.generateV4();
       final nowUtc = DateTime.now().toUtc();
       final nowMsia = nowUtc.add(const Duration(hours: 8));
       final String formattedJoinedDate = '${nowMsia.day} ${_monthName(nowMsia.month)} ${nowMsia.year}';
       final String createdIso = nowUtc.toIso8601String();
 
-      try {
-        await supabase.from('users').upsert(
-          {
-            'id': userId,
-            'name': gName,
-            'email': gEmail,
-            'role': 'customer',
-            'status': 'active',
-            'created_at': createdIso,
-          },
-          onConflict: 'email',
+      // CASE B: REGISTER FLOW (isRegistration == true) & NO RECORD -> CREATE NEW USER
+      if (existingUserPre == null) {
+        try {
+          await supabase.from('users').upsert(
+            {
+              'id': userId,
+              'name': gName,
+              'email': gEmail,
+              'role': 'customer',
+              'status': 'active',
+              'created_at': createdIso,
+            },
+            onConflict: 'email',
+          );
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error upserting new Google user: $e');
+          }
+        }
+
+        _currentCustomer = UserModel(
+          id: userId,
+          name: gName,
+          email: gEmail,
+          phone: null,
+          role: UserRole.user,
+          status: AccountStatus.active,
+          avatarUrl: gAvatar,
+          joinedDate: formattedJoinedDate,
         );
-      } catch (_) {}
+
+        await RememberMeService.saveRememberedUser(
+          rememberMe: true,
+          email: gEmail,
+        );
+
+        await themeManager.loadThemeForUser(_currentCustomer!.id);
+
+        AuditLogService.logAction(
+          actionType: 'REGISTER',
+          category: 'Authentication',
+          title: 'Google Account Registered',
+          description: 'New customer account created via Google Sign-In',
+          userId: userId,
+          userEmail: gEmail,
+        );
+
+        return CustomerAuthResult(
+          success: true,
+          message: 'Google Registration successful! Welcome, $gName',
+          user: _currentCustomer,
+        );
+      }
+
+      // CASE C: EXISTING USER FOUND (Login or Register)
+      final statusStr = existingUserPre['status']?.toString().toLowerCase() ?? 'active';
+      if (statusStr == 'suspended' || statusStr == 'banned' || statusStr == 'inactive') {
+        try {
+          await supabase.auth.signOut();
+        } catch (_) {}
+        _currentCustomer = null;
+        return CustomerAuthResult(
+          success: false,
+          message: 'Your account is currently $statusStr. Please contact support.',
+        );
+      }
+
+      final roleStr = existingUserPre['role']?.toString().toLowerCase() ?? 'customer';
+      UserRole mappedRole = UserRole.user;
+      if (roleStr == 'admin') {
+        mappedRole = UserRole.admin;
+      } else if (roleStr == 'officer' || roleStr == 'government') {
+        mappedRole = UserRole.government;
+      } else if (roleStr == 'businessman' || roleStr == 'owner') {
+        mappedRole = UserRole.owner;
+      }
 
       _currentCustomer = UserModel(
-        id: userId,
-        name: gName,
+        id: existingUserPre['id']?.toString() ?? userId,
+        name: existingUserPre['name']?.toString() ?? gName,
         email: gEmail,
-        phone: null,
-        role: UserRole.user,
+        phone: existingUserPre['phone']?.toString(),
+        role: mappedRole,
         status: AccountStatus.active,
-        avatarUrl: gAvatar,
+        avatarUrl: existingUserPre['avatar_url']?.toString() ?? gAvatar,
+        gender: existingUserPre['gender']?.toString(),
+        country: existingUserPre['country']?.toString(),
+        state: existingUserPre['state']?.toString(),
         joinedDate: formattedJoinedDate,
       );
 
@@ -1036,9 +1224,18 @@ class CustomerStoreService {
 
       await themeManager.loadThemeForUser(_currentCustomer!.id);
 
+      AuditLogService.logAction(
+        actionType: 'LOGIN',
+        category: 'Authentication',
+        title: 'Google Sign-In Successful',
+        description: 'Customer logged in with Google authentication',
+        userId: _currentCustomer!.id,
+        userEmail: gEmail,
+      );
+
       return CustomerAuthResult(
         success: true,
-        message: 'Google Sign-In successful for $gEmail',
+        message: 'Welcome back, ${_currentCustomer!.name}!',
         user: _currentCustomer,
       );
     } catch (e) {
@@ -1052,19 +1249,6 @@ class CustomerStoreService {
           success: false,
           message: 'Google Sign-In was cancelled.',
         );
-      }
-
-      // Check if user is already authenticated via active Supabase session
-      final sessionUser = SupabaseService.client.auth.currentUser;
-      if (sessionUser != null) {
-        final activeUser = await fetchActiveUserSession();
-        if (activeUser != null) {
-          return CustomerAuthResult(
-            success: true,
-            message: 'Signed in as ${activeUser.email}',
-            user: activeUser,
-          );
-        }
       }
 
       return CustomerAuthResult(

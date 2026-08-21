@@ -49,6 +49,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       'North Region',
       'North-East Region',
       'West Region',
+      'Downtown / Marina Bay',
+      'Singapore (City)',
     ],
     'Indonesia 🇮🇩': [
       'Jakarta',
