@@ -1203,16 +1203,23 @@ class CustomerStoreService {
       }
 
       final errStr = e.toString().toLowerCase();
-      if (errStr.contains('canceled_by_user') || errStr.contains('user_canceled') || errStr.contains('canceled')) {
+      if (errStr.contains('canceled_by_user') || errStr.contains('user_canceled') || errStr.contains('canceled') || errStr.contains('cancelled')) {
         return const CustomerAuthResult(
           success: false,
           message: 'Google Sign-In was cancelled.',
         );
       }
 
+      if (errStr.contains('10') || errStr.contains('developer') || errStr.contains('sign_in_failed')) {
+        return const CustomerAuthResult(
+          success: false,
+          message: 'Google Sign-In configuration mismatch (SHA-1 fingerprint). Please check Cloud Console credentials.',
+        );
+      }
+
       return CustomerAuthResult(
         success: false,
-        message: 'Google Sign-In failed: ${e.toString().split(":").last.trim()}',
+        message: 'Google Sign-In failed: $e',
       );
     }
   }

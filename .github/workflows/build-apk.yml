@@ -51,6 +51,12 @@ jobs:
             fi
           fi
 
+      - name: Restore Signing Keystore
+        run: |
+          if [ -n "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 --decode > android/app/debug.keystore
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 

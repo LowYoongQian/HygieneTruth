@@ -52,6 +52,18 @@ android {
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
+    signingConfigs {
+        getByName("debug") {
+            val customKeystore = file("debug.keystore")
+            if (customKeystore.exists()) {
+                storeFile = customKeystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
