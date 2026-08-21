@@ -11,6 +11,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/status_badge.dart';
+import '../../core/widgets/user_avatar.dart';
 import '../../risk/widgets/risk_score_gauge.dart';
 
 class RestaurantDetailScreen extends StatefulWidget {
@@ -332,27 +333,34 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
     required VoidCallback onTap,
     bool isRed = false,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isRed ? const Color(0xFFFEF2F2) : color.withValues(alpha: 0.08),
+          color: isRed
+              ? (isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.35) : const Color(0xFFFEF2F2))
+              : color.withValues(alpha: isDark ? 0.18 : 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isRed ? const Color(0xFFFCA5A5) : color.withValues(alpha: 0.2)),
+          border: Border.all(
+            color: isRed
+                ? (isDark ? const Color(0xFFDC2626).withValues(alpha: 0.5) : const Color(0xFFFCA5A5))
+                : color.withValues(alpha: isDark ? 0.35 : 0.2),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 16, color: color),
+            Icon(icon, size: 16, color: isDark && !isRed ? color.withValues(alpha: 0.9) : color),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: color,
+                color: isDark && isRed ? const Color(0xFFFCA5A5) : color,
               ),
             ),
           ],
@@ -362,6 +370,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   }
 
   Widget _buildCommentInputCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final currentUser = CustomerStoreService.currentCustomer;
     final userName = currentUser?.name ?? 'Verified Customer';
     final avatarUrl = currentUser?.avatarUrl ?? '';
@@ -372,12 +381,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
       margin: const EdgeInsets.only(top: 8, bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -388,16 +397,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
         children: [
           Row(
             children: [
-              CircleAvatar(
+              UserAvatar(
+                avatarUrl: avatarUrl,
                 radius: 18,
-                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                child: avatarUrl.isEmpty
-                    ? Text(
-                        userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
-                      )
-                    : null,
               ),
               const SizedBox(width: 12),
               Column(
@@ -405,11 +407,15 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                 children: [
                   Text(
                     userName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isDark ? Colors.white : AppTheme.navyColor,
+                    ),
                   ),
-                  const Text(
+                  Text(
                     'Share your dining hygiene experience',
-                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                    style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : Colors.grey),
                   ),
                 ],
               ),
@@ -419,22 +425,22 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
             ),
             child: TextField(
               controller: _newCommentController,
               focusNode: _commentFocusNode,
               maxLines: 3,
               minLines: 2,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Describe kitchen cleanliness, staff hygiene, utensils, or food quality...',
-                hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
+                hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey, fontSize: 13),
                 border: InputBorder.none,
                 isDense: true,
               ),
-              style: const TextStyle(fontSize: 13, color: Colors.black87),
+              style: TextStyle(fontSize: 13, color: isDark ? Colors.white : Colors.black87),
             ),
           ),
           const SizedBox(height: 12),
@@ -514,6 +520,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   }
 
   Widget _buildAlreadyReviewedCard(Map<String, String> existingReview) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final starsCount = int.tryParse(existingReview['stars'] ?? '5') ?? 5;
     final dateStr = _formatReviewTimestamp(existingReview['timestamp'] ?? existingReview['date'] ?? '');
     final comment = existingReview['comment'] ?? '';
@@ -522,12 +529,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
       margin: const EdgeInsets.only(top: 8, bottom: 16),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0FDF4),
+        color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.35) : const Color(0xFFF0FDF4),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
+        border: Border.all(color: isDark ? const Color(0xFF059669).withValues(alpha: 0.5) : const Color(0xFF86EFAC), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF10B981).withValues(alpha: 0.06),
+            color: const Color(0xFF10B981).withValues(alpha: isDark ? 0.15 : 0.06),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -552,12 +559,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Thank You for Review this Restaurant',
+                    Text(
+                      'Thank You for Reviewing this Restaurant',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14.5,
-                        color: Color(0xFF14532D),
+                        color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF14532D),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -565,7 +572,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       'Your hygiene experience review has been submitted and verified.',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF166534),
+                        color: isDark ? const Color(0xFFA7F3D0) : const Color(0xFF166534),
                       ),
                     ),
                   ],
@@ -578,9 +585,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFDCFCE7)),
+                border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFDCFCE7)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -601,12 +608,16 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
+                          color: isDark ? const Color(0xFF065F46) : const Color(0xFFDCFCE7),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           '$starsCount ★ Verified Diner',
-                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? const Color(0xFFA7F3D0) : const Color(0xFF15803D),
+                          ),
                         ),
                       ),
                     ],
@@ -614,7 +625,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                   const SizedBox(height: 8),
                   Text(
                     comment,
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B), height: 1.35),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? Colors.white : const Color(0xFF1E1E1E),
+                      height: 1.35,
+                    ),
                   ),
                   if ((existingReview['ownerReply'] ?? '').isNotEmpty) ...[
                     const SizedBox(height: 10),
@@ -622,33 +637,33 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF0FDF4),
+                        color: isDark ? const Color(0xFF121212) : const Color(0xFFF0FDF4),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF86EFAC)),
+                        border: Border.all(color: isDark ? const Color(0xFF059669).withValues(alpha: 0.5) : const Color(0xFF86EFAC)),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.storefront_rounded, size: 16, color: Color(0xFF15803D)),
+                          Icon(Icons.storefront_rounded, size: 16, color: isDark ? const Color(0xFF34D399) : const Color(0xFF15803D)),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Official Response from Restaurant Owner',
                                   style: TextStyle(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF14532D),
+                                    color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF14532D),
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   existingReview['ownerReply']!,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12.5,
-                                    color: Color(0xFF166534),
+                                    color: isDark ? Colors.white70 : const Color(0xFF166534),
                                     height: 1.35,
                                   ),
                                 ),
@@ -776,7 +791,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
       height: 220,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF0C2340), Color(0xFF1E293B)],
+          colors: [Color(0xFF181818), Color(0xFF282828)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -839,6 +854,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   }
 
   Widget _buildRatingSummaryCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     double avgRating = 0.0;
     if (_reviews.isNotEmpty) {
       double sum = 0;
@@ -853,12 +869,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -870,10 +886,14 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: hasReviews ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9),
+              color: hasReviews
+                  ? (isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : const Color(0xFFFEF3C7))
+                  : (isDark ? const Color(0xFF121212) : const Color(0xFFF1F5F9)),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: hasReviews ? const Color(0xFFFCD34D) : const Color(0xFFCBD5E1),
+                color: hasReviews
+                    ? (isDark ? Colors.amber.shade700 : const Color(0xFFFCD34D))
+                    : (isDark ? Colors.white12 : const Color(0xFFCBD5E1)),
               ),
             ),
             child: Column(
@@ -884,14 +904,14 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
-                    color: hasReviews ? const Color(0xFFD97706) : Colors.grey.shade600,
+                    color: hasReviews ? Colors.amber : (isDark ? Colors.white54 : Colors.grey.shade600),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Row(
                   children: List.generate(5, (index) {
                     if (!hasReviews) {
-                      return Icon(Icons.star_border_rounded, color: Colors.grey.shade400, size: 14);
+                      return Icon(Icons.star_border_rounded, color: isDark ? Colors.white24 : Colors.grey.shade400, size: 14);
                     }
                     final starValue = index + 1;
                     if (avgRating >= starValue) {
@@ -899,7 +919,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                     } else if (avgRating >= starValue - 0.5) {
                       return const Icon(Icons.star_half_rounded, color: Colors.amber, size: 14);
                     } else {
-                      return Icon(Icons.star_border_rounded, color: Colors.grey.shade400, size: 14);
+                      return Icon(Icons.star_border_rounded, color: isDark ? Colors.white24 : Colors.grey.shade400, size: 14);
                     }
                   }),
                 ),
@@ -916,23 +936,31 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
               children: [
                 Text(
                   hasReviews ? 'Customer Rating' : 'No Ratings Yet',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.navyColor),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: isDark ? Colors.white : AppTheme.navyColor,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   hasReviews
                       ? '${_reviews.length} ${_reviews.length == 1 ? 'review' : 'reviews'}'
                       : 'New restaurant',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.grey),
                 ),
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: hasReviews ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9),
+                    color: hasReviews
+                        ? (isDark ? const Color(0xFF065F46).withValues(alpha: 0.4) : const Color(0xFFECFDF5))
+                        : (isDark ? const Color(0xFF121212) : const Color(0xFFF1F5F9)),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: hasReviews ? const Color(0xFFA7F3D0) : const Color(0xFFE2E8F0),
+                      color: hasReviews
+                          ? (isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0))
+                          : (isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
                     ),
                   ),
                   child: Row(
@@ -941,7 +969,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       Icon(
                         hasReviews ? Icons.verified_user_rounded : Icons.info_outline_rounded,
                         size: 13,
-                        color: hasReviews ? const Color(0xFF059669) : Colors.grey,
+                        color: hasReviews ? const Color(0xFF059669) : (isDark ? Colors.white54 : Colors.grey),
                       ),
                       const SizedBox(width: 4),
                       Flexible(
@@ -952,7 +980,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: hasReviews ? const Color(0xFF059669) : Colors.grey.shade700,
+                            color: hasReviews ? (isDark ? const Color(0xFF6EE7B7) : const Color(0xFF059669)) : (isDark ? Colors.white60 : Colors.grey.shade700),
                           ),
                         ),
                       ),
@@ -1019,52 +1047,57 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
               top: 10,
               left: 10,
               right: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.94),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.location_on_rounded, color: AppTheme.primaryColor, size: 18),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'GPS: ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.navyColor),
-                      ),
+              child: Builder(
+                builder: (context) {
+                  final isMapDark = Theme.of(context).brightness == Brightness.dark;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isMapDark ? const Color(0xFF1E1E1E).withValues(alpha: 0.94) : Colors.white.withValues(alpha: 0.94),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isMapDark ? Colors.white12 : Colors.grey.shade200),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
+                      ],
                     ),
-                    InkWell(
-                      onTap: () => Navigator.pushNamed(
-                        context,
-                        AppRoutes.restaurantMap,
-                        arguments: {
-                          'restaurant': restaurant,
-                          'showDirections': false,
-                        },
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor,
-                          borderRadius: BorderRadius.circular(8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.location_on_rounded, color: AppTheme.primaryColor, size: 18),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'GPS: ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isMapDark ? Colors.white : AppTheme.navyColor),
+                          ),
                         ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.map_rounded, color: Colors.white, size: 14),
-                            SizedBox(width: 4),
-                            Text('Full Map', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                          ],
+                        InkWell(
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.restaurantMap,
+                            arguments: {
+                              'restaurant': restaurant,
+                              'showDirections': false,
+                            },
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.map_rounded, color: Colors.white, size: 14),
+                                SizedBox(width: 4),
+                                Text('Full Map', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],
@@ -1074,6 +1107,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   }
 
   Widget _buildRiskScoreCard(RestaurantModel restaurant) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final score = restaurant.hygieneRiskScore;
     final isSafe = score < 25;
     final isModerate = score >= 25 && score <= 60;
@@ -1085,10 +1119,10 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
             : const Color(0xFFDC2626); // Red
 
     final Color bgColor = isSafe
-        ? const Color(0xFFECFDF5)
+        ? (isDark ? const Color(0xFF064E3B).withValues(alpha: 0.35) : const Color(0xFFECFDF5))
         : isModerate
-            ? const Color(0xFFFEF3C7)
-            : const Color(0xFFFEF2F2);
+            ? (isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : const Color(0xFFFEF3C7))
+            : (isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.35) : const Color(0xFFFEF2F2));
 
     final String statusText = isSafe
         ? 'Safe'
@@ -1111,12 +1145,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1131,14 +1165,14 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
             children: [
               Row(
                 children: [
-                  const Text(
+                  Text(
                     'Hygiene Risk',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.navyColor),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : AppTheme.navyColor),
                   ),
                   const SizedBox(width: 6),
                   Tooltip(
                     message: 'Risk Scale: 0 (Safest) to 100 (Highest Risk)',
-                    child: Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey.shade400),
+                    child: Icon(Icons.info_outline_rounded, size: 16, color: isDark ? Colors.white38 : Colors.grey.shade400),
                   ),
                 ],
               ),
@@ -1194,7 +1228,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       explanatoryText,
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: Colors.grey.shade600,
+                        color: isDark ? Colors.white60 : Colors.grey.shade600,
                         height: 1.3,
                       ),
                     ),
@@ -1203,7 +1237,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       icon: Icons.calendar_today_outlined,
                       label: 'Last Updated',
                       value: restaurant.lastUpdated,
-                      valueColor: Colors.grey.shade700,
+                      valueColor: isDark ? Colors.white70 : Colors.grey.shade700,
                     ),
                   ],
                 ),
@@ -1216,9 +1250,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFF1F5F9)),
+              border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFF1F5F9)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1228,7 +1262,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                   children: [
                     Text(
                       'Risk Meter Scale',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.grey.shade700),
                     ),
                     Text(
                       '${score.toStringAsFixed(1)} / 100',
@@ -1353,6 +1387,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final routeArg = ModalRoute.of(context)?.settings.arguments as RestaurantModel?;
     final targetId = routeArg?.id ?? '';
     final targetName = routeArg?.name ?? '';
@@ -1365,9 +1400,10 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
             (allRestaurants.isNotEmpty ? allRestaurants.first : null);
 
         if (restaurant == null) {
-          return const Scaffold(
-            appBar: CustomAppBar(title: 'Restaurant Details'),
-            body: Center(child: Text('No restaurant data selected')),
+          return Scaffold(
+            backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
+            appBar: const CustomAppBar(title: 'Restaurant Details'),
+            body: const Center(child: Text('No restaurant data selected')),
           );
         }
 
@@ -1376,6 +1412,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
         : _reviews.where((r) => int.tryParse(r['stars'] ?? '5') == _selectedFilterStar).toList();
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: CustomAppBar(
         title: restaurant.name,
         actions: [
@@ -1418,7 +1455,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       ],
                     ),
                     child: const Icon(
-                      Icons.shield,
+                      Icons.verified_user_rounded,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -1474,20 +1511,20 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
             ),
             const SizedBox(height: 16),
 
-            // MOH ENFORCEMENT SUSPENSION BANNER (If Not Publicly Visible)
-            if (!restaurant.isPubliclyVisible) ...[
+            // Enforcement Banner (if applicable)
+            if (restaurant.hasActiveEnforcement) ...[
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFEF4444), width: 1.5),
+                  color: isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.35) : const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFFCA5A5), width: 1.2),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 22),
+                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 24),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -1495,14 +1532,18 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                         children: [
                           const Text(
                             'MOH Temporary Suspension Order',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
                           ),
                           const SizedBox(height: 3),
                           Text(
                             restaurant.isCompoundedOverdue
                                 ? 'This food premises has been temporarily taken down and suspended due to overdue statutory compound penalties under Section 11 Food Act 1983.'
                                 : 'This food premises is temporarily suspended by the Ministry of Health under Section 11 Food Act 1983 pending rectification and fine settlement.',
-                            style: const TextStyle(fontSize: 11.5, color: Color(0xFFB91C1C), height: 1.35),
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: isDark ? Colors.red.shade200 : const Color(0xFFB91C1C),
+                              height: 1.35,
+                            ),
                           ),
                         ],
                       ),
@@ -1515,12 +1556,16 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
             // Restaurant Title & Category
             Text(
               restaurant.name,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppTheme.navyColor,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               restaurant.category,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+              style: TextStyle(color: isDark ? Colors.white70 : Colors.grey.shade600, fontSize: 14),
             ),
             const SizedBox(height: 8),
 
@@ -1532,7 +1577,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                 Expanded(
                   child: Text(
                     restaurant.address,
-                    style: const TextStyle(fontSize: 13, color: Colors.black87),
+                    style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87),
                   ),
                 ),
               ],
@@ -1552,12 +1597,16 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
             // Customer Reviews Header
             Row(
-              children: const [
-                Icon(Icons.comment_bank_outlined, color: AppTheme.primaryColor, size: 20),
-                SizedBox(width: 8),
+              children: [
+                const Icon(Icons.comment_bank_outlined, color: AppTheme.primaryColor, size: 20),
+                const SizedBox(width: 8),
                 Text(
                   'Customer Reviews',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppTheme.navyColor,
+                  ),
                 ),
               ],
             ),
@@ -1593,16 +1642,16 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                 margin: const EdgeInsets.only(bottom: 16),
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
                 ),
                 child: Column(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(14),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFEF3C7),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : const Color(0xFFFEF3C7),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(Icons.star_outline_rounded, size: 36, color: Colors.amber.shade700),
@@ -1610,7 +1659,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                     const SizedBox(height: 12),
                     Text(
                       _selectedFilterStar == 0 ? 'No Customer Reviews Yet' : 'No $_selectedFilterStar Star Reviews',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.navyColor),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: isDark ? Colors.white : AppTheme.navyColor,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -1618,7 +1671,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                           ? 'Be the first to leave a review for this outlet!'
                           : 'No reviews found matching this star rating filter.',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                      style: TextStyle(fontSize: 13, color: isDark ? Colors.white60 : Colors.grey),
                     ),
                   ],
                 ),
@@ -1634,12 +1687,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
+                        color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
@@ -1650,13 +1703,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                     children: [
                       Row(
                         children: [
-                          CircleAvatar(
+                          UserAvatar(
+                            avatarUrl: review['avatarUrl'],
                             radius: 18,
-                            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                            child: Text(
-                              (review['userName'] != null && review['userName']!.isNotEmpty) ? review['userName']![0] : 'U',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor),
-                            ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -1667,26 +1716,34 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                                   children: [
                                     Text(
                                       review['userName'] ?? 'Customer',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.navyColor),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: isDark ? Colors.white : AppTheme.navyColor,
+                                      ),
                                     ),
                                     const SizedBox(width: 6),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFECFDF5),
+                                        color: isDark ? const Color(0xFF065F46) : const Color(0xFFECFDF5),
                                         borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: const Color(0xFFA7F3D0)),
+                                        border: Border.all(color: isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0)),
                                       ),
-                                      child: const Text(
+                                      child: Text(
                                         'Verified Diner',
-                                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: isDark ? const Color(0xFFA7F3D0) : const Color(0xFF059669),
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                                 Text(
                                   review['date'] ?? '',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                  style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade500),
                                 ),
                               ],
                             ),
@@ -1695,7 +1752,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                             children: List.generate(5, (starIndex) {
                               return Icon(
                                 starIndex < starsCount ? Icons.star_rounded : Icons.star_border_rounded,
-                                color: Colors.amber,
+                                color: starIndex < starsCount ? Colors.amber : (isDark ? Colors.white24 : Colors.grey.shade400),
                                 size: 16,
                               );
                             }),
@@ -1705,7 +1762,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       const SizedBox(height: 10),
                       Text(
                         review['comment'] ?? '',
-                        style: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.4),
+                        style: TextStyle(fontSize: 13, color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87, height: 1.4),
                       ),
                       if ((review['ownerReply'] ?? '').isNotEmpty) ...[
                         const SizedBox(height: 10),
@@ -1713,9 +1770,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(11),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0C2340).withValues(alpha: 0.04),
+                            color: isDark ? const Color(0xFF121212) : const Color(0xFF0C2340).withValues(alpha: 0.04),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                            border: Border.all(color: isDark ? const Color(0xFF0F766E).withValues(alpha: 0.5) : AppTheme.primaryColor.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1733,20 +1790,20 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
+                                    Text(
                                       'Official Response from Restaurant Owner',
                                       style: TextStyle(
                                         fontSize: 11.5,
                                         fontWeight: FontWeight.bold,
-                                        color: AppTheme.navyColor,
+                                        color: isDark ? const Color(0xFF5EEAD4) : AppTheme.navyColor,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       review['ownerReply']!,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 12.5,
-                                        color: Color(0xFF334155),
+                                        color: isDark ? Colors.white70 : const Color(0xFF282828),
                                         height: 1.35,
                                       ),
                                     ),

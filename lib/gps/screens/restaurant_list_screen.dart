@@ -94,10 +94,13 @@ class _SavedRestaurantsScreenState extends State<SavedRestaurantsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return ListenableBuilder(
       listenable: languageManager,
       builder: (context, _) {
         return Scaffold(
+          backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
           appBar: CustomAppBar(
             title: 'Saved Wishlist',
             actions: [
@@ -138,12 +141,12 @@ class _SavedRestaurantsScreenState extends State<SavedRestaurantsScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        const Text(
+                        Text(
                           'Your Wishlist is Empty',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.navyColor,
+                            color: isDark ? Colors.white : AppTheme.navyColor,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -152,7 +155,7 @@ class _SavedRestaurantsScreenState extends State<SavedRestaurantsScreen> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13.5,
-                            color: Colors.grey.shade600,
+                            color: isDark ? Colors.white60 : Colors.grey.shade600,
                             height: 1.4,
                           ),
                         ),
@@ -216,12 +219,12 @@ class _SavedRestaurantsScreenState extends State<SavedRestaurantsScreen> {
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                           borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: Colors.grey.shade200),
+                          border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
+                              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                               blurRadius: 10,
                               offset: const Offset(0, 3),
                             ),
@@ -252,8 +255,8 @@ class _SavedRestaurantsScreenState extends State<SavedRestaurantsScreen> {
                                           restaurant.imageUrl,
                                           fit: BoxFit.cover,
                                           errorBuilder: (ctx, err, stack) => Container(
-                                            color: Colors.grey.shade200,
-                                            child: const Icon(Icons.store, color: Colors.grey),
+                                            color: isDark ? const Color(0xFF282828) : Colors.grey.shade200,
+                                            child: Icon(Icons.store, color: isDark ? Colors.white38 : Colors.grey),
                                           ),
                                         ),
                                       ),
@@ -292,10 +295,10 @@ class _SavedRestaurantsScreenState extends State<SavedRestaurantsScreen> {
                                     children: [
                                       Text(
                                         restaurant.name,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 15,
-                                          color: AppTheme.navyColor,
+                                          color: isDark ? Colors.white : AppTheme.navyColor,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -303,7 +306,10 @@ class _SavedRestaurantsScreenState extends State<SavedRestaurantsScreen> {
                                       const SizedBox(height: 3),
                                       Text(
                                         restaurant.category,
-                                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isDark ? Colors.white70 : Colors.grey.shade600,
+                                        ),
                                       ),
                                       const SizedBox(height: 4),
                                       Row(
@@ -313,7 +319,10 @@ class _SavedRestaurantsScreenState extends State<SavedRestaurantsScreen> {
                                           Expanded(
                                             child: Text(
                                               restaurant.address,
-                                              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: isDark ? Colors.white60 : Colors.grey.shade700,
+                                              ),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),

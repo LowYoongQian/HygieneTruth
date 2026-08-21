@@ -875,6 +875,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
           );
         }
 
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         final initialTarget = _focusedRestaurant != null
             ? LatLng(_focusedRestaurant!.latitude, _focusedRestaurant!.longitude)
             : (_userPosition != null
@@ -925,7 +926,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0C2340),
+                      color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFF0C2340),
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
@@ -991,11 +992,12 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.95),
+                      color: isDark ? const Color(0xFF1E1E1E).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.05)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
+                          color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.1),
                           blurRadius: 10,
                           offset: const Offset(0, 2),
                         ),
@@ -1008,7 +1010,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                         Expanded(
                           child: Text(
                             'Outlet: ${_targetRestaurant!.name}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.navyColor),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : AppTheme.navyColor),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -1041,12 +1043,12 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.88),
+                              color: isDark ? const Color(0xFF1E1E1E).withValues(alpha: 0.92) : Colors.white.withValues(alpha: 0.88),
                               borderRadius: BorderRadius.circular(28),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+                              border: Border.all(color: isDark ? Colors.white24 : Colors.white.withValues(alpha: 0.6)),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.10),
+                                  color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.10),
                                   blurRadius: 14,
                                   offset: const Offset(0, 4),
                                 ),
@@ -1055,16 +1057,17 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                             child: TextField(
                               controller: _listSearchCtrl,
                               onChanged: (_) => _filterRestaurantList(),
+                              style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
                               decoration: InputDecoration(
                                 hintText: t('search_map_hint'),
-                                hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-                                prefixIcon: const Icon(Icons.search, color: AppTheme.navyColor),
+                                hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade500, fontSize: 14),
+                                prefixIcon: Icon(Icons.search, color: isDark ? Colors.white70 : AppTheme.navyColor),
                                 suffixIcon: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     if (_listSearchCtrl.text.isNotEmpty)
                                       IconButton(
-                                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                                        icon: Icon(Icons.clear, size: 18, color: isDark ? Colors.white60 : Colors.grey),
                                         onPressed: () {
                                           _listSearchCtrl.clear();
                                           _filterRestaurantList();
@@ -1102,12 +1105,12 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.88),
+                              color: isDark ? const Color(0xFF1E1E1E).withValues(alpha: 0.92) : Colors.white.withValues(alpha: 0.88),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                              border: Border.all(color: isDark ? Colors.white24 : Colors.white.withValues(alpha: 0.5)),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.08),
+                                  color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -1116,9 +1119,9 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
-                                _buildLegendDot(t('safe'), Colors.green),
-                                _buildLegendDot(t('moderate'), Colors.amber),
-                                _buildLegendDot(t('high_risk'), Colors.red),
+                                _buildLegendDot(t('safe'), Colors.green, isDark: isDark),
+                                _buildLegendDot(t('moderate'), Colors.amber, isDark: isDark),
+                                _buildLegendDot(t('high_risk'), Colors.red, isDark: isDark),
                               ],
                             ),
                           ),
@@ -1128,260 +1131,265 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                   ),
                 ),
 
-          // 3. MAP CONTROLS: GOOGLE SATELLITE LAYER, HEATMAP TOGGLE & MY LOCATION BUTTONS
-          Positioned(
-            right: 16,
-            bottom: 260,
-            child: Column(
-              children: [
-                GestureDetector(
-                  onLongPress: _showMapTypeOptionsSheet,
-                  child: FloatingActionButton.small(
-                    heroTag: 'btn_satellite',
-                    onPressed: _toggleMapType,
-                    backgroundColor: _isSatellite ? AppTheme.navyColor : Colors.white,
-                    foregroundColor: _isSatellite ? Colors.white : AppTheme.navyColor,
-                    tooltip: 'Toggle Satellite / Map Layer',
-                    child: Icon(_isSatellite ? Icons.satellite_alt : Icons.layers_outlined, size: 20),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                FloatingActionButton.small(
-                  heroTag: 'btn_heatmap',
-                  onPressed: () {
-                    setState(() {
-                      _showHeatmap = !_showHeatmap;
-                    });
-                  },
-                  backgroundColor: _showHeatmap ? Colors.red.shade600 : Colors.white,
-                  foregroundColor: _showHeatmap ? Colors.white : AppTheme.navyColor,
-                  tooltip: 'Toggle Heatmap',
-                  child: const Icon(Icons.local_fire_department, size: 20),
-                ),
-                const SizedBox(height: 8),
-                FloatingActionButton.small(
-                  heroTag: 'btn_gps',
-                  onPressed: () => _fetchUserLocation(showFeedback: true, shouldAnimate: true),
-                  backgroundColor: const Color(0xFF0F766E),
-                  foregroundColor: Colors.white,
-                  tooltip: 'Locate My Exact Position',
-                  child: const Icon(Icons.my_location_rounded, size: 20),
-                ),
-              ],
-            ),
-          ),
-
-          // 4. FLOATING SWIPABLE RESTAURANT CARDS LIST AT BOTTOM WITH BACKDROP BLUR
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 16,
-            child: SizedBox(
-              height: 235,
-              child: _filteredList.isEmpty
-                  ? Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 10,
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          'No outlets match your search filter',
-                          style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.bold),
-                        ),
+              // 3. MAP CONTROLS: GOOGLE SATELLITE LAYER, HEATMAP TOGGLE & MY LOCATION BUTTONS
+              Positioned(
+                right: 16,
+                bottom: 260,
+                child: Column(
+                  children: [
+                    GestureDetector(
+                      onLongPress: _showMapTypeOptionsSheet,
+                      child: FloatingActionButton.small(
+                        heroTag: 'btn_satellite',
+                        onPressed: _toggleMapType,
+                        backgroundColor: _isSatellite ? AppTheme.navyColor : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
+                        foregroundColor: _isSatellite ? Colors.white : (isDark ? Colors.white : AppTheme.navyColor),
+                        tooltip: 'Toggle Satellite / Map Layer',
+                        child: Icon(_isSatellite ? Icons.satellite_alt : Icons.layers_outlined, size: 20),
                       ),
-                    )
-                  : PageView.builder(
-                      controller: _pageController,
-                      itemCount: _filteredList.length,
-                      onPageChanged: _onPageChanged,
-                      itemBuilder: (context, index) {
-                        final restaurant = _filteredList[index];
-                        final isSelectedCard = index == _currentPageIndex;
-                        final distanceText = _calculateDistanceText(restaurant.latitude, restaurant.longitude);
-                        final riskColor = _getRiskColor(restaurant.riskCategory);
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: 'btn_heatmap',
+                      onPressed: () {
+                        setState(() {
+                          _showHeatmap = !_showHeatmap;
+                        });
+                      },
+                      backgroundColor: _showHeatmap ? Colors.red.shade600 : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
+                      foregroundColor: _showHeatmap ? Colors.white : (isDark ? Colors.white : AppTheme.navyColor),
+                      tooltip: 'Toggle Heatmap',
+                      child: const Icon(Icons.local_fire_department, size: 20),
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: 'btn_gps',
+                      onPressed: () => _fetchUserLocation(showFeedback: true, shouldAnimate: true),
+                      backgroundColor: const Color(0xFF0F766E),
+                      foregroundColor: Colors.white,
+                      tooltip: 'Locate My Exact Position',
+                      child: const Icon(Icons.my_location_rounded, size: 20),
+                    ),
+                  ],
+                ),
+              ),
 
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.pushNamed(context, AppRoutes.restaurantDetail, arguments: restaurant);
-                          },
+              // 4. FLOATING SWIPABLE RESTAURANT CARDS LIST AT BOTTOM WITH BACKDROP BLUR
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 16,
+                child: SizedBox(
+                  height: 235,
+                  child: _filteredList.isEmpty
+                      ? Center(
                           child: Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                             decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(24),
-                              border: isSelectedCard
-                                  ? Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.6), width: 2)
-                                  : Border.all(color: Colors.transparent),
+                              color: isDark ? const Color(0xFF1E1E1E).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: isDark ? Colors.white12 : Colors.transparent),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: isSelectedCard ? 0.18 : 0.10),
-                                  blurRadius: isSelectedCard ? 18 : 12,
-                                  offset: const Offset(0, 6),
+                                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.1),
+                                  blurRadius: 10,
                                 ),
                               ],
                             ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
-                              child: Stack(
-                                children: [
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Text(
+                              'No outlets match your search filter',
+                              style: TextStyle(color: isDark ? Colors.white70 : Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        )
+                      : PageView.builder(
+                          controller: _pageController,
+                          itemCount: _filteredList.length,
+                          onPageChanged: _onPageChanged,
+                          itemBuilder: (context, index) {
+                            final restaurant = _filteredList[index];
+                            final isSelectedCard = index == _currentPageIndex;
+                            final distanceText = _calculateDistanceText(restaurant.latitude, restaurant.longitude);
+                            final riskColor = _getRiskColor(restaurant.riskCategory);
+
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.pushNamed(context, AppRoutes.restaurantDetail, arguments: restaurant);
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: isSelectedCard
+                                      ? Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.8), width: 2)
+                                      : Border.all(color: isDark ? Colors.white12 : Colors.transparent),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: isSelectedCard ? (isDark ? 0.35 : 0.18) : (isDark ? 0.25 : 0.10)),
+                                      blurRadius: isSelectedCard ? 18 : 12,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(24),
+                                  child: Stack(
                                     children: [
-                                      // Top Image Container with Badge
-                                      SizedBox(
-                                        height: 125,
-                                        width: double.infinity,
-                                        child: Stack(
-                                          fit: StackFit.expand,
-                                          children: [
-                                            Image.network(
-                                              restaurant.imageUrl,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (ctx, err, stack) => Container(
-                                                color: Colors.grey.shade300,
-                                                child: const Icon(Icons.restaurant, size: 40, color: Colors.grey),
-                                              ),
-                                            ),
-                                            // Top Right Hygiene Risk Chip Badge
-                                            Positioned(
-                                              top: 10,
-                                              right: 10,
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: riskColor,
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.black.withValues(alpha: 0.2),
-                                                      blurRadius: 6,
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: Text(
-                                                  restaurant.riskCategory.name.toUpperCase(),
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 10,
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // Top Image Container with Badge
+                                          SizedBox(
+                                            height: 125,
+                                            width: double.infinity,
+                                            child: Stack(
+                                              fit: StackFit.expand,
+                                              children: [
+                                                Image.network(
+                                                  restaurant.imageUrl,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (ctx, err, stack) => Container(
+                                                    color: isDark ? const Color(0xFF282828) : Colors.grey.shade300,
+                                                    child: Icon(Icons.restaurant, size: 40, color: isDark ? Colors.white38 : Colors.grey),
                                                   ),
                                                 ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-
-                                      // Card Body Container with Backdrop Filter Blur
-                                      Expanded(
-                                        child: ClipRRect(
-                                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-                                          child: BackdropFilter(
-                                            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                              color: Colors.white.withValues(alpha: 0.88),
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                                children: [
-                                                  // Title
-                                                  Text(
-                                                    restaurant.name,
-                                                    style: const TextStyle(
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 15,
-                                                      color: AppTheme.navyColor,
+                                                // Top Right Hygiene Risk Chip Badge
+                                                Positioned(
+                                                  top: 8,
+                                                  right: 8,
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    decoration: BoxDecoration(
+                                                      color: riskColor,
+                                                      borderRadius: BorderRadius.circular(8),
                                                     ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    child: Text(
+                                                      restaurant.riskCategory.name.toUpperCase(),
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 10,
+                                                      ),
+                                                    ),
                                                   ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
 
-                                                  // Rating & Distance Row
-                                                  Builder(
-                                                    builder: (context) {
-                                                      final ratingInfo = RestaurantStoreService.getRatingSync(
-                                                        restaurant.id,
-                                                        restaurantName: restaurant.name,
-                                                      );
-                                                      return Row(
+                                          // Card Body Container with Backdrop Filter Blur
+                                          Expanded(
+                                            child: ClipRRect(
+                                              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                                              child: BackdropFilter(
+                                                filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                                  color: isDark ? const Color(0xFF1E1E1E).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.88),
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                                    children: [
+                                                      // Title
+                                                      Text(
+                                                        restaurant.name,
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 15,
+                                                          color: isDark ? Colors.white : AppTheme.navyColor,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+
+                                                      // Rating & Distance Row
+                                                      Builder(
+                                                        builder: (context) {
+                                                          final ratingInfo = RestaurantStoreService.getRatingSync(
+                                                            restaurant.id,
+                                                            restaurantName: restaurant.name,
+                                                          );
+                                                          return Row(
+                                                            children: [
+                                                              Icon(
+                                                                ratingInfo.hasReviews ? Icons.star_rounded : Icons.star_border_rounded,
+                                                                color: ratingInfo.hasReviews ? Colors.amber : (isDark ? Colors.white38 : Colors.grey.shade400),
+                                                                size: 16,
+                                                              ),
+                                                              const SizedBox(width: 3),
+                                                              Text(
+                                                                ratingInfo.ratingText,
+                                                                style: TextStyle(
+                                                                  fontWeight: FontWeight.bold,
+                                                                  fontSize: 12,
+                                                                  color: ratingInfo.hasReviews
+                                                                      ? (isDark ? Colors.white : Colors.black87)
+                                                                      : (isDark ? Colors.white54 : Colors.grey.shade600),
+                                                                ),
+                                                              ),
+                                                              const SizedBox(width: 4),
+                                                              Text(
+                                                                ratingInfo.hasReviews ? '(${ratingInfo.totalReviews})' : '(No Review)',
+                                                                style: TextStyle(color: isDark ? Colors.white60 : Colors.grey.shade600, fontSize: 11),
+                                                              ),
+                                                              const SizedBox(width: 6),
+                                                              Text('•', style: TextStyle(color: isDark ? Colors.white30 : Colors.grey.shade400)),
+                                                              const SizedBox(width: 6),
+                                                              Icon(Icons.location_on_outlined, size: 13, color: isDark ? Colors.white54 : Colors.grey),
+                                                              const SizedBox(width: 2),
+                                                              Expanded(
+                                                                child: Text(
+                                                                  distanceText,
+                                                                  style: TextStyle(color: isDark ? Colors.white70 : Colors.grey.shade700, fontSize: 11, fontWeight: FontWeight.w500),
+                                                                  maxLines: 1,
+                                                                  overflow: TextOverflow.ellipsis,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          );
+                                                        },
+                                                      ),
+
+                                                      // Tags Row (Category & Amenities)
+                                                      Row(
                                                         children: [
-                                                          Icon(
-                                                            ratingInfo.hasReviews ? Icons.star_rounded : Icons.star_border_rounded,
-                                                            color: ratingInfo.hasReviews ? Colors.amber : Colors.grey.shade400,
-                                                            size: 16,
-                                                          ),
-                                                          const SizedBox(width: 3),
-                                                          Text(
-                                                            ratingInfo.ratingText,
-                                                            style: TextStyle(
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 12,
-                                                              color: ratingInfo.hasReviews ? Colors.black87 : Colors.grey.shade600,
-                                                            ),
-                                                          ),
-                                                          const SizedBox(width: 4),
-                                                          Text(
-                                                            ratingInfo.hasReviews ? '(${ratingInfo.totalReviews})' : '(No Review)',
-                                                            style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+                                                          _buildCardTag(
+                                                            restaurant.category,
+                                                            isDark ? Colors.pink.shade900.withValues(alpha: 0.4) : Colors.pink.shade50,
+                                                            isDark ? Colors.pink.shade200 : Colors.pink.shade700,
                                                           ),
                                                           const SizedBox(width: 6),
-                                                          Text('•', style: TextStyle(color: Colors.grey.shade400)),
-                                                          const SizedBox(width: 6),
-                                                          const Icon(Icons.location_on_outlined, size: 13, color: Colors.grey),
-                                                          const SizedBox(width: 2),
-                                                          Expanded(
-                                                            child: Text(
-                                                              distanceText,
-                                                              style: TextStyle(color: Colors.grey.shade700, fontSize: 11, fontWeight: FontWeight.w500),
-                                                              maxLines: 1,
-                                                              overflow: TextOverflow.ellipsis,
-                                                            ),
+                                                          _buildCardTag(
+                                                            'Indoor Seating',
+                                                            isDark ? Colors.blue.shade900.withValues(alpha: 0.4) : Colors.blue.shade50,
+                                                            isDark ? Colors.blue.shade200 : Colors.blue.shade700,
                                                           ),
                                                         ],
-                                                      );
-                                                    },
-                                                  ),
-
-                                                  // Tags Row (Category & Amenities)
-                                                  Row(
-                                                    children: [
-                                                      _buildCardTag(restaurant.category, Colors.pink.shade50, Colors.pink.shade700),
-                                                      const SizedBox(width: 6),
-                                                      _buildCardTag('Indoor Seating', Colors.blue.shade50, Colors.blue.shade700),
+                                                      ),
                                                     ],
                                                   ),
-                                                ],
+                                                ),
                                               ),
                                             ),
                                           ),
-                                        ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                ],
+                                ),
                               ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
+                            );
+                          },
+                        ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
-  },
-);
-}
+  }
 
   Widget _buildCardTag(String label, Color bg, Color text) {
     return Container(
@@ -1397,7 +1405,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
     );
   }
 
-  Widget _buildLegendDot(String label, Color color) {
+  Widget _buildLegendDot(String label, Color color, {bool isDark = false}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1412,7 +1420,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
         const SizedBox(width: 5),
         Text(
           label,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.navyColor),
         ),
       ],
     );

@@ -80,7 +80,7 @@ class _CloseCaseScreenState extends State<CloseCaseScreen> {
     final bool isReinspectionPassed = true; // Evaluated from re-inspection audit Grade A/B clearance
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: const CustomAppBar(title: 'Close Case'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -93,7 +93,7 @@ class _CloseCaseScreenState extends State<CloseCaseScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: isDark
-                      ? [const Color(0xFF0F172A), const Color(0xFF1E293B)]
+                      ? [const Color(0xFF121212), const Color(0xFF1E1E1E)]
                       : [const Color(0xFF0C2340), const Color(0xFF0F766E)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -147,7 +147,7 @@ class _CloseCaseScreenState extends State<CloseCaseScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
               ),
@@ -173,7 +173,7 @@ class _CloseCaseScreenState extends State<CloseCaseScreen> {
                             style: TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              color: isDark ? Colors.white : const Color(0xFF0C2340),
                             ),
                           ),
                         ],
@@ -253,7 +253,7 @@ class _CloseCaseScreenState extends State<CloseCaseScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
               ),
@@ -265,7 +265,7 @@ class _CloseCaseScreenState extends State<CloseCaseScreen> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      color: isDark ? Colors.white : const Color(0xFF0C2340),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -277,7 +277,7 @@ class _CloseCaseScreenState extends State<CloseCaseScreen> {
                       hintText: 'Enter final closure summary and archive justification...',
                       hintStyle: TextStyle(fontSize: 12.5, color: isDark ? Colors.white38 : Colors.grey),
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
@@ -294,7 +294,7 @@ class _CloseCaseScreenState extends State<CloseCaseScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
               ),
@@ -305,7 +305,7 @@ class _CloseCaseScreenState extends State<CloseCaseScreen> {
                   style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    color: isDark ? Colors.white : const Color(0xFF0C2340),
                   ),
                 ),
                 subtitle: Text(
@@ -478,7 +478,7 @@ class _CloseCaseScreenState extends State<CloseCaseScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark ? Colors.white : const Color(0xFF0C2340),
                         ),
                       ),
                     ),

@@ -109,11 +109,12 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     const ownerColor = Color(0xFFD97706);
-    const navyColor = Color(0xFF0F172A);
+    final navyColor = isDark ? Colors.white : const Color(0xFF0C2340);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: const CustomAppBar(title: 'Business Portal Login'),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -127,8 +128,8 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
                 child: Container(
                   width: 90,
                   height: 90,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFEF3C7),
+                  decoration: BoxDecoration(
+                    color: isDark ? ownerColor.withValues(alpha: 0.15) : const Color(0xFFFEF3C7),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -139,7 +140,7 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'Businessman Portal',
                 style: TextStyle(
                   fontSize: 22,
@@ -154,7 +155,7 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
                 'Manage hygiene inspection compliance, notices & reports',
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.grey.shade600,
+                  color: isDark ? Colors.white60 : Colors.grey.shade600,
                   height: 1.3,
                 ),
                 textAlign: TextAlign.center,
@@ -165,21 +166,21 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                style: const TextStyle(color: navyColor, fontSize: 14.5, fontWeight: FontWeight.w500),
+                style: TextStyle(color: navyColor, fontSize: 14.5, fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
                   labelText: 'Business Email',
-                  labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                  prefixIcon: Icon(Icons.business_center_outlined, color: Colors.grey.shade600, size: 20),
+                  labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.grey.shade600, fontSize: 14),
+                  prefixIcon: Icon(Icons.business_center_outlined, color: isDark ? Colors.white60 : Colors.grey.shade600, size: 20),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                    borderSide: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFCBD5E1), width: 1.2),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                    borderSide: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFCBD5E1), width: 1.2),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -197,30 +198,30 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen> {
               TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
-                style: const TextStyle(color: navyColor, fontSize: 14.5, fontWeight: FontWeight.w500),
+                style: TextStyle(color: navyColor, fontSize: 14.5, fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
                   labelText: 'Password',
-                  labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                  prefixIcon: Icon(Icons.lock_outline_rounded, color: Colors.grey.shade600, size: 20),
+                  labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.grey.shade600, fontSize: 14),
+                  prefixIcon: Icon(Icons.lock_outline_rounded, color: isDark ? Colors.white60 : Colors.grey.shade600, size: 20),
                   errorText: _passwordError,
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      color: Colors.grey.shade500,
+                      color: isDark ? Colors.white60 : Colors.grey.shade500,
                       size: 20,
                     ),
                     onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                    borderSide: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFCBD5E1), width: 1.2),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                    borderSide: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFCBD5E1), width: 1.2),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),

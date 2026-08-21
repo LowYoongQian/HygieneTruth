@@ -179,7 +179,7 @@ class _AdminActionLogScreenState extends State<AdminActionLogScreen> {
       builder: (context) {
         return Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF0F172A) : Colors.white,
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             boxShadow: [
               BoxShadow(
@@ -327,7 +327,7 @@ class _AdminActionLogScreenState extends State<AdminActionLogScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                  color: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
                 ),
@@ -408,7 +408,7 @@ class _AdminActionLogScreenState extends State<AdminActionLogScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+        color: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
       ),
@@ -448,12 +448,13 @@ class _AdminActionLogScreenState extends State<AdminActionLogScreen> {
     final displayedLogs = _filteredLogs;
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: const CustomAppBar(title: 'Audit Logs'),
       body: Column(
         children: [
           // Top Search & Filter Header Container
           Container(
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Column(
               children: [
@@ -488,7 +489,7 @@ class _AdminActionLogScreenState extends State<AdminActionLogScreen> {
                           )
                         : null,
                     filled: true,
-                    fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                    fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF1F5F9),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   ),
@@ -548,7 +549,7 @@ class _AdminActionLogScreenState extends State<AdminActionLogScreen> {
                               ),
                             ],
                           ),
-                          backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                          backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF1F5F9),
                           selectedColor: catColor,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
@@ -629,7 +630,7 @@ class _AdminActionLogScreenState extends State<AdminActionLogScreen> {
                                 borderRadius: BorderRadius.circular(16),
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
                                     boxShadow: [

@@ -363,7 +363,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
                           boxShadow: [
@@ -404,7 +404,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                                       )
                                     : null,
                                 filled: true,
-                                fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300),
@@ -454,7 +454,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
                           boxShadow: [
@@ -489,7 +489,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                                 hintStyle: TextStyle(fontSize: 20, letterSpacing: 8, color: isDark ? Colors.white24 : Colors.grey.shade300),
                                 prefixIcon: const Icon(Icons.pin_outlined, color: Color(0xFF0F766E), size: 20),
                                 filled: true,
-                                fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                               ),
@@ -526,7 +526,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
                           boxShadow: [
@@ -586,7 +586,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                                   onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                                 ),
                                 filled: true,
-                                fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                               ),
@@ -622,7 +622,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                                   onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                                 ),
                                 filled: true,
-                                fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                               ),
@@ -658,7 +658,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF1F5F9),
+                        color: isDark ? const Color(0xFF1E1E1E).withValues(alpha: 0.5) : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
                       ),

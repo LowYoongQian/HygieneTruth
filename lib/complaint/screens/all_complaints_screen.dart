@@ -88,7 +88,7 @@ class _AllComplaintsScreenState extends State<AllComplaintsScreen> {
     final sortedList = _getSortedComplaints();
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: const CustomAppBar(title: 'All Reports'),
       body: Column(
         children: [
@@ -97,7 +97,7 @@ class _AllComplaintsScreenState extends State<AllComplaintsScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
               border: Border(
                 bottom: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
               ),
@@ -118,7 +118,7 @@ class _AllComplaintsScreenState extends State<AllComplaintsScreen> {
                         if (val) setState(() => _selectedCategory = cat);
                       },
                       selectedColor: const Color(0xFF0F766E),
-                      backgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                      backgroundColor: isDark ? const Color(0xFF282828) : const Color(0xFFF1F5F9),
                       side: BorderSide(
                         color: isSelected ? const Color(0xFF0F766E) : Colors.transparent,
                       ),
@@ -186,7 +186,7 @@ class _AllComplaintsScreenState extends State<AllComplaintsScreen> {
 
                       return Container(
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: c.isFlaggedForReview ? Colors.red.shade200 : (isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
@@ -262,7 +262,7 @@ class _AllComplaintsScreenState extends State<AllComplaintsScreen> {
                                               style: TextStyle(
                                                 fontSize: 15.5,
                                                 fontWeight: FontWeight.bold,
-                                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                                color: isDark ? Colors.white : const Color(0xFF0C2340),
                                                 letterSpacing: -0.2,
                                               ),
                                             ),
@@ -271,7 +271,7 @@ class _AllComplaintsScreenState extends State<AllComplaintsScreen> {
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
                                             decoration: BoxDecoration(
-                                              color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                                              color: isDark ? const Color(0xFF282828) : const Color(0xFFF1F5F9),
                                               borderRadius: BorderRadius.circular(6),
                                             ),
                                             child: Text(

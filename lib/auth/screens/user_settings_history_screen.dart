@@ -276,7 +276,7 @@ class _UserSettingsHistoryScreenState extends State<UserSettingsHistoryScreen> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: isDark
-                            ? [const Color(0xFF0F172A), const Color(0xFF1E293B)]
+                            ? [const Color(0xFF121212), const Color(0xFF1E1E1E)]
                             : [const Color(0xFF0C2340), const Color(0xFF0F766E)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -366,7 +366,7 @@ class _UserSettingsHistoryScreenState extends State<UserSettingsHistoryScreen> {
                         prefixIcon: const Icon(Icons.search_rounded, size: 20),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
@@ -393,7 +393,7 @@ class _UserSettingsHistoryScreenState extends State<UserSettingsHistoryScreen> {
                               label: Text(cat),
                               selected: isSelected,
                               selectedColor: const Color(0xFF0F766E),
-                              backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                              backgroundColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF1F5F9),
                               checkmarkColor: Colors.white,
                               labelStyle: TextStyle(
                                 fontSize: 12,
@@ -444,7 +444,7 @@ class _UserSettingsHistoryScreenState extends State<UserSettingsHistoryScreen> {
                                 margin: const EdgeInsets.only(bottom: 12),
                                 padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
                                     color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
@@ -483,7 +483,7 @@ class _UserSettingsHistoryScreenState extends State<UserSettingsHistoryScreen> {
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 14,
-                                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                                    color: isDark ? Colors.white : AppTheme.navyColor,
                                                   ),
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
@@ -584,7 +584,7 @@ class _UserSettingsHistoryScreenState extends State<UserSettingsHistoryScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100,
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -599,7 +599,7 @@ class _UserSettingsHistoryScreenState extends State<UserSettingsHistoryScreen> {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                color: isDark ? Colors.white : AppTheme.navyColor,
               ),
             ),
             const SizedBox(height: 6),

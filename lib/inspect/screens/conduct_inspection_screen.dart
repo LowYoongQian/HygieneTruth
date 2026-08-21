@@ -96,7 +96,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
         : 'Premise Inspection';
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: const CustomAppBar(title: 'Record Visit'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -109,7 +109,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: isDark
-                      ? [const Color(0xFF0F172A), const Color(0xFF1E293B)]
+                      ? [const Color(0xFF121212), const Color(0xFF1E1E1E)]
                       : [const Color(0xFF0C2340), const Color(0xFF0F766E)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -171,7 +171,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                color: isDark ? Colors.white : const Color(0xFF0C2340),
               ),
             ),
             const SizedBox(height: 10),
@@ -209,7 +209,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
               ),
@@ -225,7 +225,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
                           style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            color: isDark ? Colors.white : const Color(0xFF0C2340),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -305,7 +305,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
               ),
@@ -317,7 +317,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      color: isDark ? Colors.white : const Color(0xFF0C2340),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -330,7 +330,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
                         label: Text(item),
                         selected: isSelected,
                         selectedColor: const Color(0xFFDC2626).withValues(alpha: 0.15),
-                        backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                        backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF1F5F9),
                         checkmarkColor: const Color(0xFFDC2626),
                         labelStyle: TextStyle(
                           fontSize: 11.5,
@@ -365,7 +365,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
               ),
@@ -377,7 +377,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      color: isDark ? Colors.white : const Color(0xFF0C2340),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -389,7 +389,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
                       hintText: 'Record detailed findings, cross-contamination risks, and corrective orders...',
                       hintStyle: TextStyle(fontSize: 12.5, color: isDark ? Colors.white38 : Colors.grey),
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
@@ -410,7 +410,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
               ),
@@ -425,7 +425,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
                         style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark ? Colors.white : const Color(0xFF0C2340),
                         ),
                       ),
                       TextButton.icon(
@@ -497,7 +497,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
               ),
@@ -509,7 +509,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      color: isDark ? Colors.white : const Color(0xFF0C2340),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -517,10 +517,10 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
                     initialValue: _enforcementAction,
                     isExpanded: true,
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
-                    dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -660,7 +660,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.1) : (isDark ? const Color(0xFF1E293B) : Colors.white),
+          color: isSelected ? color.withValues(alpha: 0.1) : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? color : (isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
@@ -684,7 +684,7 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? color : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                color: isSelected ? color : (isDark ? Colors.white : const Color(0xFF0C2340)),
               ),
             ),
             const SizedBox(height: 2),

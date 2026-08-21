@@ -83,7 +83,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           }
 
           return Dialog(
-            backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+            backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -100,7 +100,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                         gradient: LinearGradient(
                           colors: isDark
-                              ? [const Color(0xFF0F172A), const Color(0xFF0F766E)]
+                              ? [const Color(0xFF121212), const Color(0xFF0F766E)]
                               : [const Color(0xFF0C2340), const Color(0xFF0F766E)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,

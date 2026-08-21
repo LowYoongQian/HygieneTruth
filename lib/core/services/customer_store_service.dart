@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:bcrypt/bcrypt.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
@@ -37,7 +39,7 @@ class CustomerStoreService {
       phone: '',
       role: e.value['role'] == 'businessman' ? UserRole.owner : UserRole.user,
       status: AccountStatus.active,
-      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
+      avatarUrl: '',
     )).toList();
   }
 
@@ -90,7 +92,7 @@ class CustomerStoreService {
       String? gender;
       String? country;
       String? state;
-      String avatarUrl = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200';
+      String avatarUrl = '';
       UserRole userRole = _currentCustomer?.role ?? UserRole.user;
 
       if (data != null) {
@@ -126,9 +128,19 @@ class CustomerStoreService {
         }
       }
 
+      String? bannerUrl;
+      if (data != null) {
+        if (data['banner_url'] != null && data['banner_url'].toString().trim().isNotEmpty) {
+          bannerUrl = data['banner_url'].toString().trim();
+        } else if (data['settings'] is Map && (data['settings'] as Map)['banner_url'] != null) {
+          bannerUrl = (data['settings'] as Map)['banner_url']?.toString().trim();
+        }
+      }
+
       try {
         final prefs = await SharedPreferences.getInstance();
         _cachedGoogleLinkedEmail ??= prefs.getString('google_linked_email_$finalId') ?? prefs.getString('google_linked_email_$finalEmail');
+        bannerUrl ??= prefs.getString('user_banner_url_$finalId') ?? prefs.getString('user_banner_url_$finalEmail');
       } catch (_) {}
 
       String? joinedDate;
@@ -154,6 +166,7 @@ class CustomerStoreService {
         role: userRole,
         status: AccountStatus.active,
         avatarUrl: avatarUrl,
+        bannerUrl: bannerUrl,
         gender: gender,
         country: country,
         state: state,
@@ -382,6 +395,7 @@ class CustomerStoreService {
     String? country,
     String? state,
     String? avatarUrl,
+    String? bannerUrl,
   }) async {
     try {
       final supabase = SupabaseService.client;
@@ -402,6 +416,9 @@ class CustomerStoreService {
       if (avatarUrl != null && avatarUrl.isNotEmpty) {
         updateData['avatar_url'] = avatarUrl;
       }
+      if (bannerUrl != null) {
+        updateData['banner_url'] = bannerUrl;
+      }
 
       bool updated = false;
       if (targetId != null && targetId.isNotEmpty) {
@@ -410,30 +427,60 @@ class CustomerStoreService {
           if (res.isNotEmpty) {
             updated = true;
           }
-        } catch (_) {}
+        } catch (_) {
+          // If banner_url column does not exist on Supabase table schema, save to settings JSON column
+          try {
+            final fallbackData = Map<String, dynamic>.from(updateData)..remove('banner_url');
+            if (bannerUrl != null) {
+              fallbackData['settings'] = {'banner_url': bannerUrl};
+            }
+            final res = await supabase.from('users').update(fallbackData).eq('id', targetId).select();
+            if (res.isNotEmpty) {
+              updated = true;
+            }
+          } catch (_) {}
+        }
       }
 
       if (!updated && targetEmail != null && targetEmail.isNotEmpty) {
         try {
           await supabase.from('users').update(updateData).eq('email', targetEmail.trim().toLowerCase());
           updated = true;
+        } catch (_) {
+          try {
+            final fallbackData = Map<String, dynamic>.from(updateData)..remove('banner_url');
+            if (bannerUrl != null) {
+              fallbackData['settings'] = {'banner_url': bannerUrl};
+            }
+            await supabase.from('users').update(fallbackData).eq('email', targetEmail.trim().toLowerCase());
+            updated = true;
+          } catch (_) {}
+        }
+      }
+
+      if (bannerUrl != null) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          if (targetId != null) {
+            await prefs.setString('user_banner_url_$targetId', bannerUrl);
+          }
+          if (targetEmail != null) {
+            await prefs.setString('user_banner_url_$targetEmail', bannerUrl);
+          }
         } catch (_) {}
       }
 
       bool nameChanged = (_currentCustomer != null && _currentCustomer!.name != name.trim());
       if (_currentCustomer != null) {
-        _currentCustomer = UserModel(
-          id: _currentCustomer!.id,
+        _currentCustomer = _currentCustomer!.copyWith(
           name: name.trim(),
           email: (email != null && email.trim().isNotEmpty) ? email.trim().toLowerCase() : _currentCustomer!.email,
           phone: phone?.trim(),
-          role: _currentCustomer!.role,
-          status: _currentCustomer!.status,
           avatarUrl: (avatarUrl != null && avatarUrl.isNotEmpty) ? avatarUrl : _currentCustomer!.avatarUrl,
+          bannerUrl: bannerUrl ?? _currentCustomer!.bannerUrl,
           gender: gender,
           country: country,
           state: state,
-          joinedDate: _currentCustomer!.joinedDate,
         );
       }
 
@@ -449,7 +496,7 @@ class CustomerStoreService {
           actionType: 'PROFILE_UPDATED',
           category: 'Account Modification',
           title: 'Profile Details Updated',
-          description: 'User updated profile contact and regional details',
+          description: 'User updated profile contact, regional details & banner',
         );
       }
 
@@ -555,7 +602,7 @@ class CustomerStoreService {
       phone: null,
       role: role,
       status: AccountStatus.active,
-      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
+      avatarUrl: '',
       gender: gender?.trim(),
       country: country?.trim(),
       state: state?.trim(),
@@ -860,6 +907,18 @@ class CustomerStoreService {
           }
         }
 
+        String? bannerUrl;
+        if (dbUser['banner_url'] != null && dbUser['banner_url'].toString().trim().isNotEmpty) {
+          bannerUrl = dbUser['banner_url'].toString().trim();
+        } else if (dbUser['settings'] is Map && (dbUser['settings'] as Map)['banner_url'] != null) {
+          bannerUrl = (dbUser['settings'] as Map)['banner_url']?.toString().trim();
+        }
+
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          bannerUrl ??= prefs.getString('user_banner_url_$userId') ?? prefs.getString('user_banner_url_$cleanEmail');
+        } catch (_) {}
+
         _currentCustomer = UserModel(
           id: userId,
           name: dbUser['name']?.toString() ?? cleanEmail.split('@').first,
@@ -867,7 +926,8 @@ class CustomerStoreService {
           phone: dbUser['phone']?.toString(),
           role: finalUserRole,
           status: AccountStatus.active,
-          avatarUrl: dbUser['avatar_url']?.toString() ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
+          avatarUrl: dbUser['avatar_url']?.toString() ?? '',
+          bannerUrl: bannerUrl,
           gender: dbUser['gender']?.toString(),
           country: dbUser['country']?.toString(),
           state: dbUser['state']?.toString(),
@@ -966,7 +1026,7 @@ class CustomerStoreService {
           email: cleanEmail,
           role: role,
           status: AccountStatus.active,
-          avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
+          avatarUrl: '',
         );
 
         await RememberMeService.saveRememberedUser(
@@ -1040,7 +1100,7 @@ class CustomerStoreService {
 
       final String gEmail = googleUser.email.trim().toLowerCase();
       final String gName = googleUser.displayName ?? gEmail.split('@').first;
-      final String gAvatar = googleUser.photoUrl ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200';
+      final String gAvatar = googleUser.photoUrl ?? '';
 
       // 4. PRE-CHECK: Query Supabase public.users table BEFORE calling signInWithIdToken
       // This prevents Supabase auth trigger from creating an account on the Login screen
@@ -1290,7 +1350,7 @@ class CustomerStoreService {
     if (_currentCustomer != null) {
       return [_currentCustomer!];
     }
-    return _registeredCustomers.entries.map((e) => UserModel(id: e.key, name: e.key.split('@').first, email: e.key, phone: '', role: e.value['role'] == 'businessman' ? UserRole.owner : UserRole.user, status: AccountStatus.active, avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200')).toList();
+    return _registeredCustomers.entries.map((e) => UserModel(id: e.key, name: e.key.split('@').first, email: e.key, phone: '', role: e.value['role'] == 'businessman' ? UserRole.owner : UserRole.user, status: AccountStatus.active, avatarUrl: '')).toList();
   }
 
   /// Fetches paginated user accounts directly from Supabase 'users' database table using range(from, to)
@@ -1324,4 +1384,47 @@ class CustomerStoreService {
       return (users: <UserModel>[], hasMore: false);
     }
   }
+
+  /// Processes and uploads a user custom banner photo, persisting to Supabase storage or Base64 Data URI
+  static Future<String> uploadBannerImage(XFile imageFile) async {
+    try {
+      final bytes = await imageFile.readAsBytes();
+      final supabase = SupabaseService.client;
+      final fileName = 'banner_${DateTime.now().millisecondsSinceEpoch}_${imageFile.name}';
+
+      try {
+        await supabase.storage.from('banners').uploadBinary(
+          fileName,
+          bytes,
+          fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
+        );
+        final publicUrl = supabase.storage.from('banners').getPublicUrl(fileName);
+        if (publicUrl.isNotEmpty) {
+          return publicUrl;
+        }
+      } catch (_) {
+        try {
+          await supabase.storage.from('avatars').uploadBinary(
+            fileName,
+            bytes,
+            fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
+          );
+          final publicUrl = supabase.storage.from('avatars').getPublicUrl(fileName);
+          if (publicUrl.isNotEmpty) {
+            return publicUrl;
+          }
+        } catch (_) {}
+      }
+
+      // Safe resilient fallback: store as high-quality base64 Data URI directly in Supabase user row
+      final base64String = base64Encode(bytes);
+      return 'data:image/jpeg;base64,$base64String';
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error processing banner image: $e');
+      }
+      return imageFile.path;
+    }
+  }
 }
+

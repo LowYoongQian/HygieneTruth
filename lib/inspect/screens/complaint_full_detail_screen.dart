@@ -207,7 +207,7 @@ class _ComplaintFullDetailScreenState extends State<ComplaintFullDetailScreen> {
         : ['https://images.unsplash.com/photo-1584483766114-2cea6facdf57?w=800'];
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: const CustomAppBar(title: 'Case Details'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -220,7 +220,7 @@ class _ComplaintFullDetailScreenState extends State<ComplaintFullDetailScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: isDark
-                      ? [const Color(0xFF0F172A), const Color(0xFF1E293B)]
+                      ? [const Color(0xFF121212), const Color(0xFF1E1E1E)]
                       : [const Color(0xFF0C2340), const Color(0xFF0F766E)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -295,7 +295,7 @@ class _ComplaintFullDetailScreenState extends State<ComplaintFullDetailScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
                 boxShadow: [
@@ -325,7 +325,7 @@ class _ComplaintFullDetailScreenState extends State<ComplaintFullDetailScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark ? Colors.white : const Color(0xFF0C2340),
                         ),
                       ),
                     ],
@@ -335,7 +335,7 @@ class _ComplaintFullDetailScreenState extends State<ComplaintFullDetailScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      color: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
                     ),
@@ -343,7 +343,7 @@ class _ComplaintFullDetailScreenState extends State<ComplaintFullDetailScreen> {
                       c.description.isNotEmpty ? c.description : 'No additional description provided.',
                       style: TextStyle(
                         fontSize: 13.5,
-                        color: isDark ? Colors.white70 : const Color(0xFF334155),
+                        color: isDark ? Colors.white70 : const Color(0xFF282828),
                         height: 1.4,
                       ),
                     ),
@@ -358,7 +358,7 @@ class _ComplaintFullDetailScreenState extends State<ComplaintFullDetailScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
                 boxShadow: [
@@ -391,7 +391,7 @@ class _ComplaintFullDetailScreenState extends State<ComplaintFullDetailScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              color: isDark ? Colors.white : const Color(0xFF0C2340),
                             ),
                           ),
                         ],
@@ -486,7 +486,7 @@ class _ComplaintFullDetailScreenState extends State<ComplaintFullDetailScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
                 boxShadow: [
@@ -519,7 +519,7 @@ class _ComplaintFullDetailScreenState extends State<ComplaintFullDetailScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              color: isDark ? Colors.white : const Color(0xFF0C2340),
                             ),
                           ),
                         ],
@@ -583,7 +583,7 @@ class _ComplaintFullDetailScreenState extends State<ComplaintFullDetailScreen> {
                           ),
                           if (_isMapLoading)
                             Container(
-                              color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
+                              color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100,
                               child: const Center(
                                 child: SizedBox(
                                   width: 24,

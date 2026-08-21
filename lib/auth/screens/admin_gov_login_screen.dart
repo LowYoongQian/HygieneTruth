@@ -63,7 +63,7 @@ class _AdminGovLoginScreenState extends State<AdminGovLoginScreen> {
                   ? 'Administrator Access Granted'
                   : 'Government Official Portal Access Granted',
             ),
-            backgroundColor: _selectedPortalRole == UserRole.admin ? const Color(0xFF0F172A) : const Color(0xFF00897B),
+            backgroundColor: _selectedPortalRole == UserRole.admin ? const Color(0xFF1E1E1E) : const Color(0xFF00897B),
           ),
         );
         Navigator.pushReplacementNamed(context, targetRoute);
@@ -77,10 +77,12 @@ class _AdminGovLoginScreenState extends State<AdminGovLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final bool isAdmin = _selectedPortalRole == UserRole.admin;
-    final primaryColor = isAdmin ? const Color(0xFF0F172A) : const Color(0xFF00897B);
+    final primaryColor = isAdmin ? (isDark ? const Color(0xFF282828) : const Color(0xFF0C2340)) : const Color(0xFF00897B);
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: const CustomAppBar(title: 'Official Staff Portal'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -114,7 +116,7 @@ class _AdminGovLoginScreenState extends State<AdminGovLoginScreen> {
               isAdmin
                   ? 'Review complaint tickets, verify restaurant submissions & log admin actions'
                   : 'Conduct inspections, issue enforcement notices & close compliance cases',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 13, color: isDark ? Colors.white60 : Colors.grey.shade600),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -123,7 +125,7 @@ class _AdminGovLoginScreenState extends State<AdminGovLoginScreen> {
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: Colors.grey.shade200,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
@@ -143,7 +145,7 @@ class _AdminGovLoginScreenState extends State<AdminGovLoginScreen> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: !isAdmin ? Colors.white : Colors.grey.shade700,
+                            color: !isAdmin ? Colors.white : (isDark ? Colors.white70 : Colors.grey.shade700),
                           ),
                         ),
                       ),
@@ -156,7 +158,7 @@ class _AdminGovLoginScreenState extends State<AdminGovLoginScreen> {
                         duration: const Duration(milliseconds: 200),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: isAdmin ? const Color(0xFF0F172A) : Colors.transparent,
+                          color: isAdmin ? (isDark ? const Color(0xFF282828) : const Color(0xFF0C2340)) : Colors.transparent,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
@@ -164,7 +166,7 @@ class _AdminGovLoginScreenState extends State<AdminGovLoginScreen> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: isAdmin ? Colors.white : Colors.grey.shade700,
+                            color: isAdmin ? Colors.white : (isDark ? Colors.white70 : Colors.grey.shade700),
                           ),
                         ),
                       ),

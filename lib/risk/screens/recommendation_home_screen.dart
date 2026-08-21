@@ -77,7 +77,7 @@ class _RecommendationHomeScreenState extends State<RecommendationHomeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: widget.showAppBar
           ? const CustomAppBar(
               title: 'Recommendation',
@@ -117,8 +117,10 @@ class _RecommendationHomeScreenState extends State<RecommendationHomeScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF0C2340), Color(0xFF00A88F)],
+                    gradient: LinearGradient(
+                      colors: isDark
+                          ? [const Color(0xFF1E1E1E), const Color(0xFF00A88F).withValues(alpha: 0.75)]
+                          : const [Color(0xFF0C2340), Color(0xFF00A88F)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -268,7 +270,7 @@ class _RecommendationHomeScreenState extends State<RecommendationHomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
                     boxShadow: [
@@ -349,13 +351,13 @@ class _RecommendationHomeScreenState extends State<RecommendationHomeScreen> {
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             color: isSelected
                 ? Colors.white
-                : (isDark ? Colors.white70 : const Color(0xFF334155)),
+                : (isDark ? Colors.white70 : const Color(0xFF282828)),
           ),
         ),
         selected: isSelected,
         onSelected: (_) => setState(() => _selectedDistanceFilter = value),
         selectedColor: AppTheme.primaryColor,
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         side: BorderSide(
           color: isSelected
               ? AppTheme.primaryColor
@@ -403,7 +405,7 @@ class _RecommendationHomeScreenState extends State<RecommendationHomeScreen> {
                         style: TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark ? Colors.white : AppTheme.navyColor,
                         ),
                       ),
                       Text(

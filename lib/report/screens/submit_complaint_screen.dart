@@ -518,26 +518,28 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
 
   // Active Step Form Controls
   Widget _buildActiveStepContent() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     switch (_currentStep) {
       case 0:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Select Restaurant / Food Stall Premises:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : AppTheme.navyColor),
             ),
             const SizedBox(height: 12),
 
             // High-Quality Custom Styled Dropdown Container
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -547,11 +549,11 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                 isExpanded: true,
                 initialValue: _selectedRestaurant,
                 borderRadius: BorderRadius.circular(16),
-                dropdownColor: Colors.white,
+                dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.primaryColor, size: 26),
                 decoration: InputDecoration(
                   labelText: 'Choose Restaurant / Food Stall',
-                  labelStyle: TextStyle(color: Colors.grey.shade700, fontSize: 14, fontWeight: FontWeight.w600),
+                  labelStyle: TextStyle(color: isDark ? Colors.white70 : Colors.grey.shade700, fontSize: 14, fontWeight: FontWeight.w600),
                   prefixIcon: Padding(
                     padding: const EdgeInsets.all(10.0),
                     child: Container(
@@ -575,29 +577,29 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                           Expanded(
                             child: Text(
                               r.name,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : AppTheme.navyColor),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
+                              color: isDark ? const Color(0xFF282828) : Colors.grey.shade100,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               r.category,
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                              style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.grey.shade700),
                             ),
                           ),
                         ],
                       ),
                     );
                   }),
-                  const DropdownMenuItem<RestaurantModel>(
+                  DropdownMenuItem<RestaurantModel>(
                     value: _otherRestaurantOption,
                     child: Row(
-                      children: [
+                      children: const [
                         Icon(Icons.add_circle_outline, color: AppTheme.primaryColor, size: 20),
                         SizedBox(width: 8),
                         Text(
@@ -623,12 +625,12 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                 duration: const Duration(milliseconds: 300),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.4), width: 1.5),
+                  border: Border.all(color: AppTheme.primaryColor.withValues(alpha: isDark ? 0.6 : 0.4), width: 1.5),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -638,19 +640,19 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      children: const [
-                        Icon(Icons.add_business_rounded, color: AppTheme.primaryColor, size: 22),
-                        SizedBox(width: 8),
+                      children: [
+                        const Icon(Icons.add_business_rounded, color: AppTheme.primaryColor, size: 22),
+                        const SizedBox(width: 8),
                         Text(
                           'New Restaurant Premises Information',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.navyColor),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: isDark ? Colors.white : AppTheme.navyColor),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Enter details for the new unlisted food outlet below:',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.grey.shade600),
                     ),
                     const SizedBox(height: 16),
 
@@ -658,13 +660,20 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                     TextField(
                       controller: _customNameController,
                       onChanged: (_) => setState(() {}),
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13.5),
                       decoration: InputDecoration(
                         labelText: 'Restaurant / Stall Name *',
+                        labelStyle: TextStyle(color: isDark ? Colors.white70 : Colors.grey.shade700),
                         hintText: 'e.g. Restoran Sin Huat, Stall 12',
+                        hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey),
                         prefixIcon: const Icon(Icons.store, color: AppTheme.primaryColor, size: 20),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300),
+                        ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: isDark ? const Color(0xFF121212) : Colors.white,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                     ),
@@ -673,12 +682,19 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                     // 2. Cuisine Category Selector
                     DropdownButtonFormField<String>(
                       initialValue: _customCategory,
+                      dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                       decoration: InputDecoration(
                         labelText: 'Cuisine / Premises Category',
+                        labelStyle: TextStyle(color: isDark ? Colors.white70 : Colors.grey.shade700),
                         prefixIcon: const Icon(Icons.restaurant_menu, color: AppTheme.primaryColor, size: 20),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300),
+                        ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: isDark ? const Color(0xFF121212) : Colors.white,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                       items: [
@@ -693,7 +709,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                       ].map((cat) {
                         return DropdownMenuItem(
                           value: cat,
-                          child: Text(cat, style: const TextStyle(fontSize: 13)),
+                          child: Text(cat, style: TextStyle(fontSize: 13, color: isDark ? Colors.white : Colors.black87)),
                         );
                       }).toList(),
                       onChanged: (val) {
@@ -709,13 +725,20 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                       controller: _customAddressController,
                       onChanged: (_) => setState(() {}),
                       maxLines: 2,
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13.5),
                       decoration: InputDecoration(
                         labelText: 'Premises Address & Landmark Details *',
+                        labelStyle: TextStyle(color: isDark ? Colors.white70 : Colors.grey.shade700),
                         hintText: 'e.g. Lot 45, Jalan Bukit Bintang, Kuala Lumpur',
+                        hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey),
                         prefixIcon: const Icon(Icons.place, color: AppTheme.primaryColor, size: 20),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300),
+                        ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: isDark ? const Color(0xFF121212) : Colors.white,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                     ),
@@ -728,17 +751,17 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: isDark ? const Color(0xFF0C4A6E).withValues(alpha: 0.3) : Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
-                children: const [
-                  Icon(Icons.gps_fixed, size: 18, color: AppTheme.primaryColor),
-                  SizedBox(width: 8),
+                children: [
+                  const Icon(Icons.gps_fixed, size: 18, color: AppTheme.primaryColor),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'GPS Location Tagged: 3.1466, 101.6958 (Kuala Lumpur)',
-                      style: TextStyle(fontSize: 12, color: AppTheme.navyColor, fontWeight: FontWeight.w500),
+                      style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF7DD3FC) : AppTheme.navyColor, fontWeight: FontWeight.w500),
                     ),
                   ),
                 ],
@@ -753,9 +776,9 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Select Main Issue Category:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : AppTheme.navyColor),
             ),
             const SizedBox(height: 10),
             
@@ -778,14 +801,14 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                      color: isSelected ? Colors.white : AppTheme.navyColor,
+                      color: isSelected ? Colors.white : (isDark ? Colors.white : AppTheme.navyColor),
                     ),
                   ),
                   selected: isSelected,
                   selectedColor: AppTheme.primaryColor,
-                  backgroundColor: Colors.white,
+                  backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                   side: BorderSide(
-                    color: isSelected ? AppTheme.primaryColor : Colors.grey.shade300,
+                    color: isSelected ? AppTheme.primaryColor : (isDark ? Colors.white24 : Colors.grey.shade300),
                   ),
                   onSelected: (selected) {
                     if (selected) {
@@ -803,20 +826,20 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Observed Hygiene Issues:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : AppTheme.navyColor),
                 ),
                 Text(
                   '${_selectedIssues.length} selected',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
               'Check all violations observed at the premises:',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.grey.shade600),
             ),
             const SizedBox(height: 12),
 
@@ -826,10 +849,12 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
-                  color: isChecked ? AppTheme.primaryColor.withValues(alpha: 0.06) : Colors.white,
+                  color: isChecked
+                      ? (isDark ? AppTheme.primaryColor.withValues(alpha: 0.15) : AppTheme.primaryColor.withValues(alpha: 0.06))
+                      : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: isChecked ? AppTheme.primaryColor : Colors.grey.shade200,
+                    color: isChecked ? AppTheme.primaryColor : (isDark ? Colors.white12 : Colors.grey.shade200),
                     width: isChecked ? 1.4 : 1,
                   ),
                 ),
@@ -842,7 +867,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
-                      color: isChecked ? AppTheme.navyColor : Colors.black87,
+                      color: isChecked ? (isDark ? Colors.white : AppTheme.navyColor) : (isDark ? Colors.white70 : Colors.black87),
                     ),
                   ),
                   value: isChecked,
@@ -865,19 +890,19 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Description & Location Notes:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : AppTheme.navyColor),
             ),
             const SizedBox(height: 8),
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -886,11 +911,11 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
               child: TextField(
                 maxLines: 3,
                 minLines: 2,
-                style: const TextStyle(fontSize: 13.5),
-                decoration: const InputDecoration(
+                style: TextStyle(fontSize: 13.5, color: isDark ? Colors.white : Colors.black87),
+                decoration: InputDecoration(
                   hintText: 'Describe observations (e.g. time of visit, table area, kitchen counter cleanliness, staff response)...',
-                  hintStyle: TextStyle(color: Colors.grey, fontSize: 12.5),
-                  contentPadding: EdgeInsets.all(14),
+                  hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey, fontSize: 12.5),
+                  contentPadding: const EdgeInsets.all(14),
                   border: InputBorder.none,
                 ),
                 onChanged: (val) => setState(() => _description = val),
@@ -916,14 +941,14 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Upload Photo Evidence:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : AppTheme.navyColor),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: _hasPhotoAttached ? AppTheme.primaryColor.withValues(alpha: 0.12) : Colors.grey.shade100,
+                    color: _hasPhotoAttached ? AppTheme.primaryColor.withValues(alpha: 0.12) : (isDark ? const Color(0xFF282828) : Colors.grey.shade100),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -931,7 +956,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
-                      color: _hasPhotoAttached ? AppTheme.primaryColor : Colors.grey.shade700,
+                      color: _hasPhotoAttached ? AppTheme.primaryColor : (isDark ? Colors.white70 : Colors.grey.shade700),
                     ),
                   ),
                 ),
@@ -940,7 +965,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
             const SizedBox(height: 6),
             Text(
               'Attach photos of food, utensils, or premises for inspection validation.',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.grey.shade600),
             ),
             const SizedBox(height: 12),
 
@@ -961,26 +986,26 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Review Report Before Submission:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : AppTheme.navyColor),
             ),
             const SizedBox(height: 4),
             Text(
               'Please confirm that all details are accurate before lodging formal complaint.',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.grey.shade600),
             ),
             const SizedBox(height: 14),
 
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -1004,13 +1029,13 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                           return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFEF2F2),
+                              color: isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.35) : const Color(0xFFFEF2F2),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFFECACA)),
+                              border: Border.all(color: isDark ? const Color(0xFFDC2626).withValues(alpha: 0.5) : const Color(0xFFFECACA)),
                             ),
                             child: Text(
                               '• $issue',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+                              style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFDC2626), fontWeight: FontWeight.w600),
                             ),
                           );
                         }).toList(),
@@ -1035,7 +1060,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                               height: 70,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.grey.shade300),
+                                border: Border.all(color: isDark ? Colors.white24 : Colors.grey.shade300),
                                 image: DecorationImage(image: FileImage(file), fit: BoxFit.cover),
                               ),
                             );
@@ -1047,7 +1072,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                               height: 70,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.grey.shade300),
+                                border: Border.all(color: isDark ? Colors.white24 : Colors.grey.shade300),
                                 image: DecorationImage(image: NetworkImage(url), fit: BoxFit.cover),
                               ),
                             );
@@ -1065,9 +1090,9 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF4),
+                color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.35) : const Color(0xFFF0FDF4),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF86EFAC)),
+                border: Border.all(color: isDark ? const Color(0xFF059669).withValues(alpha: 0.5) : const Color(0xFF86EFAC)),
               ),
               child: Row(
                 children: [
@@ -1076,7 +1101,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                   Expanded(
                     child: Text(
                       'Your report will be securely dispatched to authorized municipal health inspectors for investigation.',
-                      style: TextStyle(fontSize: 12, color: Colors.green.shade900, height: 1.35),
+                      style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFA7F3D0) : Colors.green.shade900, height: 1.35),
                     ),
                   ),
                 ],
@@ -1091,6 +1116,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
   }
 
   Widget _quickTagChip(String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -1100,19 +1126,21 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
+          color: isDark ? const Color(0xFF282828) : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
         ),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+          style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : const Color(0xFF475569), fontWeight: FontWeight.w500),
         ),
       ),
     );
   }
 
   Widget _buildPhotoEvidenceGrid() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     if (!_hasPhotoAttached) {
       return InkWell(
         onTap: _showPhotoPickerOptionsModal,
@@ -1121,12 +1149,12 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.35), width: 1.5),
+            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: isDark ? 0.5 : 0.35), width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -1143,14 +1171,14 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                 child: const Icon(Icons.add_a_photo_rounded, size: 30, color: AppTheme.primaryColor),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Tap to Upload Photo Evidence',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppTheme.navyColor),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: isDark ? Colors.white : AppTheme.navyColor),
               ),
               const SizedBox(height: 4),
               Text(
                 'Camera • Gallery • Sample Photos (Max 4)',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.grey.shade600),
               ),
             ],
           ),
@@ -1161,9 +1189,9 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1183,7 +1211,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                       height: 95,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: isDark ? Colors.white24 : Colors.grey.shade300),
                         image: DecorationImage(image: FileImage(file), fit: BoxFit.cover),
                       ),
                     ),
@@ -1221,7 +1249,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                       height: 95,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: isDark ? Colors.white24 : Colors.grey.shade300),
                         image: DecorationImage(image: NetworkImage(url), fit: BoxFit.cover),
                       ),
                     ),
@@ -1257,7 +1285,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                     width: 95,
                     height: 95,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.4), style: BorderStyle.solid),
                     ),
@@ -1282,7 +1310,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
             children: [
               Text(
                 '✓ Evidence attached for health officer review',
-                style: TextStyle(fontSize: 11.5, color: Colors.green.shade800, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFF6EE7B7) : Colors.green.shade800, fontWeight: FontWeight.w600),
               ),
               TextButton(
                 onPressed: _showPhotoPickerOptionsModal,
@@ -1300,6 +1328,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
   }
 
   Widget _buildReviewRow(String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
@@ -1309,13 +1338,13 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
             width: 120,
             child: Text(
               label,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white54 : Colors.grey),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.navyColor),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : AppTheme.navyColor),
             ),
           ),
         ],
@@ -1325,12 +1354,15 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return ListenableBuilder(
       listenable: languageManager,
       builder: (context, _) {
         final canProceed = _canProceedCurrentStep();
 
         return Scaffold(
+          backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
           appBar: CustomAppBar(
             title: t('submit_hygiene_report'),
           ),
@@ -1355,15 +1387,15 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Colors.amber.shade50,
+              color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.3) : Colors.amber.shade50,
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 16, color: Colors.amber.shade900),
+                  Icon(Icons.info_outline, size: 16, color: isDark ? Colors.amber.shade300 : Colors.amber.shade900),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _getValidationHint(),
-                      style: TextStyle(fontSize: 12, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 12, color: isDark ? Colors.amber.shade200 : Colors.amber.shade900, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -1374,10 +1406,11 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
           Container(
             padding: const EdgeInsets.all(16.0),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              border: Border(top: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade200)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, -4),
                 ),
@@ -1390,6 +1423,8 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
+                        foregroundColor: isDark ? Colors.white : AppTheme.navyColor,
+                        side: BorderSide(color: isDark ? Colors.white24 : Colors.grey.shade300),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: _onBackPressed,
@@ -1401,7 +1436,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                 Expanded(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: canProceed && !_isSubmitting ? AppTheme.primaryColor : Colors.grey.shade300,
+                      backgroundColor: canProceed && !_isSubmitting ? AppTheme.primaryColor : (isDark ? const Color(0xFF282828) : Colors.grey.shade300),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

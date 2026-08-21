@@ -19,6 +19,8 @@ import '../../gps/widgets/restaurant_card.dart';
 import 'shimmer_skeletons.dart';
 import 'stat_card.dart';
 import 'notification_bell.dart';
+import 'user_avatar.dart';
+import 'user_banner.dart';
 
 import '../../owner/screens/owner_dashboard_screen.dart';
 import '../../gps/screens/restaurant_map_screen.dart';
@@ -171,9 +173,10 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
       _hasCheckedProfileSetup = true;
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Map && args['showProfileSetupDialog'] == true) {
+        final bool isGoogleFlow = args['isGoogleFlow'] == true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            ProfileSetupFocusDialog.show(context);
+            ProfileSetupFocusDialog.show(context, isGoogleFlow: isGoogleFlow);
           }
         });
       }
@@ -281,14 +284,13 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
       final distA = Geolocator.distanceBetween(_userLat, _userLng, a.latitude, a.longitude) / 1000.0;
       final distB = Geolocator.distanceBetween(_userLat, _userLng, b.latitude, b.longitude) / 1000.0;
 
-      // Effective rating score (real review stars or high safety default)
-      final effectiveRatingA = ratingA.hasReviews ? ratingA.averageRating : (5.0 - (a.hygieneRiskScore * 0.04));
-      final effectiveRatingB = ratingB.hasReviews ? ratingB.averageRating : (5.0 - (b.hygieneRiskScore * 0.04));
+      // Real rating score (only positive rating weight if restaurant has verified reviews)
+      final effectiveRatingA = ratingA.hasReviews ? ratingA.averageRating : 0.0;
+      final effectiveRatingB = ratingB.hasReviews ? ratingB.averageRating : 0.0;
 
-      // Composite proximity score: High Star Rating + Nearby Proximity
-      // Score formula gives strong weight to high stars, while prioritizing closer outlets
-      final scoreA = (effectiveRatingA * 10.0) + (ratingA.totalReviews * 0.1) - (distA * 0.35) - (a.violationCount * 2.0) - (a.hygieneRiskScore * 0.05);
-      final scoreB = (effectiveRatingB * 10.0) + (ratingB.totalReviews * 0.1) - (distB * 0.35) - (b.violationCount * 2.0) - (b.hygieneRiskScore * 0.05);
+      // Composite score: Verified Ratings + Hygiene Cleanliness + Nearby Proximity
+      final scoreA = (effectiveRatingA * 8.0) + (ratingA.totalReviews * 0.5) + ((100.0 - a.hygieneRiskScore) * 0.2) - (distA * 0.35) - (a.violationCount * 2.0);
+      final scoreB = (effectiveRatingB * 8.0) + (ratingB.totalReviews * 0.5) + ((100.0 - b.hygieneRiskScore) * 0.2) - (distB * 0.35) - (b.violationCount * 2.0);
 
       return scoreB.compareTo(scoreA);
     });
@@ -594,7 +596,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
             color: isDark ? Colors.white70 : Colors.grey.shade700,
           ),
         ),
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         side: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         onPressed: onTap,
@@ -616,10 +618,10 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            color: isDark ? Colors.white : const Color(0xFF0C2340),
           ),
         ),
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         side: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         onPressed: () {
@@ -634,19 +636,23 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
   }
 
   Widget _roundActionBtn({required IconData icon, required Color color, required String label, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 26,
-            backgroundColor: color.withValues(alpha: 0.1),
+    return Column(
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Icon(icon, color: color, size: 24),
           ),
-          const SizedBox(height: 6),
-          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-        ],
-      ),
+        ),
+        const SizedBox(height: 6),
+        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+      ],
     );
   }
 
@@ -673,50 +679,10 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
             clipBehavior: Clip.none,
             alignment: Alignment.topCenter,
             children: [
-              // Rich Aesthetic Gradient Banner Container
-              Container(
+              // Rich Aesthetic Custom / Gradient Banner Container
+              UserBanner(
+                bannerUrl: customer?.bannerUrl,
                 height: 140,
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xFF0F172A), // Deep Navy
-                      Color(0xFF1E293B),
-                      Color(0xFF0284C7), // Ocean Blue accent
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    // Subtle background decorative circles
-                    Positioned(
-                      right: -20,
-                      top: -20,
-                      child: Container(
-                        width: 110,
-                        height: 110,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: 0.08),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      bottom: 10,
-                      child: Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: 0.05),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
 
               // Overlapping Profile Avatar Frame Icon with Gold Ring Accent
@@ -737,20 +703,9 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
                   ),
                   child: Stack(
                     children: [
-                      CircleAvatar(
+                      UserAvatar(
+                        avatarUrl: avatarUrl,
                         radius: 46,
-                        backgroundColor: const Color(0xFF0284C7).withValues(alpha: 0.15),
-                        backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                        child: avatarUrl.isEmpty
-                            ? Text(
-                                userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0284C7),
-                                ),
-                              )
-                            : null,
                       ),
                       // Online Indicator Status Dot
                       Positioned(
@@ -786,7 +741,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A),
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0C2340),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -839,7 +794,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
                     ),
                     title: Text(
                       t('my_profile'),
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A)),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0C2340)),
                     ),
                     subtitle: const Text('Manage personal details & contact info', style: TextStyle(fontSize: 12, color: Colors.grey)),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
@@ -864,7 +819,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
                     ),
                     title: Text(
                       t('activity_history'),
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A)),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0C2340)),
                     ),
                     subtitle: const Text('View recent visits, submitted reports & reviews', style: TextStyle(fontSize: 12, color: Colors.grey)),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
@@ -932,7 +887,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
+                  color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E1E1E) : const Color(0xFF0C2340),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -1263,7 +1218,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
       padding: const EdgeInsets.fromLTRB(20, 52, 20, 20),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF0C2340), Color(0xFF1E293B)],
+          colors: [Color(0xFF181818), Color(0xFF282828)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1274,18 +1229,13 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 2),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4)),
-                  ],
-                ),
-                child: CircleAvatar(
-                  radius: 28,
-                  backgroundImage: NetworkImage(avatarUrl),
-                ),
+              UserAvatar(
+                avatarUrl: avatarUrl,
+                radius: 28,
+                border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 2),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4)),
+                ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1395,10 +1345,10 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
-                      color: Color(0xFF0F172A),
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0C2340),
                     ),
                   ),
                 ),
@@ -1842,7 +1792,7 @@ class _UrgentVisitCarouselState extends State<UrgentVisitCarousel> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : const Color(0xFF1E293B),
+                color: isDark ? Colors.white : const Color(0xFF0C2340),
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

@@ -22,18 +22,18 @@ class RestaurantCard extends StatelessWidget {
     this.userLng,
   });
 
-  Map<String, dynamic>? _getRankVisuals(int index) {
+  Map<String, dynamic>? _getRankVisuals(int index, {bool hasReviews = false}) {
     switch (index) {
       case 0:
         return {
-          'title': '🥇 1st Place • Top Rated',
+          'title': hasReviews ? '🥇 1st Place • Top Rated' : '🥇 1st Place • Safe Pick',
           'gradient': const [Color(0xFFF59E0B), Color(0xFFD97706)],
           'border': const Color(0xFFFBBF24),
           'shadow': const Color(0xFFF59E0B),
         };
       case 1:
         return {
-          'title': '🥈 2nd Place • High Star',
+          'title': hasReviews ? '🥈 2nd Place • High Star' : '🥈 2nd Place • Safe Pick',
           'gradient': const [Color(0xFF0284C7), Color(0xFF0F766E)],
           'border': const Color(0xFF38BDF8),
           'shadow': const Color(0xFF0284C7),
@@ -48,9 +48,9 @@ class RestaurantCard extends StatelessWidget {
       default:
         return {
           'title': '#${index + 1} Safe Pick',
-          'gradient': const [Color(0xFF475569), Color(0xFF334155)],
-          'border': const Color(0xFF94A3B8),
-          'shadow': const Color(0xFF475569),
+          'gradient': const [Color(0xFF333333), Color(0xFF1E1E1E)],
+          'border': const Color(0xFF666666),
+          'shadow': const Color(0xFF1E1E1E),
         };
     }
   }
@@ -59,10 +59,10 @@ class RestaurantCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ratingInfo = RestaurantStoreService.getRatingSync(restaurant.id, restaurantName: restaurant.name);
-    final displayRating = ratingInfo.hasReviews ? ratingInfo.ratingText : '4.8';
-    final displayReviews = ratingInfo.hasReviews ? '${ratingInfo.totalReviews}' : '120+';
+    final displayRating = ratingInfo.hasReviews ? ratingInfo.ratingText : '0.0';
+    final displayReviews = ratingInfo.hasReviews ? '${ratingInfo.totalReviews}' : '0';
     final safetyPct = (100 - restaurant.hygieneRiskScore).clamp(80, 100).toInt();
-    final rankVisuals = rankIndex != null ? _getRankVisuals(rankIndex!) : null;
+    final rankVisuals = rankIndex != null ? _getRankVisuals(rankIndex!, hasReviews: ratingInfo.hasReviews) : null;
     final distKm = (userLat != null && userLng != null)
         ? (Geolocator.distanceBetween(userLat!, userLng!, restaurant.latitude, restaurant.longitude) / 1000.0)
         : null;
@@ -71,7 +71,7 @@ class RestaurantCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: rankIndex == 0
@@ -113,7 +113,7 @@ class RestaurantCard extends StatelessWidget {
                         restaurant.imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) => Container(
-                          color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                          color: isDark ? const Color(0xFF121212) : const Color(0xFFF1F5F9),
                           child: Center(
                             child: Icon(
                               Icons.restaurant_rounded,
@@ -195,10 +195,16 @@ class RestaurantCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.star_rounded, size: 14, color: Color(0xFFFBBF24)),
+                            Icon(
+                              ratingInfo.hasReviews ? Icons.star_rounded : Icons.star_outline_rounded,
+                              size: 14,
+                              color: ratingInfo.hasReviews ? const Color(0xFFFBBF24) : Colors.white70,
+                            ),
                             const SizedBox(width: 3),
                             Text(
-                              '$displayRating ★ ($displayReviews reviews)',
+                              ratingInfo.hasReviews
+                                  ? '$displayRating ★ ($displayReviews reviews)'
+                                  : 'New (No reviews yet)',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -228,7 +234,7 @@ class RestaurantCard extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                color: isDark ? Colors.white : const Color(0xFF0C2340),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

@@ -18,6 +18,7 @@ import '../../core/services/restaurant_store_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../notifications/models/notification_model.dart';
 import '../../core/widgets/shimmer_skeletons.dart';
+import '../../core/widgets/user_avatar.dart';
 import '../widgets/deadline_countdown_badge.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
@@ -157,7 +158,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 maxHeight: MediaQuery.of(context).size.height * 0.75,
               ),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
                 boxShadow: [
                   BoxShadow(
@@ -276,7 +277,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                   decoration: BoxDecoration(
                                     color: isSelected
                                         ? (isDark ? AppTheme.primaryColor.withValues(alpha: 0.15) : const Color(0xFFF0FDF4))
-                                        : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC)),
+                                        : (isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC)),
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
                                       color: isSelected
@@ -480,30 +481,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
 
 
-  // Mock Reviews Data with Owner Responses for Analytics Monitoring
-  final List<Map<String, String>> _ownerReviews = [
-    {
-      'userName': 'Ahmad Razak',
-      'date': '2026-07-28',
-      'stars': '5',
-      'comment': 'Very clean dining area and kitchen! Food served hot and fresh. Staff wore hairnets and gloves properly.',
-      'ownerReply': 'Thank you Ahmad! We strictly enforce daily sanitization protocols.',
-    },
-    {
-      'userName': 'Siti Sarah',
-      'date': '2026-07-22',
-      'stars': '4',
-      'comment': 'Great noodles! Tables were wiped clean quickly. Passed hygiene inspection well.',
-      'ownerReply': '',
-    },
-    {
-      'userName': 'Kevin Tan',
-      'date': '2026-07-15',
-      'stars': '3',
-      'comment': 'Food was delicious, but floor near dishwashing area was slippery during peak hour.',
-      'ownerReply': 'Appreciate the feedback Kevin. Our team has placed non-slip mats near dishwashing.',
-    },
-  ];
+  // Real Reviews Data with Owner Responses for Analytics Monitoring
+  final List<Map<String, String>> _ownerReviews = [];
 
   void _showEditProfileDetailsDialog() {
     final currentCustomer = CustomerStoreService.currentCustomer;
@@ -1453,7 +1432,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300)),
                                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF0F766E), width: 1.8)),
                                 filled: true,
-                                fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                               ),
                             ),
@@ -1475,7 +1454,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300)),
                                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF0F766E), width: 1.8)),
                                 filled: true,
-                                fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                               ),
                             ),
@@ -1501,7 +1480,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300)),
                                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF0F766E), width: 1.8)),
                                 filled: true,
-                                fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                               ),
                             ),
@@ -2166,7 +2145,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             return Container(
               constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: isSuccess
@@ -2228,7 +2207,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                              color: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
                             ),
@@ -2338,7 +2317,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                 prefixIcon: const Icon(Icons.account_balance_rounded, color: Color(0xFF0F766E)),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                 filled: true,
-                                fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               ),
                               items: banks.map((b) {
@@ -2603,8 +2582,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final String tierLabel = isSafe ? 'SAFE & CLEAN' : (isModerate ? 'MODERATE RISK' : 'HIGH RISK');
     final Color tierColor = isSafe ? const Color(0xFF0F766E) : (isModerate ? Colors.amber.shade800 : Colors.red.shade700);
     final String grade = score <= 20.0 ? 'Grade A' : (score <= 50.0 ? 'Grade B' : 'Grade C');
-
-    final reviewsToDisplay = _dynamicOutletReviews.isNotEmpty ? _dynamicOutletReviews : _ownerReviews;
+    final reviewsToDisplay = _dynamicOutletReviews;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -3559,7 +3537,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: cardBorder.withValues(alpha: 0.4), width: 1.5),
         boxShadow: [
@@ -3618,7 +3596,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                color: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.grey.shade200),
               ),
@@ -3878,7 +3856,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+              backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 480),
                 child: Column(
@@ -3977,7 +3955,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                               hintText: 'State your reason clearly (e.g., store closure, relocation, change of ownership)...',
                               hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade400, fontSize: 12),
                               filled: true,
-                              fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                              fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                               contentPadding: const EdgeInsets.all(14),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
@@ -4184,7 +4162,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -4229,7 +4207,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
               ),
@@ -4284,7 +4262,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 18),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isApproved
@@ -4637,7 +4615,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+        color: isDark ? const Color(0xFF121212) : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
       ),
@@ -4680,7 +4658,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final customer = CustomerStoreService.currentCustomer;
     final displayName = _ownerName.isNotEmpty ? _ownerName : (customer?.name ?? 'Businessman Account');
     final displayEmail = _ownerEmail.isNotEmpty ? _ownerEmail : (customer?.email ?? 'owner@restaurant.com');
-    final avatarUrl = customer?.avatarUrl ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200';
+    final avatarUrl = customer?.avatarUrl ?? '';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -4710,17 +4688,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF80EE98), width: 2),
-                        ),
-                        child: CircleAvatar(
-                          radius: 34,
-                          backgroundColor: Colors.white24,
-                          backgroundImage: NetworkImage(avatarUrl),
-                        ),
+                      UserAvatar(
+                        avatarUrl: avatarUrl,
+                        radius: 34,
+                        border: Border.all(color: const Color(0xFF80EE98), width: 2),
                       ),
                       const SizedBox(width: 16),
                       Expanded(

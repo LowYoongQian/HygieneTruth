@@ -192,7 +192,7 @@ class _RestaurantVerificationQueueScreenState extends State<RestaurantVerificati
                         return Container(
                           margin: const EdgeInsets.only(bottom: 14),
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: isDark ? Colors.white10 : Colors.amber.withValues(alpha: 0.3)),
                             boxShadow: [

@@ -326,7 +326,7 @@ class ProfileSetupFocusDialog {
                                 state: finalState,
                               );
                             }
-                            if (context.mounted) {
+                            if (isGoogleFlow && context.mounted) {
                               _showPasswordSecurityDialog(context);
                             }
                           },
@@ -341,7 +341,7 @@ class ProfileSetupFocusDialog {
                           ),
                           onPressed: () {
                             Navigator.pop(ctx);
-                            if (context.mounted) {
+                            if (isGoogleFlow && context.mounted) {
                               _showPasswordSecurityDialog(context);
                             }
                           },

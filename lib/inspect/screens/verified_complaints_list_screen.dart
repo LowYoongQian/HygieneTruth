@@ -218,7 +218,7 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
     }).length;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: CustomAppBar(
         title: 'Assigned Cases',
         actions: [
@@ -240,7 +240,7 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                       border: Border(bottom: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0))),
                     ),
                     child: Row(
@@ -271,7 +271,7 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
                         prefixIcon: const Icon(Icons.search_rounded, size: 20),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
@@ -298,7 +298,7 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
                               label: Text(st),
                               selected: isSelected,
                               selectedColor: const Color(0xFF0F766E),
-                              backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                              backgroundColor: isDark ? const Color(0xFF282828) : const Color(0xFFF1F5F9),
                               checkmarkColor: Colors.white,
                               labelStyle: TextStyle(
                                 fontSize: 12,
@@ -350,7 +350,7 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 12),
                                 decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
                                     color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
@@ -402,7 +402,7 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
                                                         style: TextStyle(
                                                           fontWeight: FontWeight.bold,
                                                           fontSize: 15,
-                                                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                                          color: isDark ? Colors.white : const Color(0xFF0C2340),
                                                         ),
                                                         maxLines: 1,
                                                         overflow: TextOverflow.ellipsis,
@@ -518,7 +518,7 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100,
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -533,7 +533,7 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                color: isDark ? Colors.white : const Color(0xFF0C2340),
               ),
             ),
             const SizedBox(height: 6),

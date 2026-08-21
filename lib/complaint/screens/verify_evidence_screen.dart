@@ -79,7 +79,7 @@ class _VerifyEvidenceScreenState extends State<VerifyEvidenceScreen> {
         : null;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: const CustomAppBar(title: 'Verify'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -315,7 +315,7 @@ class _VerifyEvidenceScreenState extends State<VerifyEvidenceScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                      color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
                     ),
@@ -627,7 +627,7 @@ class _VerifyEvidenceScreenState extends State<VerifyEvidenceScreen> {
           height: 135,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+            color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: hasImage

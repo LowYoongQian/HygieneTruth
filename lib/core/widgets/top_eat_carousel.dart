@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../models/restaurant_model.dart';
 import '../routes/app_routes.dart';
+import '../services/restaurant_store_service.dart';
 
 class TopEatCarousel extends StatefulWidget {
   final List<RestaurantModel> restaurants;
@@ -78,22 +79,27 @@ class _TopEatCarouselState extends State<TopEatCarousel> {
     return list.take(3).toList();
   }
 
-  Map<String, dynamic> _getRankBadge(int index) {
+  Map<String, dynamic> _getRankBadge(int index, RestaurantModel restaurant) {
+    final ratingInfo = RestaurantStoreService.getRatingSync(restaurant.id, restaurantName: restaurant.name);
+    final ratingStr = ratingInfo.hasReviews
+        ? '${ratingInfo.ratingText} ★ (${ratingInfo.totalReviews} reviews)'
+        : 'New (0 reviews)';
+
     switch (index) {
       case 0:
         return {
-          'title': '🥇 #1 Top Safe Eat',
+          'title': ratingInfo.hasReviews ? '🥇 #1 Top Safe Eat' : '🥇 #1 Top Clean Outlet',
           'gradient': const [Color(0xFFF59E0B), Color(0xFFD97706)],
           'border': const Color(0xFFFBBF24),
-          'rating': '4.9 ★ (180+ reviews)',
+          'rating': ratingStr,
           'recommendation': '✨ 0 Hygiene Complaints • 100% KKM Cleanliness Pass',
         };
       case 1:
         return {
-          'title': '🥈 #2 Recommended Clean',
+          'title': ratingInfo.hasReviews ? '🥈 #2 Recommended Clean' : '🥈 #2 Verified Outlet',
           'gradient': const [Color(0xFF0284C7), Color(0xFF0F766E)],
           'border': const Color(0xFF38BDF8),
-          'rating': '4.8 ★ (145+ reviews)',
+          'rating': ratingStr,
           'recommendation': '✨ Excellent Sanitation • High Customer Trust',
         };
       case 2:
@@ -102,7 +108,7 @@ class _TopEatCarouselState extends State<TopEatCarousel> {
           'title': '🥉 #3 Verified Healthy Pick',
           'gradient': const [Color(0xFF059669), Color(0xFF047857)],
           'border': const Color(0xFF34D399),
-          'rating': '4.7 ★ (98+ reviews)',
+          'rating': ratingStr,
           'recommendation': '✨ Verified Clean Prep Area • Grade A Certified',
         };
     }
@@ -127,7 +133,7 @@ class _TopEatCarouselState extends State<TopEatCarousel> {
             itemBuilder: (context, index) {
               final r = topSafe[index];
               final isSelected = (_currentPage == index);
-              final badgeInfo = _getRankBadge(index);
+              final badgeInfo = _getRankBadge(index, r);
               final List<Color> badgeGrad = badgeInfo['gradient'] as List<Color>;
               final Color badgeBorder = badgeInfo['border'] as Color;
               final String badgeTitle = badgeInfo['title'] as String;
@@ -157,7 +163,7 @@ class _TopEatCarouselState extends State<TopEatCarousel> {
                         r.imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) => Container(
-                          color: const Color(0xFF0F172A),
+                          color: const Color(0xFF121212),
                           child: const Icon(Icons.restaurant_rounded, size: 60, color: Colors.white24),
                         ),
                       ),

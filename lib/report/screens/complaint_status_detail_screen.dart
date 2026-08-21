@@ -1,6 +1,7 @@
 import '../../core/services/restaurant_store_service.dart';
 import 'package:flutter/material.dart';
 import '../../core/models/complaint_model.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/status_badge.dart';
 import '../widgets/complaint_status_tracker.dart';
@@ -36,7 +37,10 @@ class ComplaintStatusDetailScreen extends StatelessWidget {
       );
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: CustomAppBar(title: 'Report: ${c.id}'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -46,6 +50,11 @@ class ComplaintStatusDetailScreen extends StatelessWidget {
             ComplaintStatusTracker(status: c.status),
             const SizedBox(height: 20),
             Card(
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade200),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -57,7 +66,7 @@ class ComplaintStatusDetailScreen extends StatelessWidget {
                         Flexible(
                           child: Text(
                             'Report ID: ${c.id}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.navyColor),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -65,30 +74,58 @@ class ComplaintStatusDetailScreen extends StatelessWidget {
                         StatusBadge.fromStatus(c.status.name),
                       ],
                     ),
-                    const Divider(height: 24),
+                    Divider(height: 24, color: isDark ? Colors.white12 : Colors.grey.shade200),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.store, color: Colors.teal),
-                      title: Text(c.restaurantName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('Category: ${c.category}'),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.store, color: AppTheme.primaryColor, size: 20),
+                      ),
+                      title: Text(c.restaurantName, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.navyColor)),
+                      subtitle: Text('Category: ${c.category}', style: TextStyle(color: isDark ? Colors.white70 : Colors.grey.shade600)),
                     ),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.warning, color: Colors.amber),
-                      title: const Text('Issues'),
-                      subtitle: Text(c.issues.join('\n')),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+                      ),
+                      title: Text('Issues', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.navyColor)),
+                      subtitle: Text(c.issues.join('\n'), style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
                     ),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.description),
-                      title: const Text('Description'),
-                      subtitle: Text(c.description),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.description_outlined, color: Color(0xFF0284C7), size: 20),
+                      ),
+                      title: Text('Description', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.navyColor)),
+                      subtitle: Text(c.description, style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
                     ),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.access_time),
-                      title: const Text('Timestamp'),
-                      subtitle: Text(c.submittedAt),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.access_time, color: Colors.purple, size: 20),
+                      ),
+                      title: Text('Timestamp', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.navyColor)),
+                      subtitle: Text(c.submittedAt, style: TextStyle(color: isDark ? Colors.white60 : Colors.grey)),
                     ),
                   ],
                 ),

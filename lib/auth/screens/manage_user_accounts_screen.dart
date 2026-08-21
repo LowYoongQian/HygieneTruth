@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/shimmer_skeletons.dart';
 import '../../core/widgets/status_badge.dart';
+import '../../core/widgets/user_avatar.dart';
 import '../widgets/role_badge.dart';
 
 class ManageUserAccountsScreen extends StatefulWidget {
@@ -149,7 +150,7 @@ class _ManageUserAccountsScreenState extends State<ManageUserAccountsScreen> {
                       // Search Bar
                       Container(
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
+                          color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade300),
                         ),
@@ -313,7 +314,7 @@ class _ManageUserAccountsScreenState extends State<ManageUserAccountsScreen> {
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 14),
                                 decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
                                   boxShadow: [
@@ -332,17 +333,10 @@ class _ManageUserAccountsScreenState extends State<ManageUserAccountsScreen> {
                                       // User Card Top Row (Avatar, Name, Badges)
                                       Row(
                                         children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(2),
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              border: Border.all(color: roleBorderColor, width: 2),
-                                            ),
-                                            child: CircleAvatar(
-                                              radius: 24,
-                                              backgroundColor: isDark ? Colors.white10 : Colors.grey.shade200,
-                                              backgroundImage: NetworkImage(user.avatarUrl),
-                                            ),
+                                          UserAvatar(
+                                            avatarUrl: user.avatarUrl,
+                                            radius: 24,
+                                            border: Border.all(color: roleBorderColor, width: 2),
                                           ),
                                           const SizedBox(width: 12),
                                           Expanded(
@@ -479,7 +473,7 @@ class _ManageUserAccountsScreenState extends State<ManageUserAccountsScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+          color: isSelected ? activeColor : (isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF1F5F9)),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? activeColor : (isDark ? Colors.white10 : Colors.grey.shade300),

@@ -316,7 +316,7 @@ class _DuplicateFakeReviewScreenState extends State<DuplicateFakeReviewScreen> {
           height: 135,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+            color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: hasImage

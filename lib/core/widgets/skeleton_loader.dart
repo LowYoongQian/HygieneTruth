@@ -42,9 +42,9 @@ class _ShimmerEffectState extends State<ShimmerEffect>
             return LinearGradient(
               colors: isDark
                   ? const [
-                      Color(0xFF1E293B),
-                      Color(0xFF334155),
-                      Color(0xFF1E293B),
+                      Color(0xFF1E1E1E),
+                      Color(0xFF282828),
+                      Color(0xFF1E1E1E),
                     ]
                   : const [
                       Color(0xFFE2E8F0),
@@ -99,7 +99,7 @@ class SkeletonBox extends StatelessWidget {
       height: height,
       margin: margin,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+        color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFE2E8F0),
         borderRadius: BorderRadius.circular(borderRadius),
       ),
     );
@@ -112,14 +112,16 @@ class SkeletonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return ShimmerEffect(
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(color: isDark ? const Color(0xFF333333) : const Color(0xFFE2E8F0)),
         ),
         child: Row(
           children: [

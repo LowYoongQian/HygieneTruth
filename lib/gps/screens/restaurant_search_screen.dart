@@ -339,6 +339,7 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
   }
 
   void _openFilterBottomSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final List<String> categories = [
       'All',
       ..._allRestaurants.map((r) => r.category).where((c) => c.isNotEmpty).toSet(),
@@ -347,7 +348,7 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -359,92 +360,121 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
                 left: 20,
                 right: 20,
                 top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Filter Outlets',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.navyColor,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                  const Divider(),
-                  const SizedBox(height: 12),
-
-                  // Cuisine Category Dropdown
-                  const Text(
-                    'Cuisine Category',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: categories.contains(_selectedCategory) ? _selectedCategory : 'All',
-                        isExpanded: true,
-                        items: categories.map((cat) {
-                          return DropdownMenuItem(
-                            value: cat,
-                            child: Text(cat),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            setFilterState(() {
-                              _selectedCategory = val;
-                            });
-                          }
-                        },
+                  // Handle Bar
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white24 : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
 
-                  // Hygiene Risk Level Selector
-                  const Text(
-                    'Hygiene Risk Level',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                  // Header Row with Reset Button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Filter Outlets',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : AppTheme.navyColor,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setFilterState(() {
+                            _selectedCategory = 'All';
+                            _selectedRanking = 'All';
+                            _isNearbyOnly = false;
+                          });
+                        },
+                        child: const Text('Reset All'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Category Section
+                  Text(
+                    'Category',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white70 : AppTheme.navyColor,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
+                    runSpacing: 8,
+                    children: categories.map((cat) {
+                      final isSelected = _selectedCategory == cat;
+                      return ChoiceChip(
+                        label: Text(cat),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primaryColor,
+                        backgroundColor: isDark ? const Color(0xFF282828) : Colors.grey.shade100,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        onSelected: (selected) {
+                          if (selected) {
+                            setFilterState(() {
+                              _selectedCategory = cat;
+                            });
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Risk / Hygiene Ranking Section
+                  Text(
+                    'Hygiene Risk Level',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white70 : AppTheme.navyColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: ['All', 'Low', 'Medium', 'High'].map((rank) {
                       final isSelected = _selectedRanking == rank;
                       return ChoiceChip(
-                        label: Text(
-                          rank == 'All' ? 'All Risk Levels' : '$rank Risk',
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : AppTheme.navyColor,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
+                        label: Text(rank == 'All' ? 'All Risks' : '$rank Risk'),
                         selected: isSelected,
-                        selectedColor: AppTheme.primaryColor,
-                        backgroundColor: Colors.grey.shade100,
+                        selectedColor: rank == 'Low'
+                            ? const Color(0xFF059669)
+                            : (rank == 'Medium'
+                                ? const Color(0xFFD97706)
+                                : (rank == 'High' ? const Color(0xFFDC2626) : AppTheme.primaryColor)),
+                        backgroundColor: isDark ? const Color(0xFF282828) : Colors.grey.shade100,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
                         onSelected: (selected) {
-                          setFilterState(() {
-                            _selectedRanking = selected ? rank : 'All';
-                          });
+                          if (selected) {
+                            setFilterState(() {
+                              _selectedRanking = rank;
+                            });
+                          }
                         },
                       );
                     }).toList(),
@@ -454,13 +484,16 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
                   // Nearby Only Toggle
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text(
+                    title: Text(
                       'Nearby Outlets Only (< 8 km)',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.navyColor),
                     ),
-                    subtitle: const Text(
+                    subtitle: Text(
                       'Sort outlets closest to your current GPS location',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.white60 : Colors.grey,
+                      ),
                     ),
                     value: _isNearbyOnly,
                     activeThumbColor: AppTheme.primaryColor,
@@ -505,10 +538,13 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return ListenableBuilder(
       listenable: languageManager,
       builder: (context, _) {
         return Scaffold(
+          backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
           appBar: CustomAppBar(title: t('search_outlets').split('.').first),
           body: GestureDetector(
             onTap: () => FocusScope.of(context).unfocus(),
@@ -524,15 +560,19 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
                         child: TextField(
                           controller: _searchCtrl,
                           onChanged: (_) => _applyFilters(),
+                          style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
                           decoration: InputDecoration(
                             hintText: 'Search outlets...',
-                            prefixIcon: const Icon(Icons.search),
+                            hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade500, fontSize: 14),
+                            filled: true,
+                            fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                            prefixIcon: Icon(Icons.search, color: isDark ? Colors.white70 : AppTheme.navyColor),
                             suffixIcon: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 if (_searchCtrl.text.isNotEmpty)
                                   IconButton(
-                                    icon: const Icon(Icons.clear, size: 20),
+                                    icon: Icon(Icons.clear, size: 20, color: isDark ? Colors.white60 : Colors.grey),
                                     onPressed: () {
                                       _searchCtrl.clear();
                                       _applyFilters();
@@ -550,6 +590,11 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300),
                             ),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           ),
@@ -564,17 +609,17 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
                             height: 52,
                             width: 52,
                             decoration: BoxDecoration(
-                              color: _hasActiveFilters ? AppTheme.primaryColor : Colors.grey.shade100,
+                              color: _hasActiveFilters ? AppTheme.primaryColor : (isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: _hasActiveFilters ? AppTheme.primaryColor : Colors.grey.shade300,
+                                color: _hasActiveFilters ? AppTheme.primaryColor : (isDark ? Colors.white24 : Colors.grey.shade300),
                                 width: 1.2,
                               ),
                             ),
                             child: IconButton(
                               icon: Icon(
                                 Icons.tune_rounded,
-                                color: _hasActiveFilters ? Colors.white : AppTheme.navyColor,
+                                color: _hasActiveFilters ? Colors.white : (isDark ? Colors.white : AppTheme.navyColor),
                               ),
                               tooltip: 'Filter Outlets',
                               onPressed: _openFilterBottomSheet,

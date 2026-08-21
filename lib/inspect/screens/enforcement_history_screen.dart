@@ -146,7 +146,7 @@ class _EnforcementHistoryScreenState extends State<EnforcementHistoryScreen> {
     final totalFines = allList.fold<double>(0, (sum, i) => sum + i.fineAmount);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: const CustomAppBar(title: 'Action History'),
       body: _isLoading
           ? const ActionHistorySkeleton()
@@ -159,7 +159,7 @@ class _EnforcementHistoryScreenState extends State<EnforcementHistoryScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                       border: Border(bottom: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0))),
                     ),
                     child: Row(
@@ -190,7 +190,7 @@ class _EnforcementHistoryScreenState extends State<EnforcementHistoryScreen> {
                         prefixIcon: const Icon(Icons.search_rounded, size: 20),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
@@ -217,7 +217,7 @@ class _EnforcementHistoryScreenState extends State<EnforcementHistoryScreen> {
                               label: Text(opt),
                               selected: isSelected,
                               selectedColor: const Color(0xFF0F766E),
-                              backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                              backgroundColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF1F5F9),
                               checkmarkColor: Colors.white,
                               labelStyle: TextStyle(
                                 fontSize: 12,
@@ -269,7 +269,7 @@ class _EnforcementHistoryScreenState extends State<EnforcementHistoryScreen> {
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 12),
                                 decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
                                   boxShadow: [
@@ -314,7 +314,7 @@ class _EnforcementHistoryScreenState extends State<EnforcementHistoryScreen> {
                                                         style: TextStyle(
                                                           fontWeight: FontWeight.bold,
                                                           fontSize: 15,
-                                                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                                          color: isDark ? Colors.white : const Color(0xFF0C2340),
                                                         ),
                                                         maxLines: 1,
                                                         overflow: TextOverflow.ellipsis,
@@ -348,16 +348,15 @@ class _EnforcementHistoryScreenState extends State<EnforcementHistoryScreen> {
                                                       Container(
                                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                                                         decoration: BoxDecoration(
-                                                          color: insp.isFinePaid ? const Color(0xFFD1FAE5) : const Color(0xFFFEF3C7),
-                                                          borderRadius: BorderRadius.circular(6),
-                                                          border: Border.all(color: insp.isFinePaid ? const Color(0xFF10B981) : const Color(0xFFF59E0B)),
+                                                          color: insp.isFinePaid ? const Color(0xFF059669).withValues(alpha: 0.1) : const Color(0xFFDC2626).withValues(alpha: 0.1),
+                                                          borderRadius: BorderRadius.circular(4),
                                                         ),
                                                         child: Text(
-                                                          insp.isFinePaid ? '✅ Paid' : '⏳ Unpaid',
+                                                          insp.isFinePaid ? 'PAID' : 'UNPAID',
                                                           style: TextStyle(
                                                             fontSize: 10,
                                                             fontWeight: FontWeight.bold,
-                                                            color: insp.isFinePaid ? const Color(0xFF059669) : const Color(0xFFB45309),
+                                                            color: insp.isFinePaid ? const Color(0xFF059669) : const Color(0xFFDC2626),
                                                           ),
                                                         ),
                                                       ),
@@ -367,16 +366,11 @@ class _EnforcementHistoryScreenState extends State<EnforcementHistoryScreen> {
                                                 const SizedBox(height: 6),
                                                 Row(
                                                   children: [
-                                                    Icon(Icons.badge_outlined, size: 13, color: isDark ? Colors.white38 : Colors.grey),
+                                                    const Icon(Icons.badge_outlined, size: 13, color: Colors.grey),
                                                     const SizedBox(width: 4),
                                                     Text(
-                                                      insp.officerName,
+                                                      'Officer: ${insp.officerName} • ${insp.conductedDate ?? "Pending"}',
                                                       style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.grey.shade600),
-                                                    ),
-                                                    const Spacer(),
-                                                    Text(
-                                                      'Tap to Close Case ›',
-                                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0F766E)),
                                                     ),
                                                   ],
                                                 ),
@@ -458,7 +452,7 @@ class _EnforcementHistoryScreenState extends State<EnforcementHistoryScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100,
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.history_toggle_off_rounded, size: 40, color: isDark ? Colors.white38 : Colors.grey.shade400),
@@ -466,7 +460,7 @@ class _EnforcementHistoryScreenState extends State<EnforcementHistoryScreen> {
             const SizedBox(height: 14),
             Text(
               'No Enforcement Actions Found',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : const Color(0xFF0F172A)),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : const Color(0xFF0C2340)),
             ),
             const SizedBox(height: 6),
             Text(

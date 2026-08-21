@@ -12,12 +12,15 @@ class AppTheme {
   static const Color textColor = Color(0xFF0C2340);
   static const Color subtitleColor = Color(0xFF64748B);
 
-  // VS Code Inspired Ultra-Premium Dark Mode Palette
-  static const Color darkBackgroundColor = Color(0xFF181818); // VS Code Dark Background
-  static const Color darkSurfaceColor = Color(0xFF252526); // VS Code Sidebar/Card Surface
-  static const Color darkBorderColor = Color(0xFF3C3C3C); // VS Code Border Line
+  // Ultra-Premium Dark Black-Grey Mode Palette (Pure Dark Charcoal & Black)
+  static const Color darkBackgroundColor = Color(0xFF121212); // Deep Black-Grey Background (Pure Charcoal)
+  static const Color darkSurfaceColor = Color(0xFF1E1E1E); // Elevated Card / Container Surface
+  static const Color darkSecondarySurface = Color(0xFF282828); // Secondary Inputs / Chips / Badges
+  static const Color darkBorderColor = Color(0xFF333333); // Crisp Dark Divider Line
   static const Color darkTextColor = Color(0xFFF3F4F6); // High-contrast White Text
   static const Color darkSubtitleColor = Color(0xFF9CA3AF); // High-contrast Muted Text
+  static const Color darkShimmerBase = Color(0xFF202020);
+  static const Color darkShimmerHighlight = Color(0xFF303030);
 
   // Status Indicator Colors
   static const Color safeColor = Color(0xFF10B981);

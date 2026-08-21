@@ -13,16 +13,17 @@ class HorizontalStepTracker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     const activeColor = AppTheme.primaryColor;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -54,7 +55,7 @@ class HorizontalStepTracker extends StatelessWidget {
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 350),
                               height: 3,
-                              color: isLineCompleted ? activeColor : Colors.grey.shade200,
+                              color: isLineCompleted ? activeColor : (isDark ? Colors.white12 : Colors.grey.shade200),
                             ),
                           );
                         }),
@@ -80,9 +81,9 @@ class HorizontalStepTracker extends StatelessWidget {
                                     ? activeColor
                                     : isCurrent
                                         ? activeColor.withValues(alpha: 0.15)
-                                        : Colors.grey.shade100,
+                                        : (isDark ? const Color(0xFF282828) : Colors.grey.shade100),
                                 border: Border.all(
-                                  color: isCompleted || isCurrent ? activeColor : Colors.grey.shade300,
+                                  color: isCompleted || isCurrent ? activeColor : (isDark ? Colors.white24 : Colors.grey.shade300),
                                   width: isCurrent ? 2.5 : 1.5,
                                 ),
                               ),
@@ -101,7 +102,7 @@ class HorizontalStepTracker extends StatelessWidget {
                                         : Icon(
                                             Icons.location_on_outlined,
                                             size: 16,
-                                            color: Colors.grey.shade400,
+                                            color: isDark ? Colors.white38 : Colors.grey.shade400,
                                           ),
                               ),
                             ),
@@ -135,10 +136,10 @@ class HorizontalStepTracker extends StatelessWidget {
                             fontSize: 11.5,
                             fontWeight: isCurrent || isCompleted ? FontWeight.bold : FontWeight.w500,
                             color: isCurrent
-                                ? AppTheme.navyColor
+                                ? (isDark ? Colors.white : AppTheme.navyColor)
                                 : isCompleted
                                     ? activeColor
-                                    : Colors.grey.shade500,
+                                    : (isDark ? Colors.white38 : Colors.grey.shade500),
                           ),
                         ),
                       ),

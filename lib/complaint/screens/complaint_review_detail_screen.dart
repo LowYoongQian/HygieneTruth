@@ -72,8 +72,8 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
     final sevColor = _getSeverityColor(c.severity);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-      appBar: const CustomAppBar(title: 'Review Report'),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
+      appBar: const CustomAppBar(title: 'Review'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -132,7 +132,7 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
                 boxShadow: [
@@ -153,7 +153,7 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                            color: isDark ? const Color(0xFF282828) : const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -178,7 +178,7 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      color: isDark ? Colors.white : const Color(0xFF0C2340),
                       letterSpacing: -0.3,
                     ),
                   ),
@@ -221,7 +221,7 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
                 boxShadow: [
@@ -326,7 +326,7 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      color: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
                     ),
@@ -334,7 +334,7 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
                       c.description,
                       style: TextStyle(
                         fontSize: 13,
-                        color: isDark ? Colors.white : const Color(0xFF1E293B),
+                        color: isDark ? Colors.white : const Color(0xFF0C2340),
                         height: 1.4,
                       ),
                     ),
@@ -363,7 +363,7 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                color: isDark ? Colors.white : const Color(0xFF0C2340),
                               ),
                             ),
                           ],
@@ -529,7 +529,7 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
                 bottom: MediaQuery.of(modalContext).viewInsets.bottom + 24,
               ),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: SingleChildScrollView(
@@ -592,7 +592,7 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        color: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
@@ -641,7 +641,7 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? const Color(0xFF0F766E).withValues(alpha: 0.08)
-                              : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC)),
+                              : (isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC)),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isSelected ? const Color(0xFF0F766E) : const Color(0xFFE2E8F0),
@@ -693,7 +693,7 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
                         hintText: 'e.g. Conduct thorough check of food storage and kitchen hygiene...',
                         hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: const BorderSide(color: Color(0xFFE2E8F0)),

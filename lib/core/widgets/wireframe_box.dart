@@ -66,10 +66,10 @@ class WireframeBox extends StatelessWidget {
                       if (label != null)
                         Text(
                           label!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF334155),
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : const Color(0xFF0C2340),
                           ),
                           textAlign: TextAlign.center,
                           maxLines: 2,

@@ -17,16 +17,18 @@ class _HygieneHeatmapScreenState extends State<HygieneHeatmapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final restaurants = RestaurantStoreService.restaurantsNotifier.value;
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: const CustomAppBar(title: 'Risk Heatmap'),
       body: Stack(
         children: [
           // Wireframe Heatmap Map Box Layer
           Positioned.fill(
             child: Container(
-              color: const Color(0xFFF8FAFC),
+              color: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
               child: Stack(
                 children: [
                   const WireframeBox(
@@ -68,15 +70,19 @@ class _HygieneHeatmapScreenState extends State<HygieneHeatmapScreen> {
             left: 16,
             right: 16,
             child: Card(
-              color: Colors.white.withValues(alpha: 0.95),
+              color: isDark ? const Color(0xFF1E1E1E).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade200),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _legendItem('High Risk Zone', Colors.red),
-                    _legendItem('Moderate Zone', Colors.amber),
-                    _legendItem('Safe Zone', Colors.green),
+                    _legendItem('High Risk Zone', Colors.red, isDark),
+                    _legendItem('Moderate Zone', Colors.amber, isDark),
+                    _legendItem('Safe Zone', Colors.green, isDark),
                   ],
                 ),
               ),
@@ -90,8 +96,12 @@ class _HygieneHeatmapScreenState extends State<HygieneHeatmapScreen> {
               right: 16,
               bottom: 24,
               child: Card(
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 elevation: 8,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade200),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -107,7 +117,7 @@ class _HygieneHeatmapScreenState extends State<HygieneHeatmapScreen> {
                               children: [
                                 Text(
                                   _selectedZone!.name,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87),
                                 ),
                                 Text(
                                   'Score: ${_selectedZone!.hygieneRiskScore.toStringAsFixed(1)} • ${_selectedZone!.violationCount} Violations',
@@ -117,7 +127,7 @@ class _HygieneHeatmapScreenState extends State<HygieneHeatmapScreen> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.close),
+                            icon: Icon(Icons.close, color: isDark ? Colors.white70 : Colors.grey),
                             onPressed: () => setState(() => _selectedZone = null),
                           ),
                         ],
@@ -127,6 +137,7 @@ class _HygieneHeatmapScreenState extends State<HygieneHeatmapScreen> {
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size.fromHeight(40),
                           backgroundColor: Colors.red.shade700,
+                          foregroundColor: Colors.white,
                         ),
                         onPressed: () {
                           Navigator.pushNamed(
@@ -147,12 +158,15 @@ class _HygieneHeatmapScreenState extends State<HygieneHeatmapScreen> {
     );
   }
 
-  Widget _legendItem(String label, Color color) {
+  Widget _legendItem(String label, Color color, bool isDark) {
     return Row(
       children: [
         CircleAvatar(radius: 6, backgroundColor: color),
         const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+        Text(
+          label,
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
+        ),
       ],
     );
   }

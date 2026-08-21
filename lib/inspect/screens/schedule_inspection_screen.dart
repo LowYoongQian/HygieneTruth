@@ -93,7 +93,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
     final restName = RestaurantStoreService.resolveRestaurantName(c.restaurantName, fallback: c.restaurantName);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: const CustomAppBar(title: 'Schedule Visit'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -106,7 +106,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: isDark
-                      ? [const Color(0xFF0F172A), const Color(0xFF1E293B)]
+                      ? [const Color(0xFF121212), const Color(0xFF1E1E1E)]
                       : [const Color(0xFF0C2340), const Color(0xFF0F766E)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -194,7 +194,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
                 boxShadow: [
@@ -224,7 +224,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark ? Colors.white : const Color(0xFF0C2340),
                         ),
                       ),
                     ],
@@ -239,7 +239,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
                         label: Text(type),
                         selected: isSelected,
                         selectedColor: const Color(0xFF0F766E),
-                        backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                        backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF1F5F9),
                         labelStyle: TextStyle(
                           fontSize: 12,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -267,7 +267,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
                 boxShadow: [
@@ -297,7 +297,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark ? Colors.white : const Color(0xFF0C2340),
                         ),
                       ),
                     ],
@@ -319,7 +319,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        color: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
                       ),
@@ -335,7 +335,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   _formatDateDisplay(_selectedDate),
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF0F172A)),
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF0C2340)),
                                 ),
                               ],
                             ),
@@ -372,7 +372,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        color: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
                       ),
@@ -388,7 +388,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   _selectedTime.format(context),
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF0F172A)),
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF0C2340)),
                                 ),
                               ],
                             ),
@@ -428,7 +428,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
                 boxShadow: [
@@ -458,7 +458,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark ? Colors.white : const Color(0xFF0C2340),
                         ),
                       ),
                     ],
@@ -472,7 +472,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
                       hintText: 'Enter specific checklist instructions for visiting officers...',
                       hintStyle: TextStyle(fontSize: 12.5, color: isDark ? Colors.white38 : Colors.grey),
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
@@ -493,7 +493,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
               ),
@@ -506,7 +506,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
                       style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        color: isDark ? Colors.white : const Color(0xFF0C2340),
                       ),
                     ),
                     subtitle: Text(
@@ -525,7 +525,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
                       style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        color: isDark ? Colors.white : const Color(0xFF0C2340),
                       ),
                     ),
                     subtitle: Text(

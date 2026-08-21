@@ -64,7 +64,7 @@ class _RestaurantVerificationDetailScreenState extends State<RestaurantVerificat
                   // Hero Card Header with Restaurant Image & Banner
                   Container(
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
                       boxShadow: [
@@ -333,7 +333,7 @@ class _RestaurantVerificationDetailScreenState extends State<RestaurantVerificat
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: (isDark ? const Color(0xFF0F172A) : Colors.white).withValues(alpha: 0.92),
+                          color: (isDark ? const Color(0xFF121212) : Colors.white).withValues(alpha: 0.92),
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
@@ -386,7 +386,7 @@ class _RestaurantVerificationDetailScreenState extends State<RestaurantVerificat
                   child: Icon(Icons.rate_review_outlined, size: 20),
                 ),
                 filled: true,
-                fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                fillColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
               ),

@@ -212,7 +212,7 @@ class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
@@ -296,7 +296,7 @@ class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
     }).length;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: CustomAppBar(
         title: 'Government Audit Log',
         actions: [
@@ -318,7 +318,7 @@ class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                       border: Border(bottom: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0))),
                     ),
                     child: Row(
@@ -349,7 +349,7 @@ class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
                         prefixIcon: const Icon(Icons.search_rounded, size: 20),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
@@ -376,7 +376,7 @@ class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
                               label: Text(cat),
                               selected: isSelected,
                               selectedColor: const Color(0xFF0F766E),
-                              backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                              backgroundColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF1F5F9),
                               checkmarkColor: Colors.white,
                               labelStyle: TextStyle(
                                 fontSize: 12,
@@ -427,7 +427,7 @@ class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 12),
                                 decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
                                   boxShadow: [
@@ -470,7 +470,7 @@ class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
                                                         style: TextStyle(
                                                           fontWeight: FontWeight.bold,
                                                           fontSize: 14,
-                                                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                                          color: isDark ? Colors.white : const Color(0xFF0C2340),
                                                         ),
                                                         maxLines: 1,
                                                         overflow: TextOverflow.ellipsis,
@@ -483,17 +483,13 @@ class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
                                                         borderRadius: BorderRadius.circular(6),
                                                       ),
                                                       child: Text(
-                                                        tag,
-                                                        style: TextStyle(
-                                                          fontSize: 10,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: iconColor,
-                                                        ),
+                                                        _formatTimestamp(log.timestamp),
+                                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: iconColor),
                                                       ),
                                                     ),
                                                   ],
                                                 ),
-                                                const SizedBox(height: 5),
+                                                const SizedBox(height: 4),
                                                 Text(
                                                   log.description,
                                                   style: TextStyle(
@@ -501,20 +497,27 @@ class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
                                                     color: isDark ? Colors.white70 : const Color(0xFF475569),
                                                     height: 1.35,
                                                   ),
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
                                                 ),
                                                 const SizedBox(height: 8),
                                                 Row(
                                                   children: [
-                                                    Icon(Icons.access_time_rounded, size: 12, color: isDark ? Colors.white38 : Colors.grey),
-                                                    const SizedBox(width: 4),
-                                                    Text(
-                                                      _formatTimestamp(log.timestamp),
-                                                      style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade500),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                                      decoration: BoxDecoration(
+                                                        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: Text(
+                                                        tag,
+                                                        style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: isDark ? Colors.white60 : Colors.grey.shade600),
+                                                      ),
                                                     ),
                                                     const Spacer(),
                                                     Text(
-                                                      'View Details ›',
-                                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0F766E)),
+                                                      'Officer: ${log.userEmail.split("@").first}',
+                                                      style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade500),
                                                     ),
                                                   ],
                                                 ),
@@ -550,8 +553,12 @@ class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
           ),
           const SizedBox(width: 10),
           Text(
-            'Loading more audit records...',
-            style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : const Color(0xFF64748B), fontWeight: FontWeight.w500),
+            'Loading more audit logs...',
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? Colors.white60 : const Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -571,7 +578,7 @@ class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
           children: [
             Text(
               count,
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: color),
             ),
             const SizedBox(height: 2),
             Text(
@@ -596,7 +603,7 @@ class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100,
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.assignment_turned_in_outlined, size: 40, color: isDark ? Colors.white38 : Colors.grey.shade400),
@@ -604,7 +611,7 @@ class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
             const SizedBox(height: 14),
             Text(
               'No Government Audit Logs Found',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : const Color(0xFF0F172A)),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : const Color(0xFF0C2340)),
             ),
             const SizedBox(height: 6),
             Text(

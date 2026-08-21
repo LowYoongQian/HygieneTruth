@@ -33,15 +33,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isLastPage = _currentPage == _pages.length - 1;
     final primaryColor = Theme.of(context).primaryColor;
     final screenHeight = MediaQuery.of(context).size.height;
+    final bgColor = isDark ? const Color(0xFF121212) : Colors.white;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: bgColor,
       body: Stack(
         children: [
-          // Swipeable Onboarding Content (Half Image + Half White Body)
+          // Swipeable Onboarding Content (Half Image + Half Body)
           PageView.builder(
             controller: _pageController,
             onPageChanged: (index) {
@@ -71,7 +73,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             );
                           },
                         ),
-                        // Soft Gradient Blur Transition blending image into white body
+                        // Soft Gradient Transition blending image into body
                         Positioned(
                           bottom: 0,
                           left: 0,
@@ -81,9 +83,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
-                                  Colors.white.withValues(alpha: 0.0),
-                                  Colors.white.withValues(alpha: 0.6),
-                                  Colors.white,
+                                  bgColor.withValues(alpha: 0.0),
+                                  bgColor.withValues(alpha: 0.6),
+                                  bgColor,
                                 ],
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
@@ -95,10 +97,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   ),
 
-                  // Bottom Half: Clean White Body with Centered Headline & Subtitle
+                  // Bottom Half: Body with Centered Headline & Subtitle
                   Expanded(
                     child: Container(
-                      color: Colors.white,
+                      color: bgColor,
                       padding: const EdgeInsets.symmetric(horizontal: 28),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
@@ -107,10 +109,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           Text(
                             p['title']!,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A),
+                              color: isDark ? Colors.white : const Color(0xFF0C2340),
                               height: 1.25,
                               letterSpacing: -0.4,
                             ),
@@ -121,7 +123,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.grey.shade600,
+                              color: isDark ? Colors.white60 : Colors.grey.shade600,
                               height: 1.45,
                             ),
                           ),

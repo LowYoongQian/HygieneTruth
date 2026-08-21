@@ -95,12 +95,14 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
   }
 
   void _showRankingInfoDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showDialog(
       context: context,
       builder: (ctx) {
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-          backgroundColor: Colors.white,
+          backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
           elevation: 16,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
@@ -119,14 +121,14 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                       child: const Icon(Icons.info_outline_rounded, color: AppTheme.primaryColor, size: 24),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Ranking Criteria Info',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.navyColor),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDark ? Colors.white : AppTheme.navyColor),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.grey, size: 20),
+                      icon: Icon(Icons.close, color: isDark ? Colors.white60 : Colors.grey, size: 20),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
@@ -134,7 +136,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                 const SizedBox(height: 8),
                 Text(
                   'Outlets are categorized into tiers based on verified hygiene risk scores and ratings:',
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
+                  style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.grey.shade600, height: 1.4),
                 ),
                 const SizedBox(height: 18),
                 _buildInfoRow(
@@ -142,7 +144,8 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                   riskTitle: 'High Risk (>60)',
                   subtitle: 'Requires immediate sanitation inspection & action.',
                   color: const Color(0xFFD97706),
-                  bgColor: const Color(0xFFFEF3C7),
+                  bgColor: isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : const Color(0xFFFEF3C7),
+                  isDark: isDark,
                 ),
                 const SizedBox(height: 10),
                 _buildInfoRow(
@@ -150,7 +153,8 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                   riskTitle: 'Moderate Risk (30-60)',
                   subtitle: 'Standard hygiene standards with periodic monitoring.',
                   color: const Color(0xFF64748B),
-                  bgColor: const Color(0xFFF1F5F9),
+                  bgColor: isDark ? const Color(0xFF282828).withValues(alpha: 0.5) : const Color(0xFFF1F5F9),
+                  isDark: isDark,
                 ),
                 const SizedBox(height: 10),
                 _buildInfoRow(
@@ -158,7 +162,8 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                   riskTitle: 'Low Risk (15-30)',
                   subtitle: 'High sanitation standards & clean dining environment.',
                   color: const Color(0xFFEAB308),
-                  bgColor: const Color(0xFFFEF9C3),
+                  bgColor: isDark ? const Color(0xFF713F12).withValues(alpha: 0.35) : const Color(0xFFFEF9C3),
+                  isDark: isDark,
                 ),
                 const SizedBox(height: 10),
                 _buildInfoRow(
@@ -166,7 +171,8 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                   riskTitle: 'Elite Clean (<15)',
                   subtitle: 'Pristine hygiene score with flawless audit record.',
                   color: const Color(0xFF0EA5E9),
-                  bgColor: const Color(0xFFE0F2FE),
+                  bgColor: isDark ? const Color(0xFF0C4A6E).withValues(alpha: 0.35) : const Color(0xFFE0F2FE),
+                  isDark: isDark,
                 ),
                 const SizedBox(height: 20),
                 SizedBox(
@@ -199,20 +205,21 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
     required String subtitle,
     required Color color,
     required Color bgColor,
+    bool isDark = false,
   }) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.35), width: 1.2),
+        border: Border.all(color: color.withValues(alpha: isDark ? 0.5 : 0.35), width: 1.2),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.military_tech, color: color, size: 22),
@@ -231,14 +238,14 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                     const SizedBox(width: 6),
                     Text(
                       '($riskTitle)',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.navyColor),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? Colors.white : AppTheme.navyColor),
                     ),
                   ],
                 ),
                 const SizedBox(height: 3),
                 Text(
                   subtitle,
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700, height: 1.2),
+                  style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.grey.shade700, height: 1.2),
                 ),
               ],
             ),
@@ -269,6 +276,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final rankedList = _getRankedList();
 
     final RestaurantModel? firstPlace = rankedList.isNotEmpty ? rankedList[0] : null;
@@ -276,12 +284,12 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
     final RestaurantModel? thirdPlace = rankedList.length > 2 ? rankedList[2] : null;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: CustomAppBar(
         title: 'Risk Rankings',
         actions: [
           IconButton(
-            icon: const Icon(Icons.info_outline, color: AppTheme.navyColor),
+            icon: Icon(Icons.info_outline, color: isDark ? Colors.white : AppTheme.navyColor),
             tooltip: 'Ranking Criteria Info',
             onPressed: _showRankingInfoDialog,
           ),
@@ -298,10 +306,10 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.94),
+                    color: isDark ? const Color(0xFF1E1E1E).withValues(alpha: 0.94) : Colors.white.withValues(alpha: 0.94),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
+                        color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -310,10 +318,10 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildLeagueRibbonBadge('Bronze', const Color(0xFFD97706), Icons.military_tech),
-                      _buildLeagueRibbonBadge('Silver', const Color(0xFF64748B), Icons.military_tech),
-                      _buildLeagueRibbonBadge('Gold', const Color(0xFFEAB308), Icons.military_tech),
-                      _buildLeagueRibbonBadge('Platinum', const Color(0xFF0EA5E9), Icons.military_tech),
+                      _buildLeagueRibbonBadge('Bronze', const Color(0xFFD97706), Icons.military_tech, isDark),
+                      _buildLeagueRibbonBadge('Silver', const Color(0xFF64748B), Icons.military_tech, isDark),
+                      _buildLeagueRibbonBadge('Gold', const Color(0xFFEAB308), Icons.military_tech, isDark),
+                      _buildLeagueRibbonBadge('Platinum', const Color(0xFF0EA5E9), Icons.military_tech, isDark),
                     ],
                   ),
                 ),
@@ -328,7 +336,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0).withValues(alpha: 0.85),
+                  color: isDark ? const Color(0xFF282828) : const Color(0xFFE2E8F0).withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Row(
@@ -362,7 +370,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: _selectedPeriod == 'Today' ? Colors.white : Colors.grey.shade700,
+                              color: _selectedPeriod == 'Today' ? Colors.white : (isDark ? Colors.white70 : Colors.grey.shade700),
                             ),
                           ),
                         ),
@@ -397,7 +405,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: _selectedPeriod == 'Week' ? Colors.white : Colors.grey.shade700,
+                              color: _selectedPeriod == 'Week' ? Colors.white : (isDark ? Colors.white70 : Colors.grey.shade700),
                             ),
                           ),
                         ),
@@ -419,12 +427,12 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
+                          color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                           blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),
@@ -451,7 +459,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                               children: [
                                 Text(
                                   'Leaderboard ($_selectedPeriod)',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.navyColor),
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : AppTheme.navyColor),
                                 ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -471,11 +479,11 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                if (secondPlace != null) _buildPodiumColumn(secondPlace, 2, const Color(0xFFF97316), 110),
+                                if (secondPlace != null) _buildPodiumColumn(secondPlace, 2, const Color(0xFFF97316), 110, isDark),
                                 const SizedBox(width: 12),
-                                if (firstPlace != null) _buildPodiumColumn(firstPlace, 1, const Color(0xFF7C3AED), 145),
+                                if (firstPlace != null) _buildPodiumColumn(firstPlace, 1, const Color(0xFF7C3AED), 145, isDark),
                                 const SizedBox(width: 12),
-                                if (thirdPlace != null) _buildPodiumColumn(thirdPlace, 3, const Color(0xFFFB923C), 90),
+                                if (thirdPlace != null) _buildPodiumColumn(thirdPlace, 3, const Color(0xFFFB923C), 90, isDark),
                               ],
                             ),
                           ],
@@ -493,9 +501,9 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  const Text(
+                  Text(
                     'Filter Tier:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.navyColor),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : AppTheme.navyColor),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -510,17 +518,17 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                               label: Text(tier),
                               selected: isSelected,
                               selectedColor: const Color(0xFF00A88F),
-                              backgroundColor: const Color(0xFFF1F5F9),
+                              backgroundColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF1F5F9),
                               checkmarkColor: Colors.white,
                               labelStyle: TextStyle(
                                 fontSize: 12,
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                color: isSelected ? Colors.white : const Color(0xFF475569),
+                                color: isSelected ? Colors.white : (isDark ? Colors.white70 : const Color(0xFF475569)),
                               ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 side: BorderSide(
-                                  color: isSelected ? const Color(0xFF00A88F) : const Color(0xFFCBD5E1),
+                                  color: isSelected ? const Color(0xFF00A88F) : (isDark ? Colors.white12 : const Color(0xFFCBD5E1)),
                                 ),
                               ),
                               onSelected: (val) {
@@ -547,12 +555,12 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                 padding: const EdgeInsets.all(24),
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -571,13 +579,13 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                     const SizedBox(height: 14),
                     Text(
                       'No Outlets in $_selectedTierFilter Tier',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.navyColor),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : AppTheme.navyColor),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
+                    Text(
                       'Outlets with matching risk scores will automatically appear here once audited.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                      style: TextStyle(fontSize: 13, color: isDark ? Colors.white60 : Colors.grey),
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
@@ -616,12 +624,12 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
+                              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -634,7 +642,9 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                               width: 32,
                               height: 32,
                               decoration: BoxDecoration(
-                                color: rankNum <= 3 ? const Color(0xFF00A88F).withValues(alpha: 0.12) : const Color(0xFFF1F5F9),
+                                color: rankNum <= 3
+                                    ? const Color(0xFF00A88F).withValues(alpha: 0.15)
+                                    : (isDark ? const Color(0xFF282828) : const Color(0xFFF1F5F9)),
                                 shape: BoxShape.circle,
                               ),
                               child: Center(
@@ -643,7 +653,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: rankNum <= 3 ? const Color(0xFF00A88F) : Colors.grey.shade600,
+                                    color: rankNum <= 3 ? const Color(0xFF00A88F) : (isDark ? Colors.white70 : Colors.grey.shade600),
                                   ),
                                 ),
                               ),
@@ -653,10 +663,10 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                             // Outlet Avatar Image
                             CircleAvatar(
                               radius: 20,
-                              backgroundColor: Colors.grey.shade200,
+                              backgroundColor: isDark ? const Color(0xFF282828) : Colors.grey.shade200,
                               backgroundImage: restaurant.imageUrl.isNotEmpty ? NetworkImage(restaurant.imageUrl) : null,
                               child: restaurant.imageUrl.isEmpty
-                                  ? Text(restaurant.name[0], style: const TextStyle(fontWeight: FontWeight.bold))
+                                  ? Text(restaurant.name[0], style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87))
                                   : null,
                             ),
                             const SizedBox(width: 12),
@@ -668,7 +678,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                                 children: [
                                   Text(
                                     restaurant.name,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.navyColor),
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : AppTheme.navyColor),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -678,7 +688,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: _getTierBgColor(tier),
+                                          color: isDark ? _getTierColor(tier).withValues(alpha: 0.2) : _getTierBgColor(tier),
                                           borderRadius: BorderRadius.circular(8),
                                           border: Border.all(color: _getTierColor(tier).withValues(alpha: 0.4)),
                                         ),
@@ -702,7 +712,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                                       Expanded(
                                         child: Text(
                                           restaurant.category,
-                                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                          style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.grey.shade500),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                         ),
@@ -721,8 +731,10 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: restaurant.hygieneRiskScore < 30
-                                        ? const Color(0xFFECFDF5)
-                                        : (restaurant.hygieneRiskScore <= 60 ? const Color(0xFFFEF3C7) : const Color(0xFFFEF2F2)),
+                                        ? (isDark ? const Color(0xFF064E3B).withValues(alpha: 0.35) : const Color(0xFFECFDF5))
+                                        : (restaurant.hygieneRiskScore <= 60
+                                            ? (isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : const Color(0xFFFEF3C7))
+                                            : (isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.35) : const Color(0xFFFEF2F2))),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(
@@ -744,7 +756,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                                       children: [
                                         Icon(
                                           ratingInfo.hasReviews ? Icons.star_rounded : Icons.star_border_rounded,
-                                          color: ratingInfo.hasReviews ? Colors.amber : Colors.grey.shade400,
+                                          color: ratingInfo.hasReviews ? Colors.amber : (isDark ? Colors.white24 : Colors.grey.shade400),
                                           size: 14,
                                         ),
                                         const SizedBox(width: 2),
@@ -753,7 +765,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 12,
-                                            color: ratingInfo.hasReviews ? Colors.black87 : Colors.grey.shade600,
+                                            color: ratingInfo.hasReviews ? (isDark ? Colors.white : Colors.black87) : (isDark ? Colors.white54 : Colors.grey.shade600),
                                           ),
                                         ),
                                       ],
@@ -776,7 +788,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
     );
   }
 
-  Widget _buildPodiumColumn(RestaurantModel restaurant, int rank, Color color, double targetHeight) {
+  Widget _buildPodiumColumn(RestaurantModel restaurant, int rank, Color color, double targetHeight, bool isDark) {
     final tier = _getRestaurantTier(restaurant);
 
     return Column(
@@ -801,7 +813,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
               ),
               child: CircleAvatar(
                 radius: rank == 1 ? 28 : 22,
-                backgroundColor: Colors.grey.shade200,
+                backgroundColor: isDark ? const Color(0xFF282828) : Colors.grey.shade200,
                 backgroundImage: restaurant.imageUrl.isNotEmpty ? NetworkImage(restaurant.imageUrl) : null,
                 child: restaurant.imageUrl.isEmpty
                     ? Text(
@@ -833,7 +845,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
           child: Text(
             restaurant.name,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.navyColor),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.white : AppTheme.navyColor),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -842,7 +854,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
           decoration: BoxDecoration(
-            color: _getTierBgColor(tier),
+            color: isDark ? _getTierColor(tier).withValues(alpha: 0.2) : _getTierBgColor(tier),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
@@ -874,7 +886,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
     );
   }
 
-  Widget _buildLeagueRibbonBadge(String name, Color color, IconData icon) {
+  Widget _buildLeagueRibbonBadge(String name, Color color, IconData icon, bool isDark) {
     final isSelected = _selectedTierFilter.toLowerCase() == name.toLowerCase();
 
     return GestureDetector(
@@ -916,7 +928,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
             style: TextStyle(
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-              color: isSelected ? const Color(0xFF00A88F) : AppTheme.navyColor,
+              color: isSelected ? const Color(0xFF00A88F) : (isDark ? Colors.white : AppTheme.navyColor),
             ),
           ),
         ],

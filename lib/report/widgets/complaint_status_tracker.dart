@@ -24,6 +24,7 @@ class ComplaintStatusTracker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final activeIndex = _getStatusStepIndex(status);
     final isRejected = status == ComplaintStatus.rejected;
 
@@ -38,18 +39,19 @@ class ComplaintStatusTracker extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6),
+          BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05), blurRadius: 6),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Complaint Progress Tracking',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : Colors.black87),
           ),
           const SizedBox(height: 16),
           Row(
@@ -58,8 +60,8 @@ class ComplaintStatusTracker extends StatelessWidget {
               final isPassed = index <= activeIndex;
               final isCurrent = index == activeIndex;
               Color circleColor = isPassed
-                  ? (isRejected && index == activeIndex ? Colors.red : Colors.teal)
-                  : Colors.grey.shade300;
+                  ? (isRejected && index == activeIndex ? Colors.red : const Color(0xFF00A88F))
+                  : (isDark ? const Color(0xFF282828) : Colors.grey.shade300);
 
               return Expanded(
                 child: Column(
@@ -78,7 +80,9 @@ class ComplaintStatusTracker extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                        color: isCurrent ? Colors.black : Colors.grey,
+                        color: isCurrent
+                            ? (isDark ? Colors.white : Colors.black)
+                            : (isDark ? Colors.white38 : Colors.grey),
                       ),
                     ),
                   ],

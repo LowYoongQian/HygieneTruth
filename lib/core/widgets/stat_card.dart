@@ -67,7 +67,7 @@ class StatCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A),
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0C2340),
               ),
             ),
           ),

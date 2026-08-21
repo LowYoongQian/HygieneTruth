@@ -8,6 +8,7 @@ import '../../core/services/supabase_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_button.dart';
+import '../../core/widgets/user_avatar.dart';
 import '../widgets/role_badge.dart';
 
 class AccountDetailScreen extends StatefulWidget {
@@ -88,16 +89,10 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
             Center(
               child: Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.primaryColor, width: 2),
-                    ),
-                    child: CircleAvatar(
-                      radius: 40,
-                      backgroundImage: NetworkImage(_selectedUser.avatarUrl),
-                    ),
+                  UserAvatar(
+                    avatarUrl: _selectedUser.avatarUrl,
+                    radius: 40,
+                    border: Border.all(color: AppTheme.primaryColor, width: 2),
                   ),
                   const SizedBox(height: 10),
                   Text(
@@ -141,7 +136,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                         labelText: 'Full Name',
                         prefixIcon: const Icon(Icons.person_outline, size: 20),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        fillColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                       ),
@@ -157,7 +152,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                         labelText: 'Email Address',
                         prefixIcon: const Icon(Icons.email_outlined, size: 20),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        fillColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                       ),
@@ -172,7 +167,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                         labelText: 'Phone Number',
                         prefixIcon: const Icon(Icons.phone_outlined, size: 20),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        fillColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                       ),
@@ -185,14 +180,14 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                     DropdownButtonFormField<String>(
                       initialValue: ['Male', 'Female', 'Other'].contains(_selectedGender) ? _selectedGender : (_selectedGender != null ? 'Other' : null),
                       borderRadius: BorderRadius.circular(16),
-                      dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                       menuMaxHeight: 280,
                       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.primaryColor),
                       decoration: InputDecoration(
                         hintText: 'Select Gender',
                         prefixIcon: const Icon(Icons.wc_rounded, size: 20),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        fillColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -212,7 +207,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                         decoration: InputDecoration(
                           hintText: 'Specify gender...',
                           filled: true,
-                          fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                          fillColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         ),
                       ),
@@ -226,14 +221,14 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                     DropdownButtonFormField<String>(
                       initialValue: CountryLocationData.countryList.contains(_selectedCountry) ? _selectedCountry : (_selectedCountry != null ? 'Other' : null),
                       borderRadius: BorderRadius.circular(16),
-                      dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                       menuMaxHeight: 280,
                       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.primaryColor),
                       decoration: InputDecoration(
                         hintText: 'Select Country',
                         prefixIcon: const Icon(Icons.public_rounded, size: 20),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        fillColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -261,7 +256,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                         decoration: InputDecoration(
                           hintText: 'Enter country name...',
                           filled: true,
-                          fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                          fillColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         ),
                       ),
@@ -281,14 +276,14 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                           key: ValueKey('account_state_dd_${_selectedCountry ?? "none"}'),
                           initialValue: validStateInitial,
                           borderRadius: BorderRadius.circular(16),
-                          dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                           menuMaxHeight: 280,
                           icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.primaryColor),
                           decoration: InputDecoration(
                             hintText: _selectedCountry == null ? 'Select Country First' : 'Select State / City',
                             prefixIcon: const Icon(Icons.location_city_rounded, size: 20),
                             filled: true,
-                            fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                            fillColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -310,7 +305,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                         decoration: InputDecoration(
                           hintText: 'Enter state or city name...',
                           filled: true,
-                          fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                          fillColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         ),
                       ),
@@ -344,13 +339,13 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                       isExpanded: true,
                       initialValue: _selectedRole,
                       borderRadius: BorderRadius.circular(16),
-                      dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                       menuMaxHeight: 280,
                       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.primaryColor),
                       decoration: InputDecoration(
                         prefixIcon: const Icon(Icons.badge_outlined, size: 20),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        fillColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -373,13 +368,13 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                       isExpanded: true,
                       initialValue: _selectedStatus,
                       borderRadius: BorderRadius.circular(16),
-                      dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                       menuMaxHeight: 280,
                       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.primaryColor),
                       decoration: InputDecoration(
                         prefixIcon: const Icon(Icons.verified_user_outlined, size: 20),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        fillColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

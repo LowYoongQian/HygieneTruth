@@ -7,6 +7,8 @@ import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/google_sign_in_button.dart';
 import '../../core/widgets/shimmer_skeletons.dart';
+import '../../core/widgets/user_avatar.dart';
+import '../../core/widgets/user_banner.dart';
 import '../widgets/role_badge.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -44,7 +46,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final userEmail = customer?.email ?? 'Not Signed In';
     final avatarUrl = customer?.avatarUrl ?? '';
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textColor = isDark ? Colors.white : AppTheme.navyColor;
     final subtitleTextColor = isDark ? Colors.grey.shade400 : const Color(0xFF64748B);
 
         return Scaffold(
@@ -86,49 +88,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           clipBehavior: Clip.none,
                           alignment: Alignment.topCenter,
                           children: [
-                            // Gradient Cover Banner
-                            Container(
+                            // Custom Cover / Gradient Banner
+                            UserBanner(
+                              bannerUrl: customer?.bannerUrl,
                               height: 140,
-                              width: double.infinity,
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Color(0xFF0F172A), // Deep Navy
-                                    Color(0xFF1E293B),
-                                    Color(0xFF00A88F), // Brand Teal/Green accent
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                              ),
-                              child: Stack(
-                                children: [
-                                  Positioned(
-                                    right: -20,
-                                    top: -20,
-                                    child: Container(
-                                      width: 110,
-                                      height: 110,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.white.withValues(alpha: 0.08),
-                                      ),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    left: 20,
-                                    bottom: 10,
-                                    child: Container(
-                                      width: 60,
-                                      height: 60,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.white.withValues(alpha: 0.05),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
                             ),
 
                       // Overlapping Profile Avatar Frame Icon with Gold Ring Accent
@@ -149,20 +112,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           child: Stack(
                             children: [
-                              CircleAvatar(
+                              UserAvatar(
+                                avatarUrl: avatarUrl,
                                 radius: 46,
-                                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                                backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                                child: avatarUrl.isEmpty
-                                    ? Text(
-                                        userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                                        style: const TextStyle(
-                                          fontSize: 32,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.primaryColor,
-                                        ),
-                                      )
-                                    : null,
                               ),
                               // Online Status Indicator Dot
                               Positioned(

@@ -85,7 +85,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           context,
           AppRoutes.userDashboard,
           (route) => false,
-          arguments: {'showProfileSetupDialog': true},
+          arguments: {
+            'showProfileSetupDialog': true,
+            'isGoogleFlow': false,
+          },
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -122,7 +125,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           context,
           AppRoutes.userDashboard,
           (route) => false,
-          arguments: {'showProfileSetupDialog': true},
+          arguments: {
+            'showProfileSetupDialog': true,
+            'isGoogleFlow': true,
+          },
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

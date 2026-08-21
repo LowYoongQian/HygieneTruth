@@ -66,7 +66,7 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
         : 'Selera Kampung Bistro';
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
       appBar: const CustomAppBar(title: 'Issue Action'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -79,7 +79,7 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: isDark
-                      ? [const Color(0xFF0F172A), const Color(0xFF1E293B)]
+                      ? [const Color(0xFF121212), const Color(0xFF1E1E1E)]
                       : [const Color(0xFF0C2340), const Color(0xFF991B1B)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -186,7 +186,7 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                color: isDark ? Colors.white : const Color(0xFF0C2340),
               ),
             ),
             const SizedBox(height: 10),
@@ -237,7 +237,7 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
                 ),
@@ -249,7 +249,7 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
                       style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        color: isDark ? Colors.white : const Color(0xFF0C2340),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -265,7 +265,7 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
                           color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0F766E),
                         ),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
@@ -285,7 +285,7 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
                           ),
                           backgroundColor: _fineCtrl.text == amount.toString()
                               ? const Color(0xFF0F766E)
-                              : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
+                              : (isDark ? const Color(0xFF121212) : const Color(0xFFF1F5F9)),
                           onPressed: () {
                             setState(() => _fineCtrl.text = amount.toString());
                           },
@@ -302,7 +302,7 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
               ),
@@ -314,7 +314,7 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      color: isDark ? Colors.white : const Color(0xFF0C2340),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -322,10 +322,10 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
                     initialValue: _selectedLawClause,
                     isExpanded: true,
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 12.5),
-                    dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -349,7 +349,7 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
               ),
@@ -361,7 +361,7 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      color: isDark ? Colors.white : const Color(0xFF0C2340),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -373,7 +373,7 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
                       hintText: 'Specify mandatory rectification orders, fine due date, or closure conditions...',
                       hintStyle: TextStyle(fontSize: 12.5, color: isDark ? Colors.white38 : Colors.grey),
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      fillColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
@@ -491,7 +491,7 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.12) : (isDark ? const Color(0xFF1E293B) : Colors.white),
+          color: isSelected ? color.withValues(alpha: 0.12) : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? color : (isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
@@ -507,7 +507,7 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? color : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                color: isSelected ? color : (isDark ? Colors.white : const Color(0xFF0C2340)),
               ),
               textAlign: TextAlign.center,
               maxLines: 1,

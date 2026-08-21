@@ -21,13 +21,13 @@ class BaseSkeleton extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Shimmer.fromColors(
-      baseColor: isDark ? const Color(0xFF1E293B) : Colors.grey.shade300,
-      highlightColor: isDark ? const Color(0xFF334155) : Colors.grey.shade100,
+      baseColor: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade300,
+      highlightColor: isDark ? const Color(0xFF282828) : Colors.grey.shade100,
       child: Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF0F172A) : Colors.white,
+          color: isDark ? const Color(0xFF121212) : Colors.white,
           borderRadius: BorderRadius.circular(borderRadius),
         ),
         child: child,
@@ -127,7 +127,7 @@ class ProfileSkeleton extends StatelessWidget {
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                   ),
                   child: const BaseSkeleton(
                     width: 92,
@@ -156,7 +156,7 @@ class ProfileSkeleton extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
                   ),
@@ -327,7 +327,7 @@ class MapSkeletonLoader extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
@@ -518,12 +518,12 @@ class NotificationCardSkeleton extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Shimmer.fromColors(
-        baseColor: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200,
-        highlightColor: isDark ? const Color(0xFF334155) : Colors.grey.shade50,
+        baseColor: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade200,
+        highlightColor: isDark ? const Color(0xFF282828) : Colors.grey.shade50,
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF0F172A) : Colors.white,
+            color: isDark ? const Color(0xFF121212) : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isDark ? Colors.white10 : Colors.grey.shade200,
@@ -538,7 +538,7 @@ class NotificationCardSkeleton extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                  color: isDark ? const Color(0xFF282828) : Colors.grey.shade300,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -555,7 +555,7 @@ class NotificationCardSkeleton extends StatelessWidget {
                           width: 150,
                           height: 14,
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                            color: isDark ? const Color(0xFF282828) : Colors.grey.shade300,
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
@@ -564,7 +564,7 @@ class NotificationCardSkeleton extends StatelessWidget {
                           width: 60,
                           height: 10,
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                            color: isDark ? const Color(0xFF282828) : Colors.grey.shade300,
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
@@ -576,7 +576,7 @@ class NotificationCardSkeleton extends StatelessWidget {
                       width: double.infinity,
                       height: 11,
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                        color: isDark ? const Color(0xFF282828) : Colors.grey.shade300,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -586,7 +586,7 @@ class NotificationCardSkeleton extends StatelessWidget {
                       width: 180,
                       height: 11,
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                        color: isDark ? const Color(0xFF282828) : Colors.grey.shade300,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -669,7 +669,7 @@ class AssignedCasesSkeleton extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
               ),
@@ -780,7 +780,7 @@ class SettingsHistorySkeleton extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
               ),
@@ -871,7 +871,7 @@ class ActionHistorySkeleton extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
               ),
