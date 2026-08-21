@@ -956,37 +956,16 @@ class CustomerStoreService {
           );
         }
 
-        // Tier 2: Fallback to Supabase Web OAuth Flow if Credential Manager has SHA-1 / configuration issue
-        try {
-          if (kDebugMode) {
-            print('Attempting Supabase Web OAuth fallback...');
-          }
-          final bool launched = await supabase.auth.signInWithOAuth(
-            OAuthProvider.google,
-            redirectTo: kIsWeb ? null : 'io.supabase.colab://login-callback/',
-            authScreenLaunchMode: LaunchMode.externalApplication,
-          );
-
-          if (launched) {
-            final sessionUser = supabase.auth.currentUser;
-            if (sessionUser != null) {
-              final activeUser = await fetchActiveUserSession();
-              if (activeUser != null) {
-                return CustomerAuthResult(
-                  success: true,
-                  message: 'Signed in with Google as ${activeUser.email}',
-                  user: activeUser,
-                );
-              }
-            }
-            return const CustomerAuthResult(
+        // Check if an active user session is already present
+        final sessionUser = supabase.auth.currentUser;
+        if (sessionUser != null) {
+          final activeUser = await fetchActiveUserSession();
+          if (activeUser != null) {
+            return CustomerAuthResult(
               success: true,
-              message: 'Redirecting to Google authentication...',
+              message: 'Signed in with Google as ${activeUser.email}',
+              user: activeUser,
             );
-          }
-        } catch (oauthErr) {
-          if (kDebugMode) {
-            print('Supabase Web OAuth error: $oauthErr');
           }
         }
 
