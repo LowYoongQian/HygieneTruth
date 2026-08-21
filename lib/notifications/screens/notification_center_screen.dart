@@ -94,7 +94,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen>
             onSelected: (val) async {
               final user = CustomerStoreService.currentCustomer;
               if (val == 'mark_all_read') {
-                await NotificationService.markAllAsRead(userId: user?.id);
+                await NotificationService.markAllAsRead(userId: user?.id, userEmail: user?.email);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -206,7 +206,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen>
                       TextButton(
                         onPressed: () async {
                           final user = CustomerStoreService.currentCustomer;
-                          await NotificationService.markAllAsRead(userId: user?.id);
+                          await NotificationService.markAllAsRead(userId: user?.id, userEmail: user?.email);
                         },
                         style: TextButton.styleFrom(
                           padding: EdgeInsets.zero,
@@ -447,7 +447,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen>
           onTap: () {
             final user = CustomerStoreService.currentCustomer;
             if (!item.isRead) {
-              NotificationService.markAsRead(item.id, userId: user?.id);
+              NotificationService.markAsRead(item.id, userId: user?.id, userEmail: user?.email);
             }
             if (item.actionUrl != null && item.actionUrl!.isNotEmpty) {
               _handleNotificationNavigation(item.actionUrl!);

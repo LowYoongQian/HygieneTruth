@@ -13,78 +13,7 @@ class AuditLogService {
     return uuidRegex.hasMatch(str);
   }
 
-  static final List<AuditLogModel> _localLogs = [
-    AuditLogModel(
-      id: 'log_seed_101',
-      userId: 'adm_001',
-      userEmail: 'admin@app.com',
-      actionType: 'ADMIN_ROLE_CHANGE',
-      category: 'Admin',
-      title: 'Admin Role Modification',
-      description: 'Admin modified role for account Sarah Tan to Businessman',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 15)),
-    ),
-    AuditLogModel(
-      id: 'log_seed_102',
-      userId: 'gov_001',
-      userEmail: 'officer@gov.my',
-      actionType: 'OUTLET_APPROVED',
-      category: 'Government',
-      title: 'Outlet Application Approved',
-      description: 'Approved & Verified New Century Dim Sum (SSM-2026-92631A-X)',
-      timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 20)),
-    ),
-    AuditLogModel(
-      id: 'log_seed_103',
-      userId: 'biz_002',
-      userEmail: 'lim.cafe@gmail.com',
-      actionType: 'BUSINESSMAN_REGISTER',
-      category: 'Businessman',
-      title: 'Businessman Registration',
-      description: 'New businessman account registered for Lim Coffee Roasters',
-      timestamp: DateTime.now().subtract(const Duration(hours: 3, minutes: 45)),
-    ),
-    AuditLogModel(
-      id: 'log_seed_104',
-      userId: 'cus_005',
-      userEmail: 'alex.wong@gmail.com',
-      actionType: 'CUSTOMER_REGISTER',
-      category: 'Customer',
-      title: 'User Registration',
-      description: 'New customer account registered (Alex Wong)',
-      timestamp: DateTime.now().subtract(const Duration(hours: 6)),
-    ),
-    AuditLogModel(
-      id: 'log_seed_105',
-      userId: 'gov_001',
-      userEmail: 'officer@gov.my',
-      actionType: 'GOVERNMENT_INSPECTION',
-      category: 'Government',
-      title: 'Government Review & Inspection',
-      description: 'Completed hygiene audit inspection for Golden Dragon Noodle Bar',
-      timestamp: DateTime.now().subtract(const Duration(hours: 12)),
-    ),
-    AuditLogModel(
-      id: 'log_seed_106',
-      userId: 'gov_002',
-      userEmail: 'inspector.lee@gov.my',
-      actionType: 'OUTLET_REJECTED',
-      category: 'Government',
-      title: 'Outlet Application Rejected',
-      description: 'Rejected outlet submission due to incomplete SSM documentation',
-      timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 2)),
-    ),
-    AuditLogModel(
-      id: 'log_seed_107',
-      userId: 'adm_001',
-      userEmail: 'admin@app.com',
-      actionType: 'ADMIN_PROFILE_EDIT',
-      category: 'Admin',
-      title: 'Admin User Profile Updated',
-      description: 'Admin updated phone number and state location for David Chen',
-      timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 5)),
-    ),
-  ];
+  static final List<AuditLogModel> _localLogs = [];
 
   /// Record a new audit log action and persist to Supabase & SharedPreferences
   static Future<AuditLogModel> logAction({
@@ -341,10 +270,11 @@ class AuditLogService {
           // Add Assigned Complaint Log
           final String assignLogId = 'gov_sync_assign_$cId';
           if (!govLogs.any((l) => l.id == assignLogId)) {
+            final activeAdminEmail = CustomerStoreService.currentCustomer?.email ?? SupabaseService.client.auth.currentUser?.email ?? 'admin@system.local';
             govLogs.add(AuditLogModel(
               id: assignLogId,
               userId: 'adm_001',
-              userEmail: 'admin@app.com',
+              userEmail: activeAdminEmail,
               actionType: 'COMPLAINT_ASSIGNED',
               category: 'Admin Assignment',
               title: 'Admin Assigned Case #CMP-$shortId',
@@ -357,10 +287,11 @@ class AuditLogService {
           if (status == 'resolved') {
             final String resolveLogId = 'gov_sync_resolved_$cId';
             if (!govLogs.any((l) => l.id == resolveLogId)) {
+              final activeGovEmail = CustomerStoreService.currentCustomer?.email ?? SupabaseService.client.auth.currentUser?.email ?? 'officer@gov.my';
               govLogs.add(AuditLogModel(
                 id: resolveLogId,
                 userId: 'gov_pic_01',
-                userEmail: 'officer.pic@hygiene.gov.my',
+                userEmail: activeGovEmail,
                 actionType: 'CASE_CLOSED',
                 category: 'Government',
                 title: 'Case #CMP-$shortId Closed & Resolved',
@@ -373,80 +304,6 @@ class AuditLogService {
       }
     } catch (e) {
       if (kDebugMode) print('Complaints to Gov Audit synthesis error: $e');
-    }
-
-    final Set<String> seenIds = govLogs.map((l) => l.id).toSet();
-    final now = DateTime.now();
-
-    // Default Seed Government & Admin Assignment logs to ensure rich history
-    final seedGov = [
-      AuditLogModel(
-        id: 'gov_seed_001',
-        userId: 'gov_pic_01',
-        userEmail: 'officer.pic@hygiene.gov.my',
-        actionType: 'INSPECTION_CONDUCTED',
-        category: 'Government',
-        title: 'Health Inspection Conducted',
-        description: 'Completed on-site hygiene audit at Selera Kampung Bistro (Grade C 45/100). Severe pest violations detected.',
-        timestamp: now.subtract(const Duration(minutes: 25)),
-      ),
-      AuditLogModel(
-        id: 'gov_seed_002',
-        userId: 'adm_001',
-        userEmail: 'admin@app.com',
-        actionType: 'COMPLAINT_ASSIGNED',
-        category: 'Admin Assignment',
-        title: 'Admin Assigned Priority Complaint #CMP-2026-002',
-        description: 'Admin routed high-severity citizen complaint for Selera Kampung Bistro to Health Officer PIC for mandatory 48h visit.',
-        timestamp: now.subtract(const Duration(hours: 1, minutes: 15)),
-      ),
-      AuditLogModel(
-        id: 'gov_seed_003',
-        userId: 'gov_pic_01',
-        userEmail: 'officer.pic@hygiene.gov.my',
-        actionType: 'ENFORCEMENT_ISSUED',
-        category: 'Government',
-        title: 'Enforcement Decree Issued: CLOSURE',
-        description: 'Issued Section 11 Food Act 1983 14-day premise shutdown and RM 2,500 compound penalty for Ocean Catch Seafood.',
-        timestamp: now.subtract(const Duration(hours: 3, minutes: 30)),
-      ),
-      AuditLogModel(
-        id: 'gov_seed_004',
-        userId: 'adm_001',
-        userEmail: 'admin@app.com',
-        actionType: 'COMPLAINT_ASSIGNED',
-        category: 'Admin Assignment',
-        title: 'Admin Assigned Case #CMP-2026-001',
-        description: 'Admin verified AI hash duplicate check and assigned Food Safety case to field inspection squad.',
-        timestamp: now.subtract(const Duration(hours: 6)),
-      ),
-      AuditLogModel(
-        id: 'gov_seed_005',
-        userId: 'gov_pic_01',
-        userEmail: 'officer.pic@hygiene.gov.my',
-        actionType: 'INSPECTION_SCHEDULED',
-        category: 'Government',
-        title: 'Inspection Visit Scheduled',
-        description: 'Scheduled on-site food safety audit for Golden Dragon Bistro on Monday 10:30 AM.',
-        timestamp: now.subtract(const Duration(hours: 10)),
-      ),
-      AuditLogModel(
-        id: 'gov_seed_006',
-        userId: 'gov_pic_01',
-        userEmail: 'officer.pic@hygiene.gov.my',
-        actionType: 'CASE_CLOSED',
-        category: 'Government',
-        title: 'Case #CMP-2026-004 Closed & Archived',
-        description: 'Remediation completed, RM 500 compound settled, and clean re-inspection verified with Grade A hygiene award.',
-        timestamp: now.subtract(const Duration(days: 1, hours: 4)),
-      ),
-    ];
-
-    for (var s in seedGov) {
-      if (!seenIds.contains(s.id)) {
-        seenIds.add(s.id);
-        govLogs.add(s);
-      }
     }
 
     govLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
@@ -547,6 +404,27 @@ class AuditLogService {
         }
       }
     }
+
+    // Filter out cross-portal access blocked logs to maintain zero account/role exposure
+    resultLogs.removeWhere((l) =>
+        l.title.toLowerCase().contains('cross-portal') ||
+        l.category.toLowerCase().contains('unauthorized portal') ||
+        l.description.toLowerCase().contains('cross-portal') ||
+        l.description.toLowerCase().contains('rejected attempting to login'));
+
+    // Clean up local cache if it contains legacy cross-portal logs
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'audit_logs_cache_$currentUserId';
+      final cachedList = prefs.getStringList(key) ?? [];
+      final cleanedList = cachedList.where((str) {
+        final lower = str.toLowerCase();
+        return !lower.contains('cross-portal') && !lower.contains('unauthorized portal');
+      }).toList();
+      if (cleanedList.length != cachedList.length) {
+        await prefs.setStringList(key, cleanedList);
+      }
+    } catch (_) {}
 
     // Sort by timestamp descending
     resultLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp));

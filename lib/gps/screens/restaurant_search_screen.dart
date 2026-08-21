@@ -295,6 +295,8 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
 
     setState(() {
       _filteredList = _allRestaurants.where((r) {
+        final matchesVisibility = r.isPubliclyVisible;
+
         final matchesQuery = query.isEmpty ||
             r.name.toLowerCase().contains(query) ||
             r.category.toLowerCase().contains(query) ||
@@ -323,7 +325,7 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
           matchesNearby = (distanceMeters / 1000) <= 8.0;
         }
 
-        return matchesQuery && matchesCategory && matchesRanking && matchesNearby;
+        return matchesVisibility && matchesQuery && matchesCategory && matchesRanking && matchesNearby;
       }).toList();
 
       if (_isNearbyOnly) {

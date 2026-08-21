@@ -1,6 +1,6 @@
+import '../../core/services/restaurant_store_service.dart';
 import 'package:flutter/material.dart';
 import '../../core/models/complaint_model.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/status_badge.dart';
@@ -16,8 +16,8 @@ class FinalReportScreen extends StatelessWidget {
     ComplaintModel? c;
     if (args is ComplaintModel) {
       c = args;
-    } else if (MockSeedData.complaints.isNotEmpty) {
-      c = MockSeedData.complaints.last;
+    } else if (RestaurantStoreService.complaintsNotifier.value.isNotEmpty) {
+      c = RestaurantStoreService.complaintsNotifier.value.last;
     }
 
     if (c == null) {

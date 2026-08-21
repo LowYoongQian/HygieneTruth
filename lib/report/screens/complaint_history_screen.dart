@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/restaurant_store_service.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -37,7 +36,7 @@ class _ComplaintHistoryScreenState extends State<ComplaintHistoryScreen> {
   Widget build(BuildContext context) {
     final myComplaints = ComplaintStoreService.complaintsNotifier.value.isNotEmpty
         ? ComplaintStoreService.complaintsNotifier.value
-        : MockSeedData.complaints;
+        : RestaurantStoreService.complaintsNotifier.value;
 
     return Scaffold(
       appBar: const CustomAppBar(title: 'My Reports'),

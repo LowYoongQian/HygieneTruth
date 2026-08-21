@@ -1,6 +1,6 @@
+import '../../core/services/restaurant_store_service.dart';
 import 'package:flutter/material.dart';
 import '../../core/models/inspection_model.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_button.dart';
 
@@ -14,8 +14,8 @@ class InspectionReportReviewScreen extends StatelessWidget {
 
     if (args is InspectionModel) {
       insp = args;
-    } else if (MockSeedData.inspections.isNotEmpty) {
-      insp = MockSeedData.inspections.first;
+    } else if (RestaurantStoreService.inspectionsNotifier.value.isNotEmpty) {
+      insp = RestaurantStoreService.inspectionsNotifier.value.first;
     }
 
     return Scaffold(

@@ -1,7 +1,7 @@
+import '../../core/services/restaurant_store_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter/material.dart';
 import '../../core/models/complaint_model.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -47,8 +47,8 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
     ComplaintModel? c;
     if (args is ComplaintModel) {
       c = args;
-    } else if (MockSeedData.complaints.isNotEmpty) {
-      c = MockSeedData.complaints.first;
+    } else if (RestaurantStoreService.complaintsNotifier.value.isNotEmpty) {
+      c = RestaurantStoreService.complaintsNotifier.value.first;
     }
 
     if (c == null) {
@@ -475,26 +475,289 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
               label: 'Assign Officer',
               icon: Icons.person_add_rounded,
               backgroundColor: const Color(0xFF059669),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        const Icon(Icons.check_circle, color: Colors.white),
-                        const SizedBox(width: 10),
-                        Expanded(child: Text('Report ${c?.id} assigned to Officer. Status updated to Pending.')),
-                      ],
-                    ),
-                    backgroundColor: const Color(0xFF059669),
-                  ),
-                );
-                Navigator.pop(context);
-              },
+              onPressed: () => _showAssignOfficerModal(context, c!),
             ),
             const SizedBox(height: 20),
           ],
         ),
       ),
+    );
+  }
+
+  void _showAssignOfficerModal(BuildContext context, ComplaintModel complaint) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    String selectedOfficer = 'Officer Ahmad (Senior Health Inspector)';
+    String selectedOfficerId = 'gov_officer_001';
+    final directivesController = TextEditingController();
+
+    final List<Map<String, String>> officers = [
+      {
+        'id': 'gov_officer_001',
+        'name': 'Officer Ahmad Razak',
+        'role': 'Senior Health Inspector • MOH Enforcement',
+        'workload': '2 active cases',
+        'badge': 'Central KL',
+      },
+      {
+        'id': 'gov_officer_002',
+        'name': 'Officer Tan Mei Ling',
+        'role': 'Food Safety Auditor • Hygiene Division',
+        'workload': '1 active case',
+        'badge': 'Bukit Bintang',
+      },
+      {
+        'id': 'gov_officer_003',
+        'name': 'Officer Siti Nurhaliza',
+        'role': 'Field Inspector • Rapid Response Unit',
+        'workload': '0 active cases (Available)',
+        'badge': 'Kuala Lumpur',
+      },
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (modalContext, setModalState) {
+            return Container(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(modalContext).viewInsets.bottom + 24,
+              ),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Assign Health Officer',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.navyColor,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Dispatch case to field inspector for on-site audit',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getSeverityColor(complaint.severity).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: _getSeverityColor(complaint.severity).withValues(alpha: 0.4)),
+                          ),
+                          child: Text(
+                            '${complaint.severity.name.toUpperCase()} PRIORITY',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: _getSeverityColor(complaint.severity),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Premise Target Summary Card
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F766E).withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.storefront_rounded, color: Color(0xFF0F766E), size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  complaint.restaurantName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Reported: ${complaint.category} • ${complaint.issues.join(", ")}',
+                                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Select Designated Officer *',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(height: 8),
+                    ...officers.map((off) {
+                      final isSelected = selectedOfficer.contains(off['name']!);
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFF0F766E).withValues(alpha: 0.08)
+                              : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC)),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF0F766E) : const Color(0xFFE2E8F0),
+                            width: isSelected ? 1.5 : 1.0,
+                          ),
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                          leading: CircleAvatar(
+                            backgroundColor: isSelected ? const Color(0xFF0F766E) : Colors.grey.shade300,
+                            foregroundColor: isSelected ? Colors.white : Colors.grey.shade700,
+                            child: const Icon(Icons.person_rounded, size: 20),
+                          ),
+                          title: Text(
+                            off['name']!,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13.5,
+                              color: isSelected ? const Color(0xFF0F766E) : null,
+                            ),
+                          ),
+                          subtitle: Text(
+                            '${off['role']} • ${off['workload']}',
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check_circle_rounded, color: Color(0xFF0F766E), size: 22)
+                              : const Icon(Icons.radio_button_unchecked_rounded, color: Colors.grey, size: 22),
+                          onTap: () {
+                            setModalState(() {
+                              selectedOfficer = '${off['name']} (${off['role']?.split("•").first.trim()})';
+                              selectedOfficerId = off['id']!;
+                            });
+                          },
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Admin Inspection Directives (Optional)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: directivesController,
+                      maxLines: 2,
+                      style: const TextStyle(fontSize: 12.5),
+                      decoration: InputDecoration(
+                        hintText: 'e.g. Conduct thorough check of food storage and kitchen hygiene...',
+                        hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                        filled: true,
+                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF059669),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          elevation: 2,
+                        ),
+                        icon: const Icon(Icons.send_rounded, size: 18),
+                        label: const Text(
+                          'Confirm & Dispatch to Officer',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        onPressed: () async {
+                          Navigator.pop(modalContext);
+                          final messenger = ScaffoldMessenger.of(context);
+                          final nav = Navigator.of(context);
+
+                          await ComplaintStoreService.assignOfficerToComplaint(
+                            complaintId: complaint.id,
+                            officerName: selectedOfficer,
+                            officerId: selectedOfficerId,
+                            directives: directivesController.text.trim(),
+                          );
+
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  const Icon(Icons.verified_rounded, color: Colors.white),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Case assigned to $selectedOfficer! Status updated to Investigating and pushed to Officer Portal.',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              backgroundColor: const Color(0xFF059669),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          );
+
+                          nav.pop();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

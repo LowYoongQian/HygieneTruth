@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../core/models/complaint_model.dart';
 import '../../core/models/inspection_model.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/services/audit_log_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/restaurant_store_service.dart';
@@ -86,15 +85,15 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
     ComplaintModel? c;
     if (args is ComplaintModel) {
       c = args;
-    } else if (MockSeedData.complaints.isNotEmpty) {
-      c = MockSeedData.complaints.first;
+    } else if (RestaurantStoreService.complaintsNotifier.value.isNotEmpty) {
+      c = RestaurantStoreService.complaintsNotifier.value.first;
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final formattedId = c != null ? _formatCaseId(c.id) : 'CMP-2026-91F7';
+    final formattedId = c != null ? _formatCaseId(c.id) : 'CMP-ACTIVE';
     final restName = c != null
         ? RestaurantStoreService.resolveRestaurantName(c.restaurantName, fallback: c.restaurantName)
-        : 'Ocean Catch Seafood Restaurant';
+        : 'Premise Inspection';
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
@@ -564,9 +563,9 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
                 // Update complaint status in memory & Supabase
                 if (c != null) {
                   final nonNullC = c;
-                  final idx = MockSeedData.complaints.indexWhere((x) => x.id == nonNullC.id);
+                  final idx = RestaurantStoreService.complaintsNotifier.value.indexWhere((x) => x.id == nonNullC.id);
                   if (idx != -1) {
-                    MockSeedData.complaints[idx] = ComplaintModel(
+                    RestaurantStoreService.complaintsNotifier.value[idx] = ComplaintModel(
                       id: nonNullC.id,
                       restaurantId: nonNullC.restaurantId,
                       restaurantName: nonNullC.restaurantName,

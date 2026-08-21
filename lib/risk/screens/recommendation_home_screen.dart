@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/gps_service.dart';
@@ -87,7 +86,7 @@ class _RecommendationHomeScreenState extends State<RecommendationHomeScreen> {
       body: ValueListenableBuilder<List<RestaurantModel>>(
         valueListenable: RestaurantStoreService.restaurantsNotifier,
         builder: (context, allRestaurants, _) {
-          final safeList = _getSafeRestaurants(allRestaurants.isNotEmpty ? allRestaurants : MockSeedData.restaurants);
+          final safeList = _getSafeRestaurants(allRestaurants);
 
           // Group into distance tiers in sequence: 0~5km, 5~10km, 10~20km, 20+km
           final tier0to5 = <RestaurantModel>[];

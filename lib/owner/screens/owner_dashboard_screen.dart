@@ -1,11 +1,12 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/models/complaint_model.dart';
+import '../../core/models/inspection_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/audit_log_service.dart';
 import '../../core/services/customer_store_service.dart';
@@ -40,6 +41,361 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   List<RestaurantModel> _fetchedOwnerRestaurants = [];
   bool _isLoadingRestaurants = true;
   int _restaurantFilterIndex = 0; // 0 = All, 1 = Active, 2 = Pending
+
+  // Selected Active Restaurant State & Persistence
+  String? _selectedRestaurantId;
+
+  /// Returns the currently active selected restaurant for display across the dashboard
+  RestaurantModel? get _activeSelectedRestaurant {
+    if (_fetchedOwnerRestaurants.isEmpty) return null;
+    if (_selectedRestaurantId != null && _selectedRestaurantId!.isNotEmpty) {
+      final match = _fetchedOwnerRestaurants.where((r) => r.id == _selectedRestaurantId).firstOrNull;
+      if (match != null) return match;
+    }
+    return _approvedOwnerRestaurants.firstOrNull ?? _fetchedOwnerRestaurants.firstOrNull;
+  }
+
+  Future<void> _loadSavedSelectedRestaurant(String? ownerUserId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? savedId = prefs.getString('owner_selected_restaurant_id_$ownerUserId') ??
+          prefs.getString('owner_selected_restaurant_id');
+
+      // If not found in SharedPreferences (e.g. app reinstalled or new device), check Supabase users.settings
+      if ((savedId == null || savedId.isEmpty) && ownerUserId != null && ownerUserId.isNotEmpty) {
+        try {
+          final supabase = SupabaseService.client;
+          final userResp = await supabase
+              .from('users')
+              .select('settings')
+              .eq('id', ownerUserId)
+              .maybeSingle();
+
+          if (userResp != null && userResp['settings'] is Map) {
+            final settings = Map<String, dynamic>.from(userResp['settings']);
+            savedId = settings['selected_restaurant_id']?.toString();
+            if (savedId != null && savedId.isNotEmpty) {
+              await prefs.setString('owner_selected_restaurant_id_$ownerUserId', savedId);
+              await prefs.setString('owner_selected_restaurant_id', savedId);
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (savedId != null && savedId.isNotEmpty && mounted) {
+        setState(() {
+          _selectedRestaurantId = savedId;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _setSelectedRestaurant(RestaurantModel restaurant) async {
+    setState(() {
+      _selectedRestaurantId = restaurant.id;
+      final idx = _fetchedOwnerRestaurants.indexWhere((r) => r.id == restaurant.id);
+      if (idx != -1) {
+        _selectedAnalyticsOutletIndex = idx;
+      }
+    });
+
+    _fetchOutletReviewsForAnalytics(restaurant.id, force: true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final user = CustomerStoreService.currentCustomer ?? await CustomerStoreService.fetchActiveUserSession();
+      final ownerUserId = user?.id ?? SupabaseService.client.auth.currentUser?.id;
+
+      if (ownerUserId != null && ownerUserId.isNotEmpty) {
+        await prefs.setString('owner_selected_restaurant_id_$ownerUserId', restaurant.id);
+      }
+      await prefs.setString('owner_selected_restaurant_id', restaurant.id);
+
+      // Persist to Supabase users.settings so reinstallation / flutter run preserves the user's selected restaurant
+      if (ownerUserId != null && ownerUserId.isNotEmpty) {
+        try {
+          final supabase = SupabaseService.client;
+          final userResp = await supabase
+              .from('users')
+              .select('settings')
+              .eq('id', ownerUserId)
+              .maybeSingle();
+
+          Map<String, dynamic> settings = {};
+          if (userResp != null && userResp['settings'] is Map) {
+            settings = Map<String, dynamic>.from(userResp['settings']);
+          }
+          settings['selected_restaurant_id'] = restaurant.id;
+          settings['selected_restaurant_name'] = restaurant.name;
+
+          await supabase
+              .from('users')
+              .update({'settings': settings})
+              .eq('id', ownerUserId);
+        } catch (e) {
+          debugPrint('Failed to save selected_restaurant_id to Supabase: $e');
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _showSwitchRestaurantModal(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final allList = _fetchedOwnerRestaurants;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            final currentSelectedId = _activeSelectedRestaurant?.id;
+
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.75,
+              ),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Drag Handle
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white24 : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+
+                  // Header Bar
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Switch Active Restaurant',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : AppTheme.navyColor,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Select which restaurant to display on your dashboard',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.white60 : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          icon: Icon(Icons.close_rounded, color: isDark ? Colors.white70 : Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const Divider(height: 1),
+
+                  // Restaurant List
+                  Flexible(
+                    child: allList.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Center(
+                              child: Text(
+                                'No registered restaurants found.',
+                                style: TextStyle(color: isDark ? Colors.white70 : Colors.grey.shade600),
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            shrinkWrap: true,
+                            itemCount: allList.length,
+                            separatorBuilder: (c, i) => const SizedBox(height: 10),
+                            itemBuilder: (c, i) {
+                              final rst = allList[i];
+                              final isSelected = (rst.id == currentSelectedId);
+                              final isApproved = (rst.status == RestaurantStatus.approved);
+
+                              return InkWell(
+                                onTap: () async {
+                                  final scaffoldMessenger = ScaffoldMessenger.of(context);
+                                  Navigator.pop(ctx);
+                                  await _setSelectedRestaurant(rst);
+                                  if (mounted) {
+                                    scaffoldMessenger.showSnackBar(
+                                      SnackBar(
+                                        content: Row(
+                                          children: [
+                                            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text('Dashboard switched to "${rst.name}"'),
+                                            ),
+                                          ],
+                                        ),
+                                        backgroundColor: const Color(0xFF0F766E),
+                                        behavior: SnackBarBehavior.floating,
+                                        margin: const EdgeInsets.all(16),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? (isDark ? AppTheme.primaryColor.withValues(alpha: 0.15) : const Color(0xFFF0FDF4))
+                                        : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC)),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? (isDark ? AppTheme.primaryColor : const Color(0xFF10B981))
+                                          : (isDark ? Colors.white10 : Colors.grey.shade200),
+                                      width: isSelected ? 1.8 : 1.0,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: isApproved
+                                              ? const Color(0xFF10B981).withValues(alpha: 0.12)
+                                              : const Color(0xFFD97706).withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Icon(
+                                          isApproved ? Icons.storefront_rounded : Icons.hourglass_top_rounded,
+                                          color: isApproved ? const Color(0xFF10B981) : const Color(0xFFD97706),
+                                          size: 22,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    rst.name,
+                                                    style: TextStyle(
+                                                      fontSize: 15,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: isDark ? Colors.white : AppTheme.navyColor,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                if (isSelected) ...[
+                                                  const SizedBox(width: 6),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFF10B981),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: const Text(
+                                                      'ACTIVE',
+                                                      style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              '${rst.category} • ${rst.address}',
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Icon(
+                                        isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+                                        color: isSelected ? const Color(0xFF10B981) : (isDark ? Colors.white30 : Colors.grey.shade400),
+                                        size: 22,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+
+                  // Bottom Register Restaurant Button
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          await Navigator.pushNamed(context, AppRoutes.addRestaurant);
+                          _loadOwnerRestaurants();
+                        },
+                        icon: const Icon(Icons.add_rounded, size: 18, color: AppTheme.primaryColor),
+                        label: const Text(
+                          'Register Another Restaurant',
+                          style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
 
   // Analytics Real Data State
   int _selectedAnalyticsOutletIndex = 0;
@@ -96,9 +452,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         _fetchedOwnerRestaurants = restaurants;
         _isLoadingRestaurants = false;
       });
-      if (restaurants.isNotEmpty) {
-        final targetIndex = (_selectedAnalyticsOutletIndex < restaurants.length) ? _selectedAnalyticsOutletIndex : 0;
-        _fetchOutletReviewsForAnalytics(restaurants[targetIndex].id);
+
+      // Load saved restaurant ID if not set yet or verify existing selection
+      await _loadSavedSelectedRestaurant(currentUserId);
+
+      final active = _activeSelectedRestaurant;
+      if (active != null) {
+        final idx = restaurants.indexWhere((r) => r.id == active.id);
+        if (idx != -1) {
+          _selectedAnalyticsOutletIndex = idx;
+        }
+        _fetchOutletReviewsForAnalytics(active.id);
       }
     }
   }
@@ -1214,28 +1578,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                         if (kDebugMode) print('Supabase edit restaurant error: $e');
                                       }
 
-                                      // 2. Update MockSeedData
-                                      final idx = MockSeedData.restaurants.indexWhere((r) => r.id == rst.id);
-                                      if (idx != -1) {
-                                        MockSeedData.restaurants[idx] = RestaurantModel(
-                                          id: rst.id,
-                                          name: newName,
-                                          address: newAddr,
-                                          category: rst.category,
-                                          latitude: rst.latitude,
-                                          longitude: rst.longitude,
-                                          hygieneRiskScore: rst.hygieneRiskScore,
-                                          riskCategory: rst.riskCategory,
-                                          status: rst.status,
-                                          violationCount: rst.violationCount,
-                                          imageUrl: finalBannerUrl,
-                                          lastUpdated: DateTime.now().toUtc().toIso8601String().split('T').first,
-                                          ownerId: rst.ownerId,
-                                          ownerName: rst.ownerName,
-                                          operatingHours: newHours,
-                                          businessRegNo: rst.businessRegNo,
-                                        );
-                                      }
+                                      // 2. Refresh store
+                                      RestaurantStoreService.fetchAllRestaurants(forceRefresh: true);
 
                                       // 3. Log Audit
                                       AuditLogService.logAction(
@@ -1478,8 +1822,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             ),
             child: Builder(
               builder: (ctx) {
-                final approvedList = _approvedOwnerRestaurants;
                 final allOwned = _allMyOwnerRestaurants;
+                final activeR = _activeSelectedRestaurant;
                 final bool hasPending = allOwned.any((r) => r.status == RestaurantStatus.pendingVerification || r.status == RestaurantStatus.needsRevision);
 
                 String badgeLabel;
@@ -1488,20 +1832,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 String titleText;
                 String subtitleText;
 
-                if (approvedList.isNotEmpty) {
-                  final r = approvedList.first;
-                  badgeLabel = 'APPROVED OUTLET';
-                  badgeColor = const Color(0xFF059669);
-                  badgeIcon = Icons.verified_rounded;
-                  titleText = r.name;
-                  subtitleText = '${r.category} • ${r.address}';
-                } else if (allOwned.isNotEmpty) {
-                  final r = allOwned.first;
-                  badgeLabel = r.status.name.toUpperCase();
-                  badgeColor = const Color(0xFFD97706);
-                  badgeIcon = Icons.hourglass_top_rounded;
-                  titleText = r.name;
-                  subtitleText = '${r.category} • ${r.address}';
+                if (activeR != null) {
+                  final isApproved = (activeR.status == RestaurantStatus.approved);
+                  badgeLabel = isApproved ? 'APPROVED OUTLET' : activeR.status.name.toUpperCase();
+                  badgeColor = isApproved ? const Color(0xFF059669) : const Color(0xFFD97706);
+                  badgeIcon = isApproved ? Icons.verified_rounded : Icons.hourglass_top_rounded;
+                  titleText = activeR.name;
+                  subtitleText = '${activeR.category} • ${activeR.address}';
                 } else if (hasPending) {
                   badgeLabel = 'PENDING VERIFICATION';
                   badgeColor = const Color(0xFFD97706);
@@ -1537,6 +1874,30 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                             ],
                           ),
                         ),
+                        if (allOwned.isNotEmpty)
+                          InkWell(
+                            onTap: () => _showSwitchRestaurantModal(context),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.swap_horiz_rounded, size: 14, color: Colors.white),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Switch',
+                                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 14),
@@ -1556,14 +1917,16 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           ),
           const SizedBox(height: 16),
 
+          // URGENT MOH ENFORCEMENT & COMPOUND PENALTY ALERT BANNER
+          if (_activeSelectedRestaurant != null)
+            _buildEnforcementAlertBanner(_activeSelectedRestaurant!),
+
           // Quick Summary Metrics Grid
           const Text('Quick Summary', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
           const SizedBox(height: 10),
           Builder(
             builder: (ctx) {
-              final activeR = _approvedOwnerRestaurants.isNotEmpty
-                  ? _approvedOwnerRestaurants.first
-                  : (_allMyOwnerRestaurants.isNotEmpty ? _allMyOwnerRestaurants.first : null);
+              final activeR = _activeSelectedRestaurant;
 
               final ratingInfo = activeR != null
                   ? RestaurantStoreService.getRatingSync(activeR.id, restaurantName: activeR.name)
@@ -1614,10 +1977,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                       Expanded(
                         child: _buildMetricCard(
                           'Inspection Notices',
-                          '0 Warnings',
-                          'Clean Health Record',
+                          activeR != null && activeR.hasActiveEnforcement ? '1 Active Decree' : '0 Warnings',
+                          activeR != null && activeR.hasActiveEnforcement ? 'Action Required' : 'Clean Health Record',
                           Icons.verified_user_outlined,
-                          Colors.teal,
+                          activeR != null && activeR.hasActiveEnforcement ? Colors.red : Colors.teal,
                         ),
                       ),
                     ],
@@ -1635,6 +1998,22 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: Column(
               children: [
+                if (_activeSelectedRestaurant != null && (_activeSelectedRestaurant!.fineAmount > 0 && !_activeSelectedRestaurant!.isFinePaid || _activeSelectedRestaurant!.isCompoundedOverdue)) ...[
+                  ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Color(0xFFFEE2E2),
+                      child: Icon(Icons.payment_rounded, color: Color(0xFFDC2626)),
+                    ),
+                    title: Text(
+                      'Settle Compound Fine (RM ${_activeSelectedRestaurant!.fineAmount.toStringAsFixed(2)})',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFFDC2626)),
+                    ),
+                    subtitle: const Text('Pay fine via FPX to lift suspension and restore public listing'),
+                    trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFFDC2626)),
+                    onTap: () => _showSettleFineModal(context, _activeSelectedRestaurant!),
+                  ),
+                  const Divider(height: 1),
+                ],
                 ListTile(
                   leading: const CircleAvatar(backgroundColor: Color(0xFFE0F2FE), child: Icon(Icons.add_a_photo_outlined, color: Color(0xFF0284C7))),
                   title: const Text('Submit Fix Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -1651,6 +2030,488 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   onTap: () => Navigator.pushNamed(context, AppRoutes.finalReport),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnforcementAlertBanner(RestaurantModel r) {
+    final hasFine = r.fineAmount > 0 && !r.isFinePaid;
+    final isOverdue = r.isCompoundedOverdue || r.isSuspended || (r.enforcementAction == 'closure' && !r.isFinePaid);
+    final hasActive = r.hasActiveEnforcement || hasFine || isOverdue;
+
+    if (!hasActive && !hasFine) return const SizedBox.shrink();
+
+    final Color bannerStart = isOverdue ? const Color(0xFF7F1D1D) : const Color(0xFF78350F);
+    final Color bannerEnd = isOverdue ? const Color(0xFFB91C1C) : const Color(0xFFD97706);
+    final String badgeText = isOverdue
+        ? '🚨 PREMISES SUSPENDED / TAKEN DOWN'
+        : '⏳ COMPOUND PENALTY ACTIVE • ${r.fineDaysRemaining} DAYS LEFT';
+    final String titleText = isOverdue
+        ? 'Premises Suspended from Customer Search'
+        : 'MOH Compound Fine: RM ${r.fineAmount.toStringAsFixed(2)}';
+    final String bodyText = isOverdue
+        ? 'Your outlet "${r.name}" has been temporarily taken down and hidden from public diner search and maps under Section 11 Food Act 1983 due to outstanding penalties. Settle fine now via FPX to instantly restore your public listing.'
+        : 'Ministry of Health issued a compound penalty (Citation: ${r.statutoryCitation ?? "Food Hygiene Reg 2009"}). Settle before ${r.fineDueDate ?? "deadline"} to avoid automatic premise suspension and diner takedown.';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [bannerStart, bannerEnd],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: bannerEnd.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white30),
+                ),
+                child: Text(
+                  badgeText,
+                  style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                ),
+              ),
+              if (r.fineAmount > 0)
+                Text(
+                  'RM ${r.fineAmount.toStringAsFixed(2)}',
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            titleText,
+            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            bodyText,
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12, height: 1.35),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: isOverdue ? const Color(0xFFB91C1C) : const Color(0xFF78350F),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => _showSettleFineModal(context, r),
+              icon: const Icon(Icons.payment_rounded, size: 18),
+              label: Text(
+                'Settle Fine via FPX (RM ${r.fineAmount > 0 ? r.fineAmount.toStringAsFixed(2) : "1,000.00"})',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSettleFineModal(BuildContext context, RestaurantModel restaurant, {InspectionModel? inspection}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final double fineAmt = restaurant.fineAmount > 0
+        ? restaurant.fineAmount
+        : (inspection?.fineAmount != null && inspection!.fineAmount > 0 ? inspection.fineAmount : 1000.0);
+    final String citation = restaurant.statutoryCitation ?? inspection?.statutoryCitation ?? 'Food Act 1983 - Section 11 / Food Hygiene Reg 2009';
+
+    String selectedBank = 'Maybank2u';
+    String paymentMethod = 'FPX Online Banking';
+    bool isProcessing = false;
+    bool isSuccess = false;
+    String generatedRef = 'MOH-FPX-2026-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
+
+    final List<Map<String, String>> banks = [
+      {'name': 'Maybank2u', 'code': 'MBB'},
+      {'name': 'CIMB Clicks', 'code': 'CIMB'},
+      {'name': 'Public Bank (PBe)', 'code': 'PBB'},
+      {'name': 'RHB Now', 'code': 'RHB'},
+      {'name': 'Hong Leong Connect', 'code': 'HLB'},
+      {'name': 'AmBank', 'code': 'AMB'},
+      {'name': 'Bank Islam', 'code': 'BIMB'},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            return Container(
+              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: isSuccess
+                  ? _buildPaymentSuccessView(sheetCtx, restaurant, fineAmt, generatedRef, selectedBank)
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 40,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Header with MOH Seal
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0F766E).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(Icons.account_balance_rounded, color: Color(0xFF0F766E), size: 24),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'MOH Statutory Fine Gateway',
+                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+                                    ),
+                                    Text(
+                                      'Ministry of Health Malaysia (KKM) / DBKL',
+                                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close_rounded),
+                                onPressed: () => Navigator.pop(sheetCtx),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 24),
+
+                          // Penalty Breakdown Card
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('Premises Name:', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                    Text(restaurant.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('Statutory Citation:', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                    Flexible(
+                                      child: Text(
+                                        citation,
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
+                                        textAlign: TextAlign.right,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('Due Date:', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                    Text(
+                                      restaurant.fineDueDate ?? '14-Day Statutory Term',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 18),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('Total Penalty to Settle:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+                                    Text(
+                                      'RM ${fineAmt.toStringAsFixed(2)}',
+                                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Payment Channel Selector
+                          const Text('Select Payment Method', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ChoiceChip(
+                                  showCheckmark: false,
+                                  avatar: const Icon(Icons.account_balance_rounded, size: 14),
+                                  label: const Text('FPX Online', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  selected: paymentMethod == 'FPX Online Banking',
+                                  selectedColor: const Color(0xFF0F766E),
+                                  labelStyle: TextStyle(color: paymentMethod == 'FPX Online Banking' ? Colors.white : AppTheme.navyColor),
+                                  onSelected: (val) => setModalState(() => paymentMethod = 'FPX Online Banking'),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ChoiceChip(
+                                  showCheckmark: false,
+                                  avatar: const Icon(Icons.credit_card_rounded, size: 14),
+                                  label: const Text('Card', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  selected: paymentMethod == 'Credit / Debit Card',
+                                  selectedColor: const Color(0xFF0F766E),
+                                  labelStyle: TextStyle(color: paymentMethod == 'Credit / Debit Card' ? Colors.white : AppTheme.navyColor),
+                                  onSelected: (val) => setModalState(() => paymentMethod = 'Credit / Debit Card'),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ChoiceChip(
+                                  showCheckmark: false,
+                                  avatar: const Icon(Icons.qr_code_2_rounded, size: 14),
+                                  label: const Text('DuitNow', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  selected: paymentMethod == 'DuitNow QR',
+                                  selectedColor: const Color(0xFF0F766E),
+                                  labelStyle: TextStyle(color: paymentMethod == 'DuitNow QR' ? Colors.white : AppTheme.navyColor),
+                                  onSelected: (val) => setModalState(() => paymentMethod = 'DuitNow QR'),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Bank Selection (if FPX)
+                          if (paymentMethod == 'FPX Online Banking') ...[
+                            const Text('Select Malaysian FPX Bank:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+                            const SizedBox(height: 6),
+                            DropdownButtonFormField<String>(
+                              initialValue: selectedBank,
+                              decoration: InputDecoration(
+                                prefixIcon: const Icon(Icons.account_balance_rounded, color: Color(0xFF0F766E)),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                filled: true,
+                                fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              ),
+                              items: banks.map((b) {
+                                return DropdownMenuItem(
+                                  value: b['name'],
+                                  child: Text('${b["name"]} (${b["code"]})', style: const TextStyle(fontSize: 13)),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) setModalState(() => selectedBank = val);
+                              },
+                            ),
+                          ],
+                          const SizedBox(height: 20),
+
+                          // Security Notice
+                          Row(
+                            children: [
+                              const Icon(Icons.lock_rounded, size: 14, color: Colors.grey),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  '256-bit encrypted government settlement gateway. Clearance is applied in real-time.',
+                                  style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Pay Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0F766E),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              ),
+                              onPressed: isProcessing ? null : () async {
+                                setModalState(() => isProcessing = true);
+                                await Future.delayed(const Duration(milliseconds: 1400));
+
+                                final bool settled = await RestaurantStoreService.settleCompoundFine(
+                                  restaurantId: restaurant.id,
+                                  paymentReference: generatedRef,
+                                  amountPaid: fineAmt,
+                                  paymentMethod: paymentMethod == 'FPX Online Banking' ? 'FPX ($selectedBank)' : paymentMethod,
+                                );
+
+                                if (settled) {
+                                  setModalState(() {
+                                    isProcessing = false;
+                                    isSuccess = true;
+                                  });
+                                  if (mounted) {
+                                    _loadOwnerRestaurants();
+                                    setState(() {});
+                                  }
+                                } else {
+                                  setModalState(() => isProcessing = false);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Payment transaction failed. Please retry.')),
+                                    );
+                                  }
+                                }
+                              },
+                              child: isProcessing
+                                  ? Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: const [
+                                        SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+                                        SizedBox(width: 12),
+                                        Text('Processing FPX Payment...', style: TextStyle(fontWeight: FontWeight.bold)),
+                                      ],
+                                    )
+                                  : Text(
+                                      'Confirm & Pay RM ${fineAmt.toStringAsFixed(2)}',
+                                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildPaymentSuccessView(BuildContext sheetCtx, RestaurantModel restaurant, double fineAmt, String refNo, String bank) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 56),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Penalty Settled Successfully!',
+            style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Official MOH Legal Clearance Issued',
+            style: TextStyle(fontSize: 12, color: Color(0xFF059669), fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Receipt Ref:', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+                    Text(refNo, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Amount Paid:', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+                    Text('RM ${fineAmt.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Listing Status:', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+                    const Text('REINSTATED & ACTIVE', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Your payment has been logged in the Ministry of Health compliance database. The public listing for "${restaurant.name}" has been restored for customer search and discovery.',
+            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, height: 1.35),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F766E),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => Navigator.pop(sheetCtx),
+              child: const Text('Done & Return to Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -2370,7 +3231,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Widget _buildNoticesPanel() {
-    final allComplaints = MockSeedData.complaints;
+    final allComplaints = RestaurantStoreService.complaintsNotifier.value;
 
     // Filter by Active vs Closed
     final activeNotices = allComplaints.where((c) => c.status != ComplaintStatus.resolved && c.status != ComplaintStatus.rejected).toList();
@@ -2604,35 +3465,256 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           const SizedBox(height: 16),
 
           // 4. NOTICE CARDS LIST
-          if (filteredList.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(32),
-              alignment: Alignment.center,
-              child: Column(
-                children: [
-                  Icon(Icons.assignment_turned_in_rounded, size: 48, color: Colors.grey.shade400),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No notices found for selected authority filter.',
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: filteredList.length,
-              separatorBuilder: (ctx, i) => const SizedBox(height: 12),
-              itemBuilder: (ctx, index) {
-                final c = filteredList[index];
-                final info = _getNoticeAuthorityInfo(c, index);
-                final daysLeft = (4 - index * 3);
+          Builder(
+            builder: (ctx) {
+              final activeR = _activeSelectedRestaurant;
+              final allInspections = RestaurantStoreService.inspectionsNotifier.value;
+              final currentRestInsp = activeR != null
+                  ? allInspections.where((i) => i.restaurantId == activeR.id || i.restaurantName == activeR.name).toList()
+                  : allInspections;
 
-                return _buildEnhancedNoticeCard(c, info, daysLeft);
-              },
+              final activeInsp = currentRestInsp.where((i) {
+                final hasAction = i.issuedAction != EnforcementType.none;
+                final isUnpaid = i.fineAmount > 0 && !i.isFinePaid;
+                final isProgress = i.enforcementStatus == EnforcementStatus.inProgress || (activeR != null && activeR.hasActiveEnforcement);
+                return hasAction && (isUnpaid || isProgress);
+              }).toList();
+
+              final completedInsp = currentRestInsp.where((i) {
+                return i.issuedAction != EnforcementType.none && (i.isFinePaid || i.enforcementStatus == EnforcementStatus.completed);
+              }).toList();
+
+              final currentInspList = _noticeTab == 0 ? activeInsp : completedInsp;
+              final bool showGovInsp = (_noticeAuthorityIndex == 0 || _noticeAuthorityIndex == 1);
+
+              if (filteredList.isEmpty && (!showGovInsp || currentInspList.isEmpty)) {
+                return Container(
+                  padding: const EdgeInsets.all(32),
+                  alignment: Alignment.center,
+                  child: Column(
+                    children: [
+                      Icon(Icons.assignment_turned_in_rounded, size: 48, color: Colors.grey.shade400),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No notices found for selected authority filter.',
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Official Government Inspection & Compound Fine Orders
+                  if (showGovInsp && currentInspList.isNotEmpty) ...[
+                    ...currentInspList.map((insp) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildGovernmentEnforcementNoticeCard(insp, activeR),
+                        )),
+                  ],
+
+                  // Complaints and Admin Audits
+                  if (filteredList.isNotEmpty)
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filteredList.length,
+                      separatorBuilder: (ctx, i) => const SizedBox(height: 12),
+                      itemBuilder: (ctx, index) {
+                        final c = filteredList[index];
+                        final info = _getNoticeAuthorityInfo(c, index);
+                        final daysLeft = (4 - index * 3);
+
+                        return _buildEnhancedNoticeCard(c, info, daysLeft);
+                      },
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGovernmentEnforcementNoticeCard(InspectionModel insp, RestaurantModel? rest) {
+    final bool isUnpaidFine = insp.fineAmount > 0 && !insp.isFinePaid;
+    final bool isClosure = insp.issuedAction == EnforcementType.closure;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final Color cardBorder = isClosure || isUnpaidFine ? const Color(0xFFDC2626) : const Color(0xFF0F766E);
+    final Color headerColor = isClosure || isUnpaidFine ? const Color(0xFFDC2626) : const Color(0xFF0F766E);
+
+    String actionTitle = 'MOH Form 32 Warning Directive';
+    if (insp.issuedAction == EnforcementType.closure) {
+      actionTitle = 'MOH Premise Closure Order (14 Days)';
+    } else if (insp.issuedAction == EnforcementType.fine || insp.fineAmount > 0) {
+      actionTitle = 'MOH Compound Penalty: RM ${insp.fineAmount.toStringAsFixed(2)}';
+    }
+
+    final int daysLeft = rest?.fineDaysRemaining ?? 14;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cardBorder.withValues(alpha: 0.4), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: cardBorder.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: headerColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: headerColor.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.gavel_rounded, size: 13, color: headerColor),
+                    const SizedBox(width: 5),
+                    Text(
+                      'Ministry of Health (KKM) Decree',
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: headerColor),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                'ID: ${_formatNoticeId(insp.complaintId)}',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          Text(
+            actionTitle,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Citation: ${insp.statutoryCitation ?? "Food Act 1983 - Section 11"}',
+            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
+          ),
+          if (insp.findings.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Text(
+                insp.findings,
+                style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.grey.shade800),
+              ),
             ),
+          ],
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              if (insp.isFinePaid || (insp.fineAmount <= 0 && insp.enforcementStatus == EnforcementStatus.completed))
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1FAE5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.check_circle_rounded, size: 13, color: Color(0xFF059669)),
+                      SizedBox(width: 4),
+                      Text('Settled & Compliant', style: TextStyle(color: Color(0xFF059669), fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                )
+              else ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.hourglass_top_rounded, size: 13, color: const Color(0xFFDC2626)),
+                      const SizedBox(width: 4),
+                      Text(
+                        isClosure ? 'Closure Notice' : 'Fine Outstanding',
+                        style: const TextStyle(color: Color(0xFFDC2626), fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                DeadlineCountdownBadge(daysLeft: daysLeft),
+              ],
+            ],
+          ),
+
+          if (isUnpaidFine) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F766E),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () {
+                  final targetR = rest ??
+                      RestaurantStoreService.restaurantsNotifier.value.where((r) => r.id == insp.restaurantId).firstOrNull ??
+                      RestaurantModel(
+                        id: insp.restaurantId,
+                        name: insp.restaurantName,
+                        category: 'Restaurant',
+                        address: 'Premises',
+                        latitude: 3.1466,
+                        longitude: 101.6958,
+                        hygieneRiskScore: 65.0,
+                        riskCategory: RiskCategory.high,
+                        imageUrl: '',
+                        lastUpdated: '',
+                        status: RestaurantStatus.approved,
+                        violationCount: 1,
+                        fineAmount: insp.fineAmount,
+                        fineDueDate: insp.dueDate,
+                        fineIssuedDate: insp.issuedDate,
+                        statutoryCitation: insp.statutoryCitation,
+                      );
+                  _showSettleFineModal(context, targetR, inspection: insp);
+                },
+                icon: const Icon(Icons.payment_rounded, size: 16),
+                label: Text(
+                  'Settle Fine via FPX (RM ${insp.fineAmount.toStringAsFixed(2)})',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -3384,8 +4466,63 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                               ),
                             ],
 
+                            const SizedBox(height: 14),
+                            // Set as Active on Dashboard button
+                            Builder(
+                              builder: (bCtx) {
+                                final isCurrentlyActive = (_activeSelectedRestaurant?.id == rst.id);
+                                return SizedBox(
+                                  width: double.infinity,
+                                  child: isCurrentlyActive
+                                      ? Container(
+                                          padding: const EdgeInsets.symmetric(vertical: 9),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                                          ),
+                                          child: const Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 16),
+                                              SizedBox(width: 6),
+                                              Text(
+                                                'Currently Active on Dashboard',
+                                                style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 12),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      : ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF0F766E),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(vertical: 10),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          ),
+                                          onPressed: () async {
+                                            await _setSelectedRestaurant(rst);
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('Dashboard switched to "${rst.name}"'),
+                                                  backgroundColor: const Color(0xFF0F766E),
+                                                  behavior: SnackBarBehavior.floating,
+                                                  margin: const EdgeInsets.all(16),
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                                  duration: const Duration(seconds: 2),
+                                                ),
+                                              );
+                                            }
+                                          },
+                                          icon: const Icon(Icons.dashboard_customize_rounded, size: 16),
+                                          label: const Text('Set as Active Dashboard Outlet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                        ),
+                                );
+                              },
+                            ),
                             if (isApproved) ...[
-                              const SizedBox(height: 14),
+                              const SizedBox(height: 10),
                               Row(
                                 children: [
                                   Expanded(

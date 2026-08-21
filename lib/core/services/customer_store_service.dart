@@ -1,10 +1,10 @@
+import 'dart:async';
 import 'package:bcrypt/bcrypt.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/mock_seed_data.dart';
 import '../models/user_model.dart';
 import '../theme/theme_manager.dart';
 import '../utils/uuid_helper.dart';
@@ -26,6 +26,18 @@ class CustomerAuthResult {
 }
 
 class CustomerStoreService {
+  static List<UserModel> getAllRegisteredCustomers() {
+    return _registeredCustomers.entries.map((e) => UserModel(
+      id: e.key,
+      name: e.key.split('@').first,
+      email: e.key,
+      phone: '',
+      role: e.value['role'] == 'businessman' ? UserRole.owner : UserRole.user,
+      status: AccountStatus.active,
+      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
+    )).toList();
+  }
+
   static UserModel? _currentCustomer;
 
   static UserModel? get currentCustomer => _currentCustomer;
@@ -742,14 +754,7 @@ class CustomerStoreService {
         }
 
         if (!isRoleAuthorized) {
-          AuditLogService.logAction(
-            actionType: 'SECURITY_ALERT',
-            category: 'Unauthorized Portal Access',
-            title: 'Cross-Portal Access Blocked',
-            description: 'Account with role [$rawDbRole] rejected attempting to login to [${portal.name}] portal.',
-            userEmail: cleanEmail,
-          );
-          // Generic secure response preventing role and account enumeration
+          // Generic secure response preventing role and account enumeration (no audit log to avoid exposing role details)
           return const CustomerAuthResult(
             success: false,
             message: 'No account was found with these credentials. Please try again.',
@@ -793,30 +798,34 @@ class CustomerStoreService {
           'role': rawDbRole,
         };
 
-        // Try syncing auth.users in background if active
-        try {
-          await supabase.auth.signInWithPassword(
-            email: cleanEmail,
-            password: password,
-          );
-        } catch (_) {}
-
-        AuditLogService.logAction(
-          actionType: 'LOGIN',
-          category: 'Session Activity',
-          title: 'User Login Session',
-          description: 'Logged into account session successfully as ${finalUserRole.name}',
-          userId: userId,
-          userEmail: cleanEmail,
-        );
+        // Run background non-blocking tasks asynchronously for instant UI transition
+        unawaited(() async {
+          try {
+            await supabase.auth.signInWithPassword(
+              email: cleanEmail,
+              password: password,
+            );
+          } catch (_) {}
+          try {
+            await AuditLogService.logAction(
+              actionType: 'LOGIN',
+              category: 'Session Activity',
+              title: 'User Login Session',
+              description: 'Logged into account session successfully as ${finalUserRole.name}',
+              userId: userId,
+              userEmail: cleanEmail,
+            );
+          } catch (_) {}
+          try {
+            await themeManager.loadThemeForUser(_currentCustomer!.id);
+          } catch (_) {}
+        }());
 
         await RememberMeService.saveRememberedUser(
           rememberMe: rememberMe,
           email: cleanEmail,
           portal: portal,
         );
-
-        await themeManager.loadThemeForUser(_currentCustomer!.id);
 
         return CustomerAuthResult(
           success: true,
@@ -1086,7 +1095,7 @@ class CustomerStoreService {
     if (_currentCustomer != null) {
       return [_currentCustomer!];
     }
-    return List.from(MockSeedData.users);
+    return _registeredCustomers.entries.map((e) => UserModel(id: e.key, name: e.key.split('@').first, email: e.key, phone: '', role: e.value['role'] == 'businessman' ? UserRole.owner : UserRole.user, status: AccountStatus.active, avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200')).toList();
   }
 
   /// Fetches paginated user accounts directly from Supabase 'users' database table using range(from, to)

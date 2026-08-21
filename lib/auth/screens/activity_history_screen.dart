@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/restaurant_store_service.dart';
@@ -59,10 +58,15 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
 
     final reviews = await RestaurantStoreService.fetchUserReviewActivities();
     final visits = await RestaurantStoreService.fetchRecentVisits();
+    
+    // Purge any legacy mock entries from state
+    final cleanReviews = reviews.where((r) => !RestaurantStoreService.isLegacyMockName(r['restaurantName']?.toString())).toList();
+    final cleanVisits = visits.where((v) => !RestaurantStoreService.isLegacyMockName(v['name']?.toString())).toList();
+
     if (mounted) {
       setState(() {
-        _userReviews = reviews;
-        _recentVisits = visits;
+        _userReviews = cleanReviews;
+        _recentVisits = cleanVisits;
       });
     }
   }
@@ -95,6 +99,7 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
       final comment = rev['comment'] ?? '';
       final rawRName = rev['restaurantName'] ?? rev['restaurantId'] ?? 'Restaurant';
       final rName = RestaurantStoreService.resolveRestaurantName(rawRName, fallback: 'Restaurant');
+      if (RestaurantStoreService.isLegacyMockName(rName)) continue;
       final rawTime = rev['timestamp'] ?? '';
       final key = '${rName}_$comment';
       seenReviewKeys.add(key);
@@ -116,39 +121,18 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
       ));
     }
 
-    // Default Seed Reviews if not already in list
-    if (!seenReviewKeys.contains('Golden Dragon Bistro_Clean kitchen counters and delicious food!')) {
-      items.add(const ActivityItem(
-        id: 'act_rev_1',
-        title: 'Golden Dragon Bistro',
-        description: 'Posted 5 ★ Review: "Clean kitchen counters and delicious food!"',
-        category: 'Restaurant Review',
-        timestamp: 'Today, 1:15 PM',
-        icon: Icons.rate_review_rounded,
-        iconColor: Color(0xFFD97706),
-      ));
-    }
-    if (!seenReviewKeys.contains('Zen Sushi & Teppanyaki_Flawless sanitation and pristine dining environment.')) {
-      items.add(const ActivityItem(
-        id: 'act_rev_2',
-        title: 'Zen Sushi & Teppanyaki',
-        description: 'Posted 5 ★ Review: "Flawless sanitation and pristine dining environment."',
-        category: 'Restaurant Review',
-        timestamp: '09 Aug 2026, 7:20 PM',
-        icon: Icons.rate_review_rounded,
-        iconColor: Color(0xFFD97706),
-      ));
-    }
+// Removed legacy mock reviews - strictly real data only
 
     // 2. Recent Visit Items (Live & Cached)
     final Set<String> seenVisitNames = {};
     for (final visit in _recentVisits) {
       final rawName = visit['name']?.toString() ?? visit['id']?.toString() ?? 'Premises';
       final name = RestaurantStoreService.resolveRestaurantName(rawName, fallback: 'Premises');
+      if (RestaurantStoreService.isLegacyMockName(name)) continue;
       final rawTime = visit['timestamp']?.toString() ?? '';
       seenVisitNames.add(name);
 
-      final matching = MockSeedData.restaurants.where((r) => r.id == visit['id'] || r.name == name).firstOrNull;
+      final matching = RestaurantStoreService.restaurantsNotifier.value.where((r) => r.id == visit['id'] || r.name == name).firstOrNull;
 
       items.add(ActivityItem(
         id: 'act_v_${visit['id'] ?? items.length}',
@@ -175,27 +159,10 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
       ));
     }
 
-    // Default Seed Visits if not in recent visits
-    for (int i = 0; i < MockSeedData.restaurants.length && i < 3; i++) {
-      final seedRest = MockSeedData.restaurants[i];
-      if (!seenVisitNames.contains(seedRest.name)) {
-        items.add(ActivityItem(
-          id: 'act_seed_v_$i',
-          title: seedRest.name,
-          description: i == 0
-              ? 'Viewed outlet details & GPS location map.'
-              : (i == 1 ? 'Checked hygiene risk score and audit certificate.' : 'Searched menu hygiene and customer ratings.'),
-          category: 'Recent Visit',
-          timestamp: i == 0 ? 'Today, 2:05 PM' : (i == 1 ? 'Yesterday, 4:30 PM' : '10 Aug 2026, 11:15 AM'),
-          icon: Icons.storefront_rounded,
-          iconColor: const Color(0xFF00A88F),
-          targetData: seedRest,
-        ));
-      }
-    }
+    // No mock visits
 
     // 3. Report Items
-    for (final c in MockSeedData.complaints) {
+    for (final c in RestaurantStoreService.complaintsNotifier.value) {
       items.add(ActivityItem(
         id: 'act_rep_${c.id}',
         title: 'Hygiene Report #${c.id}',
@@ -285,7 +252,7 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
                           if (item.category == 'Recent Visit' && item.targetData != null) {
                             Navigator.pushNamed(context, AppRoutes.restaurantDetail, arguments: item.targetData);
                           } else if (item.category == 'Restaurant Review') {
-                            final rModel = MockSeedData.restaurants.where((r) => r.name == item.title || r.id == item.title).firstOrNull;
+                            final rModel = RestaurantStoreService.restaurantsNotifier.value.where((r) => r.name == item.title || r.id == item.title).firstOrNull;
                             if (rModel != null) {
                               Navigator.pushNamed(context, AppRoutes.restaurantDetail, arguments: rModel);
                             }

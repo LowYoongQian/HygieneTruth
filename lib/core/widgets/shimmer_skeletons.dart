@@ -98,25 +98,135 @@ class FormSkeleton extends StatelessWidget {
   }
 }
 
-/// Profile Screen Skeleton
+/// Ultra-Premium Profile Screen Skeleton with Top Cover, Avatar, Badges & Section Cards
 class ProfileSkeleton extends StatelessWidget {
   const ProfileSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const BaseSkeleton(width: double.infinity, height: 160, borderRadius: 0),
-          const SizedBox(height: 20),
-          const BaseSkeleton(width: 100, height: 100, borderRadius: 50),
-          const SizedBox(height: 12),
-          const BaseSkeleton(width: 180, height: 24),
-          const SizedBox(height: 8),
-          const BaseSkeleton(width: 140, height: 14),
-          const SizedBox(height: 24),
-          const CardSkeleton(height: 140),
-          const CardSkeleton(height: 140),
+          // 1. Top Cover Banner + Overlapping Avatar
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topCenter,
+            children: [
+              const BaseSkeleton(
+                width: double.infinity,
+                height: 140,
+                borderRadius: 0,
+              ),
+              Positioned(
+                top: 85,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  ),
+                  child: const BaseSkeleton(
+                    width: 92,
+                    height: 92,
+                    borderRadius: 46,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 52),
+
+          // 2. User Info Headings Skeleton
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                const BaseSkeleton(width: 150, height: 22, borderRadius: 6),
+                const SizedBox(height: 8),
+                const BaseSkeleton(width: 210, height: 14, borderRadius: 4),
+                const SizedBox(height: 12),
+                const BaseSkeleton(width: 130, height: 28, borderRadius: 14),
+                const SizedBox(height: 24),
+
+                // 3. User Detail Info Cards (3 rows)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Column(
+                    children: [
+                      Row(
+                        children: [
+                          BaseSkeleton(width: 36, height: 36, borderRadius: 10),
+                          SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                BaseSkeleton(width: 80, height: 10, borderRadius: 3),
+                                SizedBox(height: 6),
+                                BaseSkeleton(width: 140, height: 14, borderRadius: 4),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      Divider(height: 20),
+                      Row(
+                        children: [
+                          BaseSkeleton(width: 36, height: 36, borderRadius: 10),
+                          SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                BaseSkeleton(width: 80, height: 10, borderRadius: 3),
+                                SizedBox(height: 6),
+                                BaseSkeleton(width: 180, height: 14, borderRadius: 4),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      Divider(height: 20),
+                      Row(
+                        children: [
+                          BaseSkeleton(width: 36, height: 36, borderRadius: 10),
+                          SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                BaseSkeleton(width: 80, height: 10, borderRadius: 3),
+                                SizedBox(height: 6),
+                                BaseSkeleton(width: 120, height: 14, borderRadius: 4),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 4. Quick Action Cards Skeleton
+                BaseSkeleton(width: double.infinity, height: 60, borderRadius: 16),
+                SizedBox(height: 10),
+                BaseSkeleton(width: double.infinity, height: 60, borderRadius: 16),
+                SizedBox(height: 10),
+                BaseSkeleton(width: double.infinity, height: 60, borderRadius: 16),
+              ],
+            ),
+          ),
+          const SizedBox(height: 30),
         ],
       ),
     );
@@ -799,3 +909,4 @@ class ActionHistorySkeleton extends StatelessWidget {
     );
   }
 }
+

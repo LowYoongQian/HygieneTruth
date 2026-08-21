@@ -21,7 +21,7 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
   final ScrollController _scrollController = ScrollController();
   RealtimeChannel? _realtimeChannel;
   List<ComplaintModel> _realCases = [];
-  String _selectedStatus = 'All';
+  String _selectedStatus = 'All Assigned';
   String _searchQuery = '';
   bool _isLoading = true;
   bool _isLoadingMore = false;
@@ -29,10 +29,9 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
   final int _pageSize = 4;
 
   final List<String> _statusFilters = [
-    'All',
-    'Pending',
-    'Under Review',
+    'All Assigned',
     'Investigating',
+    'Scheduled',
     'Resolved',
   ];
 
@@ -143,16 +142,23 @@ class _VerifiedComplaintsListScreenState extends State<VerifiedComplaintsListScr
 
   List<ComplaintModel> _getFilteredCases() {
     return _realCases.where((c) {
-      final statusName = c.status.name.toLowerCase();
       final restName = RestaurantStoreService.resolveRestaurantName(c.restaurantName, fallback: c.restaurantName).toLowerCase();
       final caseId = _formatCaseId(c.id).toLowerCase();
       final category = c.category.toLowerCase();
 
-      if (_selectedStatus != 'All') {
-        if (_selectedStatus == 'Pending' && (statusName != 'pending' && statusName != 'pendinginspection' && statusName != 'pending_inspection')) return false;
-        if (_selectedStatus == 'Under Review' && (statusName != 'underreview' && statusName != 'under_review' && statusName != 'submitted')) return false;
-        if (_selectedStatus == 'Investigating' && statusName != 'investigating') return false;
-        if (_selectedStatus == 'Resolved' && statusName != 'resolved') return false;
+      // Only include cases that are assigned to officer pipeline
+      if (_selectedStatus == 'All' || _selectedStatus == 'All Assigned') {
+        if (c.status != ComplaintStatus.investigating &&
+            c.status != ComplaintStatus.pendingInspection &&
+            c.status != ComplaintStatus.resolved) {
+          return false;
+        }
+      } else if (_selectedStatus == 'Investigating') {
+        if (c.status != ComplaintStatus.investigating) return false;
+      } else if (_selectedStatus == 'Scheduled' || _selectedStatus == 'Pending') {
+        if (c.status != ComplaintStatus.pendingInspection) return false;
+      } else if (_selectedStatus == 'Resolved') {
+        if (c.status != ComplaintStatus.resolved) return false;
       }
 
       if (_searchQuery.isNotEmpty) {

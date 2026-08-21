@@ -1,5 +1,5 @@
+import '../../core/services/restaurant_store_service.dart';
 import 'package:flutter/material.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/widgets/custom_app_bar.dart';
 
@@ -8,7 +8,7 @@ class RestaurantValidationQueueScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final list = MockSeedData.restaurants;
+    final list = RestaurantStoreService.restaurantsNotifier.value;
 
     return Scaffold(
       appBar: const CustomAppBar(title: 'Restaurant Validation Queue'),

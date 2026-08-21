@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/language_manager.dart';
@@ -40,7 +39,7 @@ class _RestaurantListScreenState extends State<RestaurantListScreen> {
     return ListenableBuilder(
       listenable: languageManager,
       builder: (context, _) {
-        final restaurants = MockSeedData.restaurants;
+        final restaurants = RestaurantStoreService.restaurantsNotifier.value.where((r) => r.isPubliclyVisible).toList();
 
         return Scaffold(
           appBar: CustomAppBar(title: t('top_rated_safe')),

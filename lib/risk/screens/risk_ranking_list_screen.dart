@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/restaurant_store_service.dart';
@@ -250,7 +249,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
   }
 
   List<RestaurantModel> _getRankedList() {
-    final List<RestaurantModel> list = List.from(MockSeedData.restaurants);
+    final List<RestaurantModel> list = List.from(RestaurantStoreService.restaurantsNotifier.value);
 
     if (_selectedPeriod == 'Week') {
       list.sort((a, b) => (a.hygieneRiskScore - a.violationCount).compareTo(b.hygieneRiskScore - b.violationCount));

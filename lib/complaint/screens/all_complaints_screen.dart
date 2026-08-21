@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/models/complaint_model.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/restaurant_store_service.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -52,7 +51,7 @@ class _AllComplaintsScreenState extends State<AllComplaintsScreen> {
   int _getCountForFilter(String filter) {
     final list = ComplaintStoreService.complaintsNotifier.value.isNotEmpty
         ? ComplaintStoreService.complaintsNotifier.value
-        : MockSeedData.complaints;
+        : RestaurantStoreService.complaintsNotifier.value;
     if (filter == 'All') return list.length;
     return list.where((c) => _matchesFilter(c, filter)).length;
   }
@@ -60,7 +59,7 @@ class _AllComplaintsScreenState extends State<AllComplaintsScreen> {
   List<ComplaintModel> _getSortedComplaints() {
     final baseList = ComplaintStoreService.complaintsNotifier.value.isNotEmpty
         ? ComplaintStoreService.complaintsNotifier.value
-        : MockSeedData.complaints;
+        : RestaurantStoreService.complaintsNotifier.value;
     List<ComplaintModel> list = baseList.where((c) => _matchesFilter(c, _selectedCategory)).toList();
 
     list.sort((a, b) {

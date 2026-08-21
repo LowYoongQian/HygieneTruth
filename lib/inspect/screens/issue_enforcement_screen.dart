@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/models/inspection_model.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/services/audit_log_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/restaurant_store_service.dart';
@@ -56,8 +55,8 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
     InspectionModel? insp;
     if (args is InspectionModel) {
       insp = args;
-    } else if (MockSeedData.inspections.isNotEmpty) {
-      insp = MockSeedData.inspections.first;
+    } else if (RestaurantStoreService.inspectionsNotifier.value.isNotEmpty) {
+      insp = RestaurantStoreService.inspectionsNotifier.value.first;
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -409,9 +408,9 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
                 // Update in memory inspections
                 final nonNullInsp = insp;
                 if (nonNullInsp != null) {
-                  final idx = MockSeedData.inspections.indexWhere((x) => x.id == nonNullInsp.id);
+                  final idx = RestaurantStoreService.inspectionsNotifier.value.indexWhere((x) => x.id == nonNullInsp.id);
                   if (idx != -1) {
-                    MockSeedData.inspections[idx] = InspectionModel(
+                    RestaurantStoreService.inspectionsNotifier.value[idx] = InspectionModel(
                       id: nonNullInsp.id,
                       complaintId: nonNullInsp.complaintId,
                       restaurantId: nonNullInsp.restaurantId,

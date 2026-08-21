@@ -133,10 +133,15 @@ class _UserSettingsHistoryScreenState extends State<UserSettingsHistoryScreen> {
       ));
     }
 
+    // Filter out cross-portal access blocked logs to maintain zero account/role exposure
+    synthesized.removeWhere((l) =>
+        l.title.toLowerCase().contains('cross-portal') ||
+        l.category.toLowerCase().contains('unauthorized portal') ||
+        l.description.toLowerCase().contains('cross-portal') ||
+        l.description.toLowerCase().contains('rejected attempting to login'));
+
     // Sort descending
     synthesized.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-    await Future.delayed(const Duration(milliseconds: 500));
 
     if (mounted) {
       setState(() {

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/models/complaint_model.dart';
 import '../../core/models/inspection_model.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../notifications/models/notification_model.dart';
 import '../../core/services/audit_log_service.dart';
 import '../../core/services/notification_service.dart';
@@ -45,8 +44,8 @@ class _CloseCaseScreenState extends State<CloseCaseScreen> {
     InspectionModel? insp;
     if (args is InspectionModel) {
       insp = args;
-    } else if (MockSeedData.inspections.isNotEmpty) {
-      insp = MockSeedData.inspections.first;
+    } else if (RestaurantStoreService.inspectionsNotifier.value.isNotEmpty) {
+      insp = RestaurantStoreService.inspectionsNotifier.value.first;
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -69,13 +68,15 @@ class _CloseCaseScreenState extends State<CloseCaseScreen> {
       );
     }
 
-    final formattedId = _formatCaseId(insp.complaintId);
-    final restName = RestaurantStoreService.resolveRestaurantName(insp.restaurantName, fallback: insp.restaurantName);
+    final targetInsp = insp;
+    final formattedId = _formatCaseId(targetInsp.complaintId);
+    final restName = RestaurantStoreService.resolveRestaurantName(targetInsp.restaurantName, fallback: targetInsp.restaurantName);
 
     // Automated system verification evaluation
+    final rest = RestaurantStoreService.restaurantsNotifier.value.where((r) => r.id == targetInsp.restaurantId || r.name == targetInsp.restaurantName).firstOrNull;
     final bool isReportApproved = true; // Evaluated from completed inspection record
     final bool isActionCompleted = true; // Evaluated from owner remediation proof
-    final bool isFinePaid = insp.fineAmount <= 0 || insp.enforcementStatus == EnforcementStatus.inProgress || insp.enforcementStatus == EnforcementStatus.completed;
+    final bool isFinePaid = targetInsp.isFinePaid || (rest?.isFinePaid ?? false) || targetInsp.fineAmount <= 0;
     final bool isReinspectionPassed = true; // Evaluated from re-inspection audit Grade A/B clearance
 
     return Scaffold(
@@ -337,10 +338,10 @@ class _CloseCaseScreenState extends State<CloseCaseScreen> {
                       setState(() => _isSubmitting = true);
 
                       // Update in-memory complaint status
-                      final cIndex = MockSeedData.complaints.indexWhere((c) => c.id == insp?.complaintId);
+                      final cIndex = RestaurantStoreService.complaintsNotifier.value.indexWhere((c) => c.id == insp?.complaintId);
                       if (cIndex != -1) {
-                        final old = MockSeedData.complaints[cIndex];
-                        MockSeedData.complaints[cIndex] = ComplaintModel(
+                        final old = RestaurantStoreService.complaintsNotifier.value[cIndex];
+                        RestaurantStoreService.complaintsNotifier.value[cIndex] = ComplaintModel(
                           id: old.id,
                           restaurantId: old.restaurantId,
                           restaurantName: old.restaurantName,
@@ -362,9 +363,9 @@ class _CloseCaseScreenState extends State<CloseCaseScreen> {
                       // Update inspection enforcement status to completed
                       final nonNullInsp = insp;
                       if (nonNullInsp != null) {
-                        final idx = MockSeedData.inspections.indexWhere((x) => x.id == nonNullInsp.id);
+                        final idx = RestaurantStoreService.inspectionsNotifier.value.indexWhere((x) => x.id == nonNullInsp.id);
                         if (idx != -1) {
-                          MockSeedData.inspections[idx] = InspectionModel(
+                          RestaurantStoreService.inspectionsNotifier.value[idx] = InspectionModel(
                             id: nonNullInsp.id,
                             complaintId: nonNullInsp.complaintId,
                             restaurantId: nonNullInsp.restaurantId,

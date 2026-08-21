@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../core/models/complaint_model.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/restaurant_store_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -177,8 +176,8 @@ class _ComplaintFullDetailScreenState extends State<ComplaintFullDetailScreen> {
     ComplaintModel? c;
     if (args is ComplaintModel) {
       c = args;
-    } else if (MockSeedData.complaints.isNotEmpty) {
-      c = MockSeedData.complaints.first;
+    } else if (RestaurantStoreService.complaintsNotifier.value.isNotEmpty) {
+      c = RestaurantStoreService.complaintsNotifier.value.first;
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/restaurant_store_service.dart';
@@ -14,7 +13,13 @@ class RestaurantRiskDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments;
-    final r = args is RestaurantModel ? args : MockSeedData.restaurants[1];
+    final r = args is RestaurantModel ? args : (RestaurantStoreService.restaurantsNotifier.value.isNotEmpty ? RestaurantStoreService.restaurantsNotifier.value.first : null);
+    if (r == null) {
+      return const Scaffold(
+        appBar: CustomAppBar(title: 'Risk Details'),
+        body: Center(child: Text('No restaurant selected')),
+      );
+    }
     RestaurantStoreService.recordRecentVisit(r);
 
     return Scaffold(

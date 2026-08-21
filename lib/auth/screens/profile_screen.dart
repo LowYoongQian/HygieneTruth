@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/google_sign_in_button.dart';
+import '../../core/widgets/shimmer_skeletons.dart';
 import '../widgets/role_badge.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -21,6 +22,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    if (CustomerStoreService.currentCustomer != null) {
+      _isLoadingSession = false;
+    }
     _loadUserSession();
   }
 
@@ -45,7 +49,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         return Scaffold(
           appBar: CustomAppBar(
-            title: t('profile'),
+            title: t('Profile'),
             actions: [
               IconButton(
                 icon: const Icon(Icons.edit_outlined),
@@ -68,7 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
           body: _isLoadingSession
-              ? const Center(child: CircularProgressIndicator())
+              ? const ProfileSkeleton()
               : RefreshIndicator(
                   onRefresh: _loadUserSession,
                   color: AppTheme.primaryColor,

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/models/inspection_model.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/restaurant_store_service.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -81,7 +80,7 @@ class _EnforcementHistoryScreenState extends State<EnforcementHistoryScreen> {
   }
 
   List<InspectionModel> _getFilteredList() {
-    return MockSeedData.inspections.where((insp) {
+    return RestaurantStoreService.inspectionsNotifier.value.where((insp) {
       final restName = RestaurantStoreService.resolveRestaurantName(insp.restaurantName, fallback: insp.restaurantName).toLowerCase();
       final actionStr = insp.issuedAction.name.toLowerCase();
       final statusStr = insp.enforcementStatus.name.toLowerCase();
@@ -139,7 +138,7 @@ class _EnforcementHistoryScreenState extends State<EnforcementHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final allList = MockSeedData.inspections;
+    final allList = RestaurantStoreService.inspectionsNotifier.value;
     final filtered = _getFilteredList();
     final paginated = filtered.take(_displayedCount).toList();
     final hasMore = _displayedCount < filtered.length;
@@ -335,13 +334,34 @@ class _EnforcementHistoryScreenState extends State<EnforcementHistoryScreen> {
                                                 ),
                                                 if (insp.fineAmount > 0) ...[
                                                   const SizedBox(height: 4),
-                                                  Text(
-                                                    'Compound Penalty: RM ${insp.fineAmount.toStringAsFixed(2)}',
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: Color(0xFFDC2626),
-                                                    ),
+                                                  Row(
+                                                    children: [
+                                                      Text(
+                                                        'Compound Penalty: RM ${insp.fineAmount.toStringAsFixed(2)}',
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: Color(0xFFDC2626),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                                        decoration: BoxDecoration(
+                                                          color: insp.isFinePaid ? const Color(0xFFD1FAE5) : const Color(0xFFFEF3C7),
+                                                          borderRadius: BorderRadius.circular(6),
+                                                          border: Border.all(color: insp.isFinePaid ? const Color(0xFF10B981) : const Color(0xFFF59E0B)),
+                                                        ),
+                                                        child: Text(
+                                                          insp.isFinePaid ? '✅ Paid' : '⏳ Unpaid',
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: insp.isFinePaid ? const Color(0xFF059669) : const Color(0xFFB45309),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ],
                                                 const SizedBox(height: 6),

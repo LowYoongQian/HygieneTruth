@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/services/restaurant_store_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -42,7 +41,7 @@ class _RestaurantVerificationDetailScreenState extends State<RestaurantVerificat
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final args = ModalRoute.of(context)?.settings.arguments;
-    final RestaurantModel? r = args is RestaurantModel ? args : (MockSeedData.restaurants.isNotEmpty ? MockSeedData.restaurants.last : null);
+    final RestaurantModel? r = args is RestaurantModel ? args : (RestaurantStoreService.restaurantsNotifier.value.isNotEmpty ? RestaurantStoreService.restaurantsNotifier.value.first : null);
 
     if (r == null) {
       return Scaffold(

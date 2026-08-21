@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/models/complaint_model.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/services/language_manager.dart';
 import '../../core/services/restaurant_store_service.dart';
@@ -130,7 +129,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
       list.add(_selectedRestaurant!);
     }
 
-    for (final r in MockSeedData.restaurants) {
+    for (final r in RestaurantStoreService.restaurantsNotifier.value) {
       if (!seenIds.contains(r.id)) {
         seenIds.add(r.id);
         list.add(r);
@@ -145,14 +144,14 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is RestaurantModel) {
-      final existingIndex = MockSeedData.restaurants.indexWhere((r) => r.id == args.id);
+      final existingIndex = RestaurantStoreService.restaurantsNotifier.value.indexWhere((r) => r.id == args.id);
       if (existingIndex != -1) {
-        _selectedRestaurant = MockSeedData.restaurants[existingIndex];
+        _selectedRestaurant = RestaurantStoreService.restaurantsNotifier.value[existingIndex];
       } else {
         _selectedRestaurant = args;
       }
     } else {
-      _selectedRestaurant ??= MockSeedData.restaurants.isNotEmpty ? MockSeedData.restaurants.first : null;
+      _selectedRestaurant ??= RestaurantStoreService.restaurantsNotifier.value.isNotEmpty ? RestaurantStoreService.restaurantsNotifier.value.first : null;
     }
   }
 

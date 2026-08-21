@@ -1,6 +1,6 @@
+import '../../core/services/customer_store_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/models/user_model.dart';
 import '../../core/services/audit_log_service.dart';
 import '../../core/services/supabase_service.dart';
@@ -43,7 +43,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
       if (args is UserModel) {
         _selectedUser = args;
       } else {
-        _selectedUser = MockSeedData.users.first;
+        _selectedUser = CustomerStoreService.getAllRegisteredCustomers().first;
       }
 
       _nameCtrl = TextEditingController(text: _selectedUser.name);

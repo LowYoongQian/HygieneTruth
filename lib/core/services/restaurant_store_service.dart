@@ -1,3 +1,4 @@
+import '../models/inspection_model.dart';
 import '../../notifications/models/notification_model.dart';
 import 'notification_service.dart';
 import 'dart:async';
@@ -7,7 +8,6 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/complaint_model.dart';
-import '../models/mock_seed_data.dart';
 import '../models/restaurant_model.dart';
 import '../utils/uuid_helper.dart';
 import 'audit_log_service.dart';
@@ -29,7 +29,101 @@ class RestaurantRatingInfo {
 }
 
 class RestaurantStoreService {
-  static final ValueNotifier<List<RestaurantModel>> restaurantsNotifier = ValueNotifier<List<RestaurantModel>>(MockSeedData.restaurants);
+  static const Set<String> _legacyMockNames = {
+    'golden dragon bistro',
+    'golden dragon',
+    'zen sushi & teppanyaki',
+    'zen sushi',
+    'ocean catch seafood restaurant',
+    'ocean catch seafood',
+    'mamak corner',
+    'clean kitchen bistro',
+    'chopsticks express',
+    'sushi paradise',
+    'spice garden indian cuisine',
+    'spice garden',
+  };
+
+  /// Check if a restaurant name belongs to old legacy mock data
+  static bool isLegacyMockName(String? name) {
+    if (name == null || name.trim().isEmpty) return false;
+    final lower = name.trim().toLowerCase();
+    for (final mock in _legacyMockNames) {
+      if (lower == mock || lower.contains(mock)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static RealtimeChannel? _realtimeChannel;
+
+  /// Setup live Supabase Realtime subscriptions across all core tables
+  static void initRealtimeSubscriptions() {
+    if (_realtimeChannel != null) return;
+    try {
+      final supabase = SupabaseService.client;
+      _realtimeChannel = supabase
+          .channel('public:restaurant_store_realtime')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'restaurants',
+            callback: (payload) {
+              debugPrint('⚡ Realtime Supabase Update on [restaurants]: ${payload.eventType}');
+              fetchAllRestaurants(forceRefresh: true);
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'restaurant_reviews',
+            callback: (payload) {
+              debugPrint('⚡ Realtime Supabase Update on [restaurant_reviews]');
+              fetchAllRestaurants(forceRefresh: true);
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'complaints',
+            callback: (payload) {
+              debugPrint('⚡ Realtime Supabase Update on [complaints]');
+              ComplaintStoreService.fetchAllComplaints(forceRefresh: true);
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'inspections',
+            callback: (payload) {
+              debugPrint('⚡ Realtime Supabase Update on [inspections]');
+              fetchInspections();
+            },
+          )
+          .subscribe();
+    } catch (e) {
+      debugPrint('Realtime subscription initialization error: $e');
+    }
+  }
+
+  static final ValueNotifier<List<ComplaintModel>> complaintsNotifier = ValueNotifier<List<ComplaintModel>>([]);
+  static final ValueNotifier<List<InspectionModel>> inspectionsNotifier = ValueNotifier<List<InspectionModel>>([]);
+
+  static Future<List<InspectionModel>> fetchInspections() async {
+    try {
+      final supabase = SupabaseService.client;
+      final res = await supabase.from('inspections').select().order('created_at', ascending: false);
+      if (res.isNotEmpty) {
+        final list = (res as List<dynamic>).map((row) => InspectionModel.fromMap(Map<String, dynamic>.from(row as Map))).toList();
+        inspectionsNotifier.value = list;
+        return list;
+      }
+    } catch (_) {}
+    return inspectionsNotifier.value;
+  }
+
+  static final ValueNotifier<List<RestaurantModel>> restaurantsNotifier = ValueNotifier<List<RestaurantModel>>([]);
     static final Map<String, String> restaurantNameCache = {};
   static void cacheRestaurantName(String id, String name) {
     if (name.isNotEmpty && !isRawUuid(name)) {
@@ -62,7 +156,7 @@ class RestaurantStoreService {
     }
 
     // 3. Search MockSeedData
-    final mock = MockSeedData.restaurants.where((r) => r.id == trimmed || r.name == trimmed).firstOrNull;
+    final mock = restaurantsNotifier.value.where((r) => r.id == trimmed || r.name == trimmed).firstOrNull;
     if (mock != null && mock.name.isNotEmpty && !isRawUuid(mock.name)) {
       restaurantNameCache[trimmed] = mock.name;
       return mock.name;
@@ -74,6 +168,13 @@ class RestaurantStoreService {
   /// In-memory override store for reviewed outlet statuses: restaurantId -> status string
   static final Map<String, String> _reviewedOutletStatuses = {};
   static final Map<String, String> _reviewedOutletRegNos = {};
+  static final Map<String, String> _reviewedOutletEnforcements = {};
+  static final Map<String, double> _reviewedOutletFines = {};
+  static final Map<String, bool> _reviewedOutletFinePaids = {};
+  static final Map<String, String> _reviewedOutletFineDueDates = {};
+  static final Map<String, String> _reviewedOutletFineIssuedDates = {};
+  static final Map<String, bool> _reviewedOutletSuspensions = {};
+  static final Map<String, String> _reviewedOutletCitations = {};
   static final Map<String, List<Map<String, String>>> _reviewMemoryCache = {};
 
   static bool _isValidUuid(String? str) {
@@ -121,6 +222,391 @@ class RestaurantStoreService {
         }
       } catch (_) {}
     }
+
+    // Enforcement action override
+    if (_reviewedOutletEnforcements.containsKey(id)) {
+      mapData['enforcement_action'] = _reviewedOutletEnforcements[id];
+    } else {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getString('restaurant_override_enforcement_$id');
+        if (saved != null && saved.isNotEmpty) {
+          _reviewedOutletEnforcements[id] = saved;
+          mapData['enforcement_action'] = saved;
+        }
+      } catch (_) {}
+    }
+
+    // Fine amount override
+    if (_reviewedOutletFines.containsKey(id)) {
+      mapData['fine_amount'] = _reviewedOutletFines[id];
+    } else {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getDouble('restaurant_override_fine_amt_$id');
+        if (saved != null) {
+          _reviewedOutletFines[id] = saved;
+          mapData['fine_amount'] = saved;
+        }
+      } catch (_) {}
+    }
+
+    // Fine paid override
+    if (_reviewedOutletFinePaids.containsKey(id)) {
+      mapData['is_fine_paid'] = _reviewedOutletFinePaids[id];
+    } else {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getBool('restaurant_override_fine_paid_$id');
+        if (saved != null) {
+          _reviewedOutletFinePaids[id] = saved;
+          mapData['is_fine_paid'] = saved;
+        }
+      } catch (_) {}
+    }
+
+    // Fine due date override
+    if (_reviewedOutletFineDueDates.containsKey(id)) {
+      mapData['fine_due_date'] = _reviewedOutletFineDueDates[id];
+    } else {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getString('restaurant_override_fine_due_$id');
+        if (saved != null && saved.isNotEmpty) {
+          _reviewedOutletFineDueDates[id] = saved;
+          mapData['fine_due_date'] = saved;
+        }
+      } catch (_) {}
+    }
+
+    // Fine issued date override
+    if (_reviewedOutletFineIssuedDates.containsKey(id)) {
+      mapData['fine_issued_date'] = _reviewedOutletFineIssuedDates[id];
+    } else {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getString('restaurant_override_fine_issued_$id');
+        if (saved != null && saved.isNotEmpty) {
+          _reviewedOutletFineIssuedDates[id] = saved;
+          mapData['fine_issued_date'] = saved;
+        }
+      } catch (_) {}
+    }
+
+    // Suspension override
+    if (_reviewedOutletSuspensions.containsKey(id)) {
+      mapData['is_suspended'] = _reviewedOutletSuspensions[id];
+    } else {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getBool('restaurant_override_suspended_$id');
+        if (saved != null) {
+          _reviewedOutletSuspensions[id] = saved;
+          mapData['is_suspended'] = saved;
+        }
+      } catch (_) {}
+    }
+
+    // Statutory citation override
+    if (_reviewedOutletCitations.containsKey(id)) {
+      mapData['statutory_citation'] = _reviewedOutletCitations[id];
+    } else {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getString('restaurant_override_citation_$id');
+        if (saved != null && saved.isNotEmpty) {
+          _reviewedOutletCitations[id] = saved;
+          mapData['statutory_citation'] = saved;
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Issues an official MOH enforcement action (Form 32 Warning, Compound Fine, or Closure Notice)
+  static Future<bool> issueEnforcementAction({
+    required String restaurantId,
+    required String restaurantName,
+    required EnforcementType actionType,
+    required double fineAmount,
+    required String statutoryCitation,
+    required String directives,
+    required String officerName,
+    String? inspectionId,
+    String? complaintId,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final String issuedDate = now.toIso8601String().split('T').first;
+      final String dueDate = now.add(const Duration(days: 14)).toIso8601String().split('T').first;
+      final bool isSuspended = actionType == EnforcementType.closure;
+      final bool isFinePaid = fineAmount == 0.0;
+      final String actionStr = actionType.name;
+
+      // 1. Update in-memory caches
+      _reviewedOutletEnforcements[restaurantId] = actionStr;
+      _reviewedOutletFines[restaurantId] = fineAmount;
+      _reviewedOutletFinePaids[restaurantId] = isFinePaid;
+      _reviewedOutletFineIssuedDates[restaurantId] = issuedDate;
+      _reviewedOutletFineDueDates[restaurantId] = dueDate;
+      _reviewedOutletSuspensions[restaurantId] = isSuspended;
+      _reviewedOutletCitations[restaurantId] = statutoryCitation;
+
+      // 2. Persist to SharedPreferences
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('restaurant_override_enforcement_$restaurantId', actionStr);
+        await prefs.setDouble('restaurant_override_fine_amt_$restaurantId', fineAmount);
+        await prefs.setBool('restaurant_override_fine_paid_$restaurantId', isFinePaid);
+        await prefs.setString('restaurant_override_fine_issued_$restaurantId', issuedDate);
+        await prefs.setString('restaurant_override_fine_due_$restaurantId', dueDate);
+        await prefs.setBool('restaurant_override_suspended_$restaurantId', isSuspended);
+        await prefs.setString('restaurant_override_citation_$restaurantId', statutoryCitation);
+      } catch (_) {}
+
+      // 3. Update Inspection in inspectionsNotifier
+      final String inspId = inspectionId ?? UuidHelper.generateV4();
+      final String compId = complaintId ?? 'CMP-${DateTime.now().year}-${restaurantId.substring(0, 4).toUpperCase()}';
+
+      final inspection = InspectionModel(
+        id: inspId,
+        complaintId: compId,
+        restaurantId: restaurantId,
+        restaurantName: restaurantName,
+        scheduledDate: issuedDate,
+        conductedDate: issuedDate,
+        officerName: officerName,
+        outcome: InspectionOutcome.nonCompliant,
+        findings: directives,
+        recommendedAction: actionType,
+        issuedAction: actionType,
+        justification: directives,
+        fineAmount: fineAmount,
+        enforcementStatus: EnforcementStatus.inProgress,
+        statutoryCitation: statutoryCitation,
+        issuedDate: issuedDate,
+        dueDate: dueDate,
+        isFinePaid: isFinePaid,
+      );
+
+      final currentInspections = List<InspectionModel>.from(inspectionsNotifier.value);
+      final inspIdx = currentInspections.indexWhere((x) => x.id == inspId || (x.restaurantId == restaurantId && x.complaintId == compId));
+      if (inspIdx != -1) {
+        currentInspections[inspIdx] = inspection;
+      } else {
+        currentInspections.insert(0, inspection);
+      }
+      inspectionsNotifier.value = currentInspections;
+
+      // 4. Update Restaurant in restaurantsNotifier
+      final currentRestaurants = List<RestaurantModel>.from(restaurantsNotifier.value);
+      final rIdx = currentRestaurants.indexWhere((r) => r.id == restaurantId || r.name == restaurantName);
+      if (rIdx != -1) {
+        currentRestaurants[rIdx] = currentRestaurants[rIdx].copyWith(
+          enforcementAction: actionStr,
+          fineAmount: fineAmount,
+          isFinePaid: isFinePaid,
+          fineIssuedDate: issuedDate,
+          fineDueDate: dueDate,
+          isSuspended: isSuspended,
+          statutoryCitation: statutoryCitation,
+        );
+        restaurantsNotifier.value = currentRestaurants;
+      }
+
+      // 5. Update Supabase restaurants and inspections tables
+      try {
+        final supabase = SupabaseService.client;
+
+        // Try updating restaurants table with enforcement columns
+        try {
+          await supabase.from('restaurants').update({
+            'enforcement_action': actionStr,
+            'fine_amount': fineAmount,
+            'is_fine_paid': isFinePaid,
+            'fine_issued_date': issuedDate,
+            'fine_due_date': dueDate,
+            'is_suspended': isSuspended,
+            'statutory_citation': statutoryCitation,
+            'last_updated': DateTime.now().toUtc().toIso8601String(),
+          }).eq('id', restaurantId);
+        } catch (e) {
+          debugPrint('Supabase restaurants enforcement columns update note: $e');
+        }
+
+        // Try upserting inspection record
+        try {
+          await supabase.from('inspections').upsert({
+            'id': inspId,
+            'complaint_id': compId,
+            'restaurant_id': restaurantId,
+            'restaurant_name': restaurantName,
+            'scheduled_date': issuedDate,
+            'conducted_date': issuedDate,
+            'officer_name': officerName,
+            'outcome': InspectionOutcome.nonCompliant.name,
+            'findings': directives,
+            'recommended_action': actionType.name,
+            'issued_action': actionType.name,
+            'justification': directives,
+            'fine_amount': fineAmount,
+            'enforcement_status': EnforcementStatus.inProgress.name,
+            'statutory_citation': statutoryCitation,
+            'issued_date': issuedDate,
+            'due_date': dueDate,
+            'is_fine_paid': isFinePaid,
+          });
+        } catch (e) {
+          debugPrint('Supabase inspections table upsert note: $e');
+        }
+      } catch (e) {
+        debugPrint('Supabase update error during enforcement: $e');
+      }
+
+      // 6. Log Audit Trail
+      AuditLogService.logAction(
+        actionType: 'ENFORCEMENT_DECREE_ISSUED',
+        category: 'Government',
+        title: 'MOH Enforcement Action Issued: ${actionType.name.toUpperCase()}',
+        description: 'Issued ${actionType.name.toUpperCase()} (Fine: RM ${fineAmount.toStringAsFixed(2)}) for $restaurantName. Citation: $statutoryCitation. Directives: $directives',
+      );
+
+      // 7. Send Immediate Notification to Owner
+      final String restOwnerId = rIdx != -1 ? currentRestaurants[rIdx].ownerId : 'own_001';
+      NotificationService.sendNotification(
+        userId: restOwnerId,
+        title: '🚨 Official MOH Enforcement Decree: ${actionType.name.toUpperCase()}',
+        message: 'Ministry of Health issued ${actionType.name.toUpperCase()} for $restaurantName (Fine: RM ${fineAmount.toStringAsFixed(2)}). Due: $dueDate. Citation: $statutoryCitation',
+        type: NotificationType.hygieneAlert,
+        actionUrl: 'enforcement_notice',
+      );
+
+      return true;
+    } catch (e) {
+      debugPrint('Error issuing enforcement action: $e');
+      return false;
+    }
+  }
+
+  /// Settles an active compound fine for a restaurant via official payment gateway
+  static Future<bool> settleCompoundFine({
+    required String restaurantId,
+    required String paymentReference,
+    required double amountPaid,
+    String paymentMethod = 'FPX Online Banking',
+  }) async {
+    try {
+      final nowIso = DateTime.now().toUtc().toIso8601String();
+
+      // 1. Update memory caches
+      _reviewedOutletFinePaids[restaurantId] = true;
+      _reviewedOutletSuspensions[restaurantId] = false; // Lift suspension if tied to fine
+
+      // 2. Persist to SharedPreferences
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('restaurant_override_fine_paid_$restaurantId', true);
+        await prefs.setBool('restaurant_override_suspended_$restaurantId', false);
+        await prefs.setString('restaurant_compound_receipt_${restaurantId}_ref', paymentReference);
+        await prefs.setString('restaurant_compound_receipt_${restaurantId}_time', nowIso);
+      } catch (_) {}
+
+      // 3. Update in-memory inspections
+      final currentInspections = List<InspectionModel>.from(inspectionsNotifier.value);
+      for (int i = 0; i < currentInspections.length; i++) {
+        if (currentInspections[i].restaurantId == restaurantId) {
+          currentInspections[i] = currentInspections[i].copyWith(
+            isFinePaid: true,
+            paidAt: nowIso,
+            enforcementStatus: EnforcementStatus.completed,
+          );
+        }
+      }
+      inspectionsNotifier.value = currentInspections;
+
+      // 4. Update in-memory restaurants
+      final currentRestaurants = List<RestaurantModel>.from(restaurantsNotifier.value);
+      final rIdx = currentRestaurants.indexWhere((r) => r.id == restaurantId);
+      String restName = 'Restaurant';
+      String? ownerId = 'own_001';
+      if (rIdx != -1) {
+        restName = currentRestaurants[rIdx].name;
+        ownerId = currentRestaurants[rIdx].ownerId;
+        currentRestaurants[rIdx] = currentRestaurants[rIdx].copyWith(
+          isFinePaid: true,
+          isSuspended: false,
+          lastUpdated: nowIso.split('T').first,
+        );
+        restaurantsNotifier.value = currentRestaurants;
+      }
+
+      // 5. Update Supabase
+      try {
+        final supabase = SupabaseService.client;
+        try {
+          await supabase.from('restaurants').update({
+            'is_fine_paid': true,
+            'is_suspended': false,
+            'last_updated': nowIso,
+          }).eq('id', restaurantId);
+        } catch (_) {}
+
+        try {
+          await supabase.from('inspections').update({
+            'is_fine_paid': true,
+            'paid_at': nowIso,
+            'enforcement_status': EnforcementStatus.completed.name,
+          }).eq('restaurant_id', restaurantId);
+        } catch (_) {}
+      } catch (_) {}
+
+      // 6. Log Audit Action
+      AuditLogService.logAction(
+        actionType: 'COMPOUND_FINE_SETTLED',
+        category: 'Finance',
+        title: 'Compound Penalty Settled',
+        description: 'Payment of RM ${amountPaid.toStringAsFixed(2)} confirmed for $restName. Ref: $paymentReference ($paymentMethod). Listing reinstated.',
+      );
+
+      // 7. Send Notifications across roles
+      // To Owner:
+      NotificationService.sendNotification(
+        userId: ownerId,
+        title: '✅ Compound Settlement Receipt & Clearance',
+        message: 'Payment of RM ${amountPaid.toStringAsFixed(2)} for $restName confirmed! Legal status updated to compliant and public listing restored. Ref: $paymentReference',
+        type: NotificationType.hygieneAlert,
+        actionUrl: 'outlet_$restaurantId',
+      );
+
+      // To Government Officials:
+      NotificationService.sendNotification(
+        userId: 'gov_officer_001',
+        title: '💰 Compound Penalty Cleared: $restName',
+        message: 'Owner settled statutory fine of RM ${amountPaid.toStringAsFixed(2)} (Ref: $paymentReference). Enforcement status marked Completed.',
+        type: NotificationType.system,
+        actionUrl: 'enforcement_history',
+      );
+
+      // To System Admins:
+      NotificationService.sendNotification(
+        userId: 'admin_001',
+        title: '🛡️ Audit: Penalty Payment Settled ($restName)',
+        message: 'RM ${amountPaid.toStringAsFixed(2)} settled via $paymentMethod. Suspension lifted.',
+        type: NotificationType.system,
+        actionUrl: 'admin_action_logs',
+      );
+
+      return true;
+    } catch (e) {
+      debugPrint('Error settling compound fine: $e');
+      return false;
+    }
+  }
+
+  /// Get the latest inspection/enforcement record for a specific restaurant
+  static InspectionModel? getLatestInspectionForRestaurant(String restaurantId) {
+    if (restaurantId.isEmpty) return null;
+    final all = inspectionsNotifier.value;
+    return all.where((i) => i.restaurantId == restaurantId).firstOrNull;
   }
 
   /// Uploads an SSM certificate image file to Supabase storage bucket 'Images' in folder 'SSM'
@@ -265,8 +751,10 @@ class RestaurantStoreService {
     } catch (_) {}
 
     // 3. Append to active in-memory restaurants store
-    if (!MockSeedData.restaurants.any((r) => r.id == newRestaurant.id || r.name == newRestaurant.name)) {
-      MockSeedData.restaurants.insert(0, newRestaurant);
+    if (!restaurantsNotifier.value.any((r) => r.id == newRestaurant.id || r.name == newRestaurant.name)) {
+      final updatedList = List<RestaurantModel>.from(restaurantsNotifier.value);
+      updatedList.insert(0, newRestaurant);
+      restaurantsNotifier.value = updatedList;
     }
 
     return newRestaurant;
@@ -277,16 +765,38 @@ class RestaurantStoreService {
   /// Fetches all public and verified restaurants from Supabase database `restaurants` table.
   /// Merges with local custom restaurants and updates real-time listeners.
   static Future<List<RestaurantModel>> fetchAllRestaurants({bool forceRefresh = false}) async {
+    // 0. If in-memory already populated and not force refreshing, return instantly
+    if (restaurantsNotifier.value.isNotEmpty && !forceRefresh) {
+      return restaurantsNotifier.value;
+    }
+
+    // 0b. Instant hydration from local SharedPreferences cache
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedJson = prefs.getString('cached_all_restaurants_feed');
+      if (cachedJson != null && cachedJson.isNotEmpty && restaurantsNotifier.value.isEmpty) {
+        final List<dynamic> decoded = jsonDecode(cachedJson);
+        final List<RestaurantModel> cachedList = [];
+        for (final item in decoded) {
+          cachedList.add(RestaurantModel.fromMap(Map<String, dynamic>.from(item as Map)));
+        }
+        if (cachedList.isNotEmpty) {
+          restaurantsNotifier.value = List.from(cachedList);
+        }
+      }
+    } catch (_) {}
+
     final List<RestaurantModel> fetchedList = [];
     final Set<String> seenIds = {};
 
-    // 1. Fetch from Supabase `restaurants` table
+    // 1. Fetch from Supabase `restaurants` table with 3-second timeout
     try {
       final supabase = SupabaseService.client;
       final res = await supabase
           .from('restaurants')
           .select()
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 3));
       final List<dynamic> rows = res as List<dynamic>;
 
       for (final r in rows) {
@@ -322,19 +832,14 @@ class RestaurantStoreService {
       }
     } catch (_) {}
 
-    // 3. Ensure seed restaurants are merged
-    for (final local in MockSeedData.restaurants) {
-      if (!seenIds.contains(local.id)) {
-        seenIds.add(local.id);
-        final mapData = local.toMap();
-        await _applyOverridesToMap(mapData);
-        fetchedList.add(RestaurantModel.fromMap(mapData));
-      }
+    if (fetchedList.isNotEmpty) {
+      restaurantsNotifier.value = List.from(fetchedList);
+      // Cache locally for instant next startup
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('cached_all_restaurants_feed', jsonEncode(fetchedList.map((r) => r.toMap()).toList()));
+      } catch (_) {}
     }
-
-    // Update in-memory cache and notifier
-    MockSeedData.restaurants = List.from(fetchedList);
-    restaurantsNotifier.value = List.from(fetchedList);
 
     return fetchedList;
   }
@@ -413,18 +918,10 @@ class RestaurantStoreService {
       );
       fetchedList.insert(0, testingModel);
       seenIds.add(testingModel.id);
-      if (!MockSeedData.restaurants.any((r) => r.name.toLowerCase() == 'testing')) {
-        MockSeedData.restaurants.insert(0, testingModel);
-      }
-    }
-
-    // 4. Merge initial seed restaurants
-    for (final local in MockSeedData.restaurants) {
-      if (!seenIds.contains(local.id)) {
-        seenIds.add(local.id);
-        final mapData = local.toMap();
-        await _applyOverridesToMap(mapData);
-        fetchedList.add(RestaurantModel.fromMap(mapData));
+      if (!restaurantsNotifier.value.any((r) => r.name.toLowerCase() == 'testing')) {
+        final updatedList = List<RestaurantModel>.from(restaurantsNotifier.value);
+        updatedList.insert(0, testingModel);
+        restaurantsNotifier.value = updatedList;
       }
     }
 
@@ -458,10 +955,7 @@ class RestaurantStoreService {
       }
     }
 
-    return MockSeedData.restaurants.where((r) {
-      final String effectiveStatus = _reviewedOutletStatuses[r.id] ?? r.status.name;
-      return effectiveStatus == 'pendingVerification';
-    }).toList();
+    return [];
   }
 
   /// Fetches pending outlet verification requests with Supabase SQL range pagination.
@@ -498,7 +992,7 @@ class RestaurantStoreService {
     }
 
     // Fallback in-memory slicing
-    final allPending = MockSeedData.restaurants.where((r) {
+    final allPending = restaurantsNotifier.value.where((r) {
       final String effectiveStatus = _reviewedOutletStatuses[r.id] ?? r.status.name;
       return effectiveStatus == 'pendingVerification';
     }).toList();
@@ -545,15 +1039,15 @@ class RestaurantStoreService {
       }
 
       // Update local in-memory MockSeedData store for instant UI reactivity
-      final idx = MockSeedData.restaurants.indexWhere((r) => r.id == restaurantId);
+      final idx = restaurantsNotifier.value.indexWhere((r) => r.id == restaurantId);
       if (idx != -1) {
-        final old = MockSeedData.restaurants[idx];
+        final old = restaurantsNotifier.value[idx];
         final RestaurantStatus newStatus = status == 'approved'
             ? RestaurantStatus.approved
             : (status == 'needsRevision'
                 ? RestaurantStatus.needsRevision
                 : (status == 'rejected' ? RestaurantStatus.rejected : RestaurantStatus.pendingVerification));
-        MockSeedData.restaurants[idx] = RestaurantModel(
+        restaurantsNotifier.value[idx] = RestaurantModel(
           id: old.id,
           name: old.name,
           address: old.address,
@@ -687,7 +1181,7 @@ class RestaurantStoreService {
     final cleanId = restaurantId.toLowerCase().trim();
     String? cleanName = restaurantName?.toLowerCase().trim();
     if (cleanName == null || cleanName.isEmpty) {
-      final matched = MockSeedData.restaurants.where((r) => r.id == restaurantId).firstOrNull;
+      final matched = restaurantsNotifier.value.where((r) => r.id == restaurantId).firstOrNull;
       cleanName = matched?.name.toLowerCase().trim();
     }
 
@@ -724,7 +1218,7 @@ class RestaurantStoreService {
   static Future<List<Map<String, String>>> fetchReviews(String restaurantId, {String? restaurantName}) async {
     String? cleanName = restaurantName?.trim();
     if (cleanName == null || cleanName.isEmpty) {
-      final matched = MockSeedData.restaurants.where((r) => r.id == restaurantId).firstOrNull;
+      final matched = restaurantsNotifier.value.where((r) => r.id == restaurantId).firstOrNull;
       cleanName = matched?.name.trim();
     }
 
@@ -1069,7 +1563,7 @@ class RestaurantStoreService {
   /// Preload reviews for multiple restaurant IDs
   static Future<void> preloadReviews(List<String> restaurantIds) async {
     for (final id in restaurantIds) {
-      final matched = MockSeedData.restaurants.where((r) => r.id == id).firstOrNull;
+      final matched = restaurantsNotifier.value.where((r) => r.id == id).firstOrNull;
       await fetchReviews(id, restaurantName: matched?.name);
     }
   }
@@ -1188,7 +1682,9 @@ class RestaurantStoreService {
         final List<dynamic> decoded = jsonDecode(userJson);
         for (final item in decoded) {
           final map = Map<String, dynamic>.from(item as Map);
-          final key = '${map['restaurantName']}_${map['comment']}';
+          final rName = map['restaurantName']?.toString() ?? '';
+          if (isLegacyMockName(rName)) continue;
+          final key = '${rName}_${map['comment']}';
           if (!seenReviews.contains(key)) {
             seenReviews.add(key);
             results.add(map);
@@ -1202,7 +1698,9 @@ class RestaurantStoreService {
         final List<dynamic> decoded = jsonDecode(globalJson);
         for (final item in decoded) {
           final map = Map<String, dynamic>.from(item as Map);
-          final key = '${map['restaurantName']}_${map['comment']}';
+          final rName = map['restaurantName']?.toString() ?? '';
+          if (isLegacyMockName(rName)) continue;
+          final key = '${rName}_${map['comment']}';
           if (!seenReviews.contains(key)) {
             seenReviews.add(key);
             results.add(map);
@@ -1231,6 +1729,7 @@ class RestaurantStoreService {
 
             if (isMatch) {
               String restName = resolveRestaurantName(rMap['restaurantName'] ?? restId);
+              if (isLegacyMockName(restName)) continue;
 
               final revKey = '${restName}_${rMap['comment']}';
               if (!seenReviews.contains(revKey)) {
@@ -1319,7 +1818,9 @@ class RestaurantStoreService {
         final List<dynamic> decoded = jsonDecode(userJson);
         for (final item in decoded) {
           final map = Map<String, dynamic>.from(item as Map);
-          final key = map['name']?.toString() ?? map['id']?.toString() ?? '';
+          final vName = map['name']?.toString() ?? map['id']?.toString() ?? '';
+          if (isLegacyMockName(vName)) continue;
+          final key = vName;
           if (key.isNotEmpty && !seen.contains(key)) {
             seen.add(key);
             results.add(map);
@@ -1333,7 +1834,9 @@ class RestaurantStoreService {
         final List<dynamic> decoded = jsonDecode(globalJson);
         for (final item in decoded) {
           final map = Map<String, dynamic>.from(item as Map);
-          final key = map['name']?.toString() ?? map['id']?.toString() ?? '';
+          final vName = map['name']?.toString() ?? map['id']?.toString() ?? '';
+          if (isLegacyMockName(vName)) continue;
+          final key = vName;
           if (key.isNotEmpty && !seen.contains(key)) {
             seen.add(key);
             results.add(map);
@@ -1347,6 +1850,7 @@ class RestaurantStoreService {
         final rId = rev['restaurantId']?.toString() ?? '';
         final rawName = rev['restaurantName']?.toString() ?? '';
         final rName = resolveRestaurantName(rawName.isNotEmpty && !isRawUuid(rawName) ? rawName : rId);
+        if (isLegacyMockName(rName)) continue;
         if (rName.isNotEmpty && !seen.contains(rName)) {
           seen.add(rName);
           results.add({
@@ -1643,7 +2147,7 @@ class ComplaintStoreService {
 
     // 2. Merge with MockSeedData
     final Set<String> seenIds = loadedList.map((c) => c.id).toSet();
-    for (final seed in MockSeedData.complaints) {
+    for (final seed in complaintsNotifier.value) {
       if (!seenIds.contains(seed.id)) {
         seenIds.add(seed.id);
         loadedList.add(seed);
@@ -1668,7 +2172,7 @@ class ComplaintStoreService {
 
     _hasLoadedFromSupabase = true;
     complaintsNotifier.value = loadedList;
-    MockSeedData.complaints = loadedList;
+    
     return loadedList;
   }
 
@@ -1722,7 +2226,7 @@ class ComplaintStoreService {
     final updatedList = List<ComplaintModel>.from(complaintsNotifier.value);
     updatedList.insert(0, complaint);
     complaintsNotifier.value = updatedList;
-    MockSeedData.complaints = updatedList;
+    
 
     // 2. Local disk cache
     try {
@@ -1853,6 +2357,7 @@ class ComplaintStoreService {
   }
 
   /// Update status in Supabase
+  /// Update status in Supabase & memory
   static Future<void> updateComplaintStatus(String complaintId, ComplaintStatus newStatus) async {
     final updated = complaintsNotifier.value.map((c) {
       if (c.id == complaintId) {
@@ -1879,7 +2384,11 @@ class ComplaintStoreService {
     }).toList();
 
     complaintsNotifier.value = updated;
-    MockSeedData.complaints = updated;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('complaint_status_override_$complaintId', newStatus.name);
+    } catch (_) {}
 
     try {
       final supabase = SupabaseService.client;
@@ -1888,6 +2397,139 @@ class ComplaintStoreService {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', complaintId);
     } catch (_) {}
+  }
+
+  /// Admin assigns a complaint to a Government Health Officer for field investigation
+  static Future<bool> assignOfficerToComplaint({
+    required String complaintId,
+    required String officerName,
+    String? officerId,
+    String? directives,
+  }) async {
+    final currentList = List<ComplaintModel>.from(complaintsNotifier.value);
+    final idx = currentList.indexWhere((c) => c.id == complaintId);
+    ComplaintModel? targetComplaint;
+
+    if (idx != -1) {
+      final c = currentList[idx];
+      targetComplaint = ComplaintModel(
+        id: c.id,
+        restaurantId: c.restaurantId,
+        restaurantName: c.restaurantName,
+        userId: c.userId,
+        userName: c.userName,
+        category: c.category,
+        issues: c.issues,
+        description: c.description,
+        status: ComplaintStatus.investigating,
+        severity: c.severity,
+        latitude: c.latitude,
+        longitude: c.longitude,
+        isFlaggedForReview: false,
+        flaggedReason: c.flaggedReason,
+        submittedAt: c.submittedAt,
+        photoUrls: c.photoUrls,
+      );
+      currentList[idx] = targetComplaint;
+      complaintsNotifier.value = currentList;
+    }
+
+    final restName = targetComplaint?.restaurantName ?? 'Premises';
+    final severityStr = targetComplaint?.severity.name.toUpperCase() ?? 'MEDIUM';
+
+    // Persist to SharedPreferences
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('complaint_assigned_officer_$complaintId', officerName);
+      await prefs.setString('complaint_status_override_$complaintId', ComplaintStatus.investigating.name);
+    } catch (_) {}
+
+    // Update Supabase
+    try {
+      final supabase = SupabaseService.client;
+      await supabase.from('complaints').update({
+        'status': 'investigating',
+        'is_flagged_for_review': false,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', complaintId);
+    } catch (_) {}
+
+    // Log in Audit Trail
+    AuditLogService.logAction(
+      actionType: 'ADMIN_ASSIGNED_OFFICER',
+      category: 'Enforcement',
+      title: 'Case Assigned to $officerName',
+      description: 'Admin assigned report for $restName to $officerName for statutory inspection. Priority: $severityStr.${directives != null && directives.isNotEmpty ? " Note: $directives" : ""}',
+    );
+
+    // Send push notification to Government Health Officer
+    NotificationService.sendNotification(
+      userId: officerId ?? 'gov_officer_001',
+      title: '🚨 New Field Case Assigned: $restName',
+      message: 'Admin assigned a $severityStr priority hygiene report for $restName to you for on-site inspection.',
+      type: NotificationType.hygieneAlert,
+      actionUrl: 'verified_complaints_list',
+    );
+
+    return true;
+  }
+
+  /// Admin verifies genuine evidence or overrides flag
+  static Future<bool> verifyComplaintEvidence({
+    required String complaintId,
+    required bool isGenuine,
+    String? remarks,
+  }) async {
+    final currentList = List<ComplaintModel>.from(complaintsNotifier.value);
+    final idx = currentList.indexWhere((c) => c.id == complaintId);
+    if (idx != -1) {
+      final c = currentList[idx];
+      currentList[idx] = ComplaintModel(
+        id: c.id,
+        restaurantId: c.restaurantId,
+        restaurantName: c.restaurantName,
+        userId: c.userId,
+        userName: c.userName,
+        category: c.category,
+        issues: c.issues,
+        description: c.description,
+        status: isGenuine ? ComplaintStatus.underReview : ComplaintStatus.rejected,
+        severity: c.severity,
+        latitude: c.latitude,
+        longitude: c.longitude,
+        isFlaggedForReview: false,
+        flaggedReason: isGenuine ? null : (remarks ?? 'Evidence Rejected'),
+        submittedAt: c.submittedAt,
+        photoUrls: c.photoUrls,
+      );
+      complaintsNotifier.value = currentList;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'complaint_status_override_$complaintId',
+        isGenuine ? ComplaintStatus.underReview.name : ComplaintStatus.rejected.name,
+      );
+    } catch (_) {}
+
+    try {
+      final supabase = SupabaseService.client;
+      await supabase.from('complaints').update({
+        'status': isGenuine ? 'underReview' : 'rejected',
+        'is_flagged_for_review': false,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', complaintId);
+    } catch (_) {}
+
+    AuditLogService.logAction(
+      actionType: isGenuine ? 'EVIDENCE_VERIFIED' : 'EVIDENCE_REJECTED',
+      category: 'Admin Verification',
+      title: isGenuine ? 'Evidence Verified Genuine' : 'Report Rejected by Admin',
+      description: 'Admin verified complaint #$complaintId evidence. Status: ${isGenuine ? "Under Review" : "Rejected"}.',
+    );
+
+    return true;
   }
 }
 

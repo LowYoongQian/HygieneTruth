@@ -1,7 +1,7 @@
+import '../../core/services/restaurant_store_service.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../core/models/complaint_model.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/services/duplicate_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -26,9 +26,9 @@ class _VerifyEvidenceScreenState extends State<VerifyEvidenceScreen> {
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is ComplaintModel) {
         _complaint = args;
-      } else if (MockSeedData.complaints.isNotEmpty) {
-        final flagged = MockSeedData.complaints.where((item) => item.isFlaggedForReview).toList();
-        _complaint = flagged.isNotEmpty ? flagged.first : MockSeedData.complaints.first;
+      } else if (RestaurantStoreService.complaintsNotifier.value.isNotEmpty) {
+        final flagged = RestaurantStoreService.complaintsNotifier.value.where((item) => item.isFlaggedForReview).toList();
+        _complaint = flagged.isNotEmpty ? flagged.first : RestaurantStoreService.complaintsNotifier.value.first;
       }
       _runAiDuplicateScan();
     }
@@ -511,20 +511,27 @@ class _VerifyEvidenceScreenState extends State<VerifyEvidenceScreen> {
               label: 'Approve & Mark Genuine',
               icon: Icons.check_circle_rounded,
               backgroundColor: const Color(0xFF059669),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final nav = Navigator.of(context);
+                await ComplaintStoreService.verifyComplaintEvidence(
+                  complaintId: c.id,
+                  isGenuine: true,
+                );
+                messenger.showSnackBar(
                   SnackBar(
                     content: Row(
                       children: [
                         const Icon(Icons.check_circle, color: Colors.white),
                         const SizedBox(width: 10),
-                        Expanded(child: Text('Report ${c.id} evidence verified genuine and passed.')),
+                        Expanded(child: Text('Report ${c.id} evidence verified genuine and passed to review queue.')),
                       ],
                     ),
                     backgroundColor: const Color(0xFF059669),
+                    behavior: SnackBarBehavior.floating,
                   ),
                 );
-                Navigator.pop(context);
+                nav.pop();
               },
             ),
             const SizedBox(height: 10),
@@ -532,8 +539,15 @@ class _VerifyEvidenceScreenState extends State<VerifyEvidenceScreen> {
               label: 'Override Pass',
               icon: Icons.published_with_changes_rounded,
               backgroundColor: const Color(0xFFD97706),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final nav = Navigator.of(context);
+                await ComplaintStoreService.verifyComplaintEvidence(
+                  complaintId: c.id,
+                  isGenuine: true,
+                  remarks: 'Admin Manual Verification Override',
+                );
+                messenger.showSnackBar(
                   SnackBar(
                     content: Row(
                       children: [
@@ -543,9 +557,10 @@ class _VerifyEvidenceScreenState extends State<VerifyEvidenceScreen> {
                       ],
                     ),
                     backgroundColor: const Color(0xFFD97706),
+                    behavior: SnackBarBehavior.floating,
                   ),
                 );
-                Navigator.pop(context);
+                nav.pop();
               },
             ),
             const SizedBox(height: 10),
@@ -553,8 +568,15 @@ class _VerifyEvidenceScreenState extends State<VerifyEvidenceScreen> {
               label: 'Confirm Duplicate / Reject',
               icon: Icons.cancel_rounded,
               backgroundColor: const Color(0xFFDC2626),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final nav = Navigator.of(context);
+                await ComplaintStoreService.verifyComplaintEvidence(
+                  complaintId: c.id,
+                  isGenuine: false,
+                  remarks: 'Rejected: Duplicate / False Report',
+                );
+                messenger.showSnackBar(
                   SnackBar(
                     content: Row(
                       children: [
@@ -564,9 +586,10 @@ class _VerifyEvidenceScreenState extends State<VerifyEvidenceScreen> {
                       ],
                     ),
                     backgroundColor: const Color(0xFFDC2626),
+                    behavior: SnackBarBehavior.floating,
                   ),
                 );
-                Navigator.pop(context);
+                nav.pop();
               },
             ),
             const SizedBox(height: 20),

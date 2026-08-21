@@ -1,7 +1,7 @@
+import '../../core/services/restaurant_store_service.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../core/models/complaint_model.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/services/duplicate_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -26,9 +26,9 @@ class _DuplicateFakeReviewScreenState extends State<DuplicateFakeReviewScreen> {
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is ComplaintModel) {
         _complaint = args;
-      } else if (MockSeedData.complaints.isNotEmpty) {
-        final flaggedList = MockSeedData.complaints.where((item) => item.isFlaggedForReview).toList();
-        _complaint = flaggedList.isNotEmpty ? flaggedList.first : MockSeedData.complaints.first;
+      } else if (RestaurantStoreService.complaintsNotifier.value.isNotEmpty) {
+        final flaggedList = RestaurantStoreService.complaintsNotifier.value.where((item) => item.isFlaggedForReview).toList();
+        _complaint = flaggedList.isNotEmpty ? flaggedList.first : RestaurantStoreService.complaintsNotifier.value.first;
       }
       _runAiDuplicateScan();
     }

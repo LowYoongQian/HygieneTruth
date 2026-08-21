@@ -1,3 +1,4 @@
+import 'core/services/restaurant_store_service.dart';
 import 'auth/screens/user_settings_history_screen.dart';
 import 'package:flutter/material.dart';
 import 'core/services/language_manager.dart';
@@ -77,6 +78,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await SupabaseService.initialize();
+    RestaurantStoreService.initRealtimeSubscriptions();
   } catch (e) {
     debugPrint('Supabase init error: $e');
   }

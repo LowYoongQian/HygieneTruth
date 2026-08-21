@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'top_eat_carousel.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../models/mock_seed_data.dart';
+import '../models/complaint_model.dart';
+import '../models/inspection_model.dart';
 import '../models/restaurant_model.dart';
 import '../models/user_model.dart';
 import '../routes/app_routes.dart';
@@ -60,6 +62,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
     _selectedBottomTabIndex = widget.initialTabIndex;
     BookmarkService.init();
     _fetchUserGpsLocation();
+    _loadCurrentUserSession();
     RestaurantStoreService.fetchAllRestaurants(forceRefresh: true);
     final currentUser = CustomerStoreService.currentCustomer;
     NotificationService.fetchNotifications(
@@ -69,6 +72,21 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
     );
     if (_currentRole == UserRole.admin) {
       _loadAdminRealStats();
+    } else if (_currentRole == UserRole.government) {
+      ComplaintStoreService.fetchAllComplaints(forceRefresh: true);
+      RestaurantStoreService.fetchInspections();
+    }
+  }
+
+  Future<void> _loadCurrentUserSession() async {
+    final user = await CustomerStoreService.fetchActiveUserSession();
+    if (mounted && user != null) {
+      setState(() {});
+      NotificationService.fetchNotifications(
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role.name,
+      );
     }
   }
 
@@ -100,8 +118,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
             .eq('status', 'pendingVerification');
         pending = (pendingRes as List<dynamic>).length;
       } catch (_) {
-        final pendingList = MockSeedData.restaurants.where((r) => r.status == RestaurantStatus.pendingVerification).toList();
-        pending = pendingList.length;
+        pending = RestaurantStoreService.restaurantsNotifier.value.where((r) => r.status == RestaurantStatus.pendingVerification).length;
       }
 
       // 2. Fetch real users count
@@ -110,7 +127,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
         final usersRes = await supabase.from('users').select();
         usersCount = (usersRes as List<dynamic>).length;
       } catch (_) {
-        usersCount = MockSeedData.users.length;
+        usersCount = CustomerStoreService.getAllRegisteredCustomers().length;
       }
 
       // 3. Fetch real audit logs count
@@ -254,7 +271,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
 
   List<RestaurantModel> _getTopRankedRestaurants(List<RestaurantModel> allRestaurants) {
     final safeList = allRestaurants
-        .where((r) => r.status == RestaurantStatus.approved && r.riskCategory == RiskCategory.safe)
+        .where((r) => r.isPubliclyVisible && r.riskCategory == RiskCategory.safe)
         .toList();
 
     safeList.sort((a, b) {
@@ -277,148 +294,165 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
     });
 
     if (safeList.isEmpty) {
-      return allRestaurants.take(3).toList();
+      return allRestaurants.where((r) => r.isPubliclyVisible).take(3).toList();
     }
     return safeList.take(3).toList();
   }
 
   Widget _buildUserHomePanel(BuildContext context) {
+    return ValueListenableBuilder<List<RestaurantModel>>(
+      valueListenable: RestaurantStoreService.restaurantsNotifier,
+      builder: (context, liveRestaurants, _) {
+        final publicList = liveRestaurants.where((r) => r.isPubliclyVisible).toList();
+        final top3 = _getTopRankedRestaurants(liveRestaurants);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Search Trigger
-          GestureDetector(
-            onTap: () => Navigator.pushNamed(context, AppRoutes.restaurantSearch),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFCBD5E1)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.search, color: Color(0xFF0284C7)),
-                  const SizedBox(width: 10),
-                  Text(
-                    t('search_outlets'),
-                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Dynamic Registered Cuisine Categories
-          _buildDynamicCuisineChips(context),
-          const SizedBox(height: 20),
-
-          // Featured Top Eat Swipable Carousel
-          TopEatCarousel(restaurants: MockSeedData.restaurants, userLat: _userLat, userLng: _userLng),
-          const SizedBox(height: 20),
-
-          // Quick Action Round Buttons Grid
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _roundActionBtn(
-                icon: Icons.search,
-                color: const Color(0xFF0284C7),
-                label: t('search_outlets').split(' ').first,
+              // Search Trigger
+              GestureDetector(
                 onTap: () => Navigator.pushNamed(context, AppRoutes.restaurantSearch),
-              ),
-              _roundActionBtn(
-                icon: Icons.pin_drop,
-                color: const Color(0xFF10B981),
-                label: t('map'),
-                onTap: () => Navigator.pushNamed(context, AppRoutes.restaurantMap),
-              ),
-              _roundActionBtn(
-                icon: Icons.report_problem,
-                color: const Color(0xFFEF4444),
-                label: t('report'),
-                onTap: () => Navigator.pushNamed(context, AppRoutes.submitComplaint),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // Top Rated Safe Restaurants Leaderboard (Top 3 in Sequence)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Text('⭐', style: TextStyle(fontSize: 15)),
-                  const SizedBox(width: 6),
-                  Text(
-                    t('top_rated_safe'),
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  if (_hasUserLocation) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0284C7).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search, color: Color(0xFF0284C7)),
+                      const SizedBox(width: 10),
+                      Text(
+                        t('search_outlets'),
+                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.near_me_rounded, size: 10, color: Color(0xFF0284C7)),
-                          SizedBox(width: 2),
-                          Text(
-                            'Nearby',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0284C7),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Dynamic Registered Cuisine Categories
+              _buildDynamicCuisineChips(context),
+              const SizedBox(height: 20),
+
+              // Featured Top Eat Swipable Carousel
+              if (publicList.isNotEmpty) ...[
+                TopEatCarousel(restaurants: publicList, userLat: _userLat, userLng: _userLng),
+                const SizedBox(height: 20),
+              ],
+
+              // Quick Action Round Buttons Grid
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _roundActionBtn(
+                    icon: Icons.search,
+                    color: const Color(0xFF0284C7),
+                    label: t('search_outlets').split(' ').first,
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.restaurantSearch),
+                  ),
+                  _roundActionBtn(
+                    icon: Icons.pin_drop,
+                    color: const Color(0xFF10B981),
+                    label: t('map'),
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.restaurantMap),
+                  ),
+                  _roundActionBtn(
+                    icon: Icons.report_problem,
+                    color: const Color(0xFFEF4444),
+                    label: t('report'),
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.submitComplaint),
+                  ),
                 ],
               ),
-              TextButton(
-                onPressed: () => Navigator.pushNamed(context, AppRoutes.restaurantList),
-                child: const Text('View All ›', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+
+              // Top Rated Safe Restaurants Leaderboard (Top 3 in Sequence)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Text('⭐', style: TextStyle(fontSize: 15)),
+                      const SizedBox(width: 6),
+                      Text(
+                        t('top_rated_safe'),
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      ),
+                      if (_hasUserLocation) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.near_me_rounded, size: 10, color: Color(0xFF0284C7)),
+                              SizedBox(width: 2),
+                              Text(
+                                'Nearby',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0284C7),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pushNamed(context, AppRoutes.restaurantList),
+                    child: const Text('View All ›', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
+              const SizedBox(height: 6),
+
+              if (top3.isNotEmpty)
+                Column(
+                  children: [
+                    for (int i = 0; i < top3.length; i++)
+                      RestaurantCard(
+                        restaurant: top3[i],
+                        rankIndex: i,
+                        userLat: _userLat,
+                        userLng: _userLng,
+                      ),
+                  ],
+                )
+              else if (liveRestaurants.isNotEmpty)
+                Column(
+                  children: [
+                    for (int i = 0; i < liveRestaurants.length && i < 3; i++)
+                      RestaurantCard(
+                        restaurant: liveRestaurants[i],
+                        rankIndex: i,
+                        userLat: _userLat,
+                        userLng: _userLng,
+                      ),
+                  ],
+                ),
             ],
           ),
-          const SizedBox(height: 6),
-
-          Builder(
-            builder: (context) {
-              final top3 = _getTopRankedRestaurants(MockSeedData.restaurants);
-              return Column(
-                children: [
-                  for (int i = 0; i < top3.length; i++)
-                    RestaurantCard(
-                      restaurant: top3[i],
-                      rankIndex: i,
-                      userLat: _userLat,
-                      userLng: _userLng,
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -896,11 +930,16 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.admin_panel_settings, color: Color(0xFF0284C7), size: 22),
-                            SizedBox(width: 8),
-                            Text('System Admin', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                            const Icon(Icons.admin_panel_settings, color: Color(0xFF0284C7), size: 22),
+                            const SizedBox(width: 8),
+                            Text(
+                              (CustomerStoreService.currentCustomer?.name.trim().isNotEmpty ?? false)
+                                  ? CustomerStoreService.currentCustomer!.name
+                                  : 'System Admin',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
                           ],
                         ),
                         Container(
@@ -1003,15 +1042,24 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
   }
 
   Widget _buildAdminDrawer(BuildContext context) {
+    final user = CustomerStoreService.currentCustomer;
+    final realName = (user != null && user.name.trim().isNotEmpty) ? user.name : 'System Admin';
+    final realEmail = (user != null && user.email.trim().isNotEmpty)
+        ? user.email
+        : (SupabaseService.client.auth.currentUser?.email ?? 'admin@gmail.com');
+    final realAvatar = (user != null && user.avatarUrl.isNotEmpty)
+        ? user.avatarUrl
+        : 'https://i.pravatar.cc/150?img=33';
+
     return Drawer(
       backgroundColor: const Color(0xFFF8FAFC),
       child: Column(
         children: [
           _buildDrawerHeader(
-            name: 'System Admin',
-            email: 'admin@hygiene.gov.my',
+            name: realName,
+            email: realEmail,
             roleBadge: 'Admin',
-            avatarUrl: 'https://i.pravatar.cc/150?img=33',
+            avatarUrl: realAvatar,
             badgeColor: const Color(0xFF38BDF8),
           ),
           Expanded(
@@ -1049,83 +1097,68 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Pipeline Step Tracker
+            // Pipeline Step Tracker (Dynamic Live Sync)
             const Text('Pipeline Status', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _pipelineStep('5', 'Assigned', Colors.blue),
-                  const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
-                  _pipelineStep('2', 'Scheduled', Colors.amber),
-                  const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
-                  _pipelineStep('3', 'Inspected', Colors.purple),
-                  const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
-                  _pipelineStep('12', 'Closed', Colors.green),
-                ],
-              ),
+            ListenableBuilder(
+              listenable: Listenable.merge([
+                ComplaintStoreService.complaintsNotifier,
+                RestaurantStoreService.inspectionsNotifier,
+              ]),
+              builder: (context, _) {
+                final allComplaints = ComplaintStoreService.complaintsNotifier.value;
+                final allInspections = RestaurantStoreService.inspectionsNotifier.value;
+
+                final assignedCount = allComplaints.where((c) =>
+                  c.status == ComplaintStatus.investigating,
+                ).length;
+
+                final scheduledCount = allComplaints.where((c) =>
+                  c.status == ComplaintStatus.pendingInspection,
+                ).length + allInspections.where((i) =>
+                  i.enforcementStatus == EnforcementStatus.pending && i.outcome == InspectionOutcome.pending,
+                ).length;
+
+                final inspectedCount = allInspections.where((i) =>
+                  i.conductedDate != null || i.outcome != InspectionOutcome.pending,
+                ).length;
+
+                final closedCount = allComplaints.where((c) =>
+                  c.status == ComplaintStatus.resolved,
+                ).length + allInspections.where((i) =>
+                  i.enforcementStatus == EnforcementStatus.completed,
+                ).length;
+
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white12
+                          : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _pipelineStep('$assignedCount', 'Assigned', Colors.blue),
+                      const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+                      _pipelineStep('$scheduledCount', 'Scheduled', Colors.amber),
+                      const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+                      _pipelineStep('$inspectedCount', 'Inspected', Colors.purple),
+                      const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+                      _pipelineStep('$closedCount', 'Closed', Colors.green),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 20),
 
-            // Today's Priority Action Alert Card
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.red.shade200),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.priority_high, color: Colors.red, size: 20),
-                      const SizedBox(width: 6),
-                      const Text('Urgent Visit', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-                      const Spacer(),
-                      Text('CMP-2026-002', style: TextStyle(fontSize: 11, color: Colors.red.shade800, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  const Text('Selera Kampung Bistro • Pest Infestation', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red.shade700,
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                          onPressed: () => Navigator.pushNamed(context, AppRoutes.scheduleInspection),
-                          child: const Text('Schedule Visit'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                          onPressed: () => Navigator.pushNamed(context, AppRoutes.conductInspection),
-                          child: const Text('Inspect Now'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            // Dynamic Urgent Visit Carousel with Real Database Data & 5-Second Auto-Swipe
+            const UrgentVisitCarousel(),
             const SizedBox(height: 20),
 
             const Text('Officer Tools', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
@@ -1168,15 +1201,24 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
   }
 
   Widget _buildGovernmentDrawer(BuildContext context) {
+    final user = CustomerStoreService.currentCustomer;
+    final realName = (user != null && user.name.trim().isNotEmpty) ? user.name : 'Health Officer (PIC)';
+    final realEmail = (user != null && user.email.trim().isNotEmpty)
+        ? user.email
+        : (SupabaseService.client.auth.currentUser?.email ?? 'officer@gov.my');
+    final realAvatar = (user != null && user.avatarUrl.isNotEmpty)
+        ? user.avatarUrl
+        : 'https://i.pravatar.cc/150?img=12';
+
     return Drawer(
       backgroundColor: const Color(0xFFF8FAFC),
       child: Column(
         children: [
           _buildDrawerHeader(
-            name: 'Health Officer (PIC)',
-            email: 'officer.pic@hygiene.gov.my',
+            name: realName,
+            email: realEmail,
             roleBadge: 'Officer (PIC)',
-            avatarUrl: 'https://i.pravatar.cc/150?img=12',
+            avatarUrl: realAvatar,
             badgeColor: const Color(0xFF34D399),
           ),
           Expanded(
@@ -1389,6 +1431,472 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class UrgentVisitCarousel extends StatefulWidget {
+  const UrgentVisitCarousel({super.key});
+
+  @override
+  State<UrgentVisitCarousel> createState() => _UrgentVisitCarouselState();
+}
+
+class _UrgentVisitCarouselState extends State<UrgentVisitCarousel> {
+  late final PageController _pageController;
+  Timer? _autoSwipeTimer;
+  int _currentPageIndex = 0;
+  List<ComplaintModel> _urgentComplaints = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _recalculateUrgentList();
+    ComplaintStoreService.complaintsNotifier.addListener(_onDataChanged);
+    RestaurantStoreService.restaurantsNotifier.addListener(_onDataChanged);
+    _startAutoSwipeTimer();
+  }
+
+  @override
+  void dispose() {
+    _autoSwipeTimer?.cancel();
+    ComplaintStoreService.complaintsNotifier.removeListener(_onDataChanged);
+    RestaurantStoreService.restaurantsNotifier.removeListener(_onDataChanged);
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onDataChanged() {
+    if (mounted) {
+      setState(() {
+        _recalculateUrgentList();
+      });
+      _resetTimer();
+    }
+  }
+
+  void _startAutoSwipeTimer() {
+    _autoSwipeTimer?.cancel();
+    _autoSwipeTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted || !_pageController.hasClients) return;
+      if (_urgentComplaints.length <= 1) return;
+
+      final nextPage = (_currentPageIndex + 1) % _urgentComplaints.length;
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 650),
+        curve: Curves.easeInOutCubic,
+      );
+    });
+  }
+
+  void _resetTimer() {
+    _autoSwipeTimer?.cancel();
+    _startAutoSwipeTimer();
+  }
+
+  /// Multi-factor calculation to filter and sort assigned cases dynamically by priority/urgency
+  void _recalculateUrgentList() {
+    final allComplaints = ComplaintStoreService.complaintsNotifier.value;
+    final allRestaurants = RestaurantStoreService.restaurantsNotifier.value;
+
+    // STRICT FILTER: Only show cases that have been reviewed and assigned by Admin to the officer
+    final assignedComplaints = allComplaints.where((c) {
+      return c.status == ComplaintStatus.investigating ||
+             c.status == ComplaintStatus.pendingInspection;
+    }).toList();
+
+    if (assignedComplaints.isEmpty) {
+      _urgentComplaints = [];
+      _currentPageIndex = 0;
+      return;
+    }
+
+    final Map<String, RestaurantModel> restMap = {
+      for (final r in allRestaurants) r.id: r,
+    };
+
+    final List<MapEntry<ComplaintModel, double>> scoredList = [];
+
+    for (final c in assignedComplaints) {
+      double score = 0.0;
+
+      // 1. Severity Level weighting
+      if (c.severity == SeverityLevel.high) {
+        score += 60.0;
+      } else if (c.severity == SeverityLevel.medium) {
+        score += 30.0;
+      } else {
+        score += 10.0;
+      }
+
+      // 2. Critical/High Health hazard keywords
+      final combinedText = '${c.category} ${c.issues.join(" ")} ${c.description}'.toLowerCase();
+      const criticalKeywords = [
+        'pest', 'rat', 'rats', 'cockroach', 'cockroaches', 'maggot', 'maggots',
+        'poison', 'poisoning', 'vomit', 'vomiting', 'hospital', 'diarrhea',
+        'raw meat', 'contamination', 'sewage', 'foul', 'bacteria', 'dead'
+      ];
+      for (final kw in criticalKeywords) {
+        if (combinedText.contains(kw)) {
+          score += 30.0;
+          break;
+        }
+      }
+
+      // 3. Restaurant Risk & Past Violations
+      final r = restMap[c.restaurantId];
+      if (r != null) {
+        if (r.riskCategory == RiskCategory.high || r.hygieneRiskScore > 40.0) {
+          score += 25.0;
+        } else if (r.riskCategory == RiskCategory.moderate || r.hygieneRiskScore > 20.0) {
+          score += 10.0;
+        }
+        if (r.violationCount > 0) {
+          score += (r.violationCount * 5.0).clamp(0.0, 20.0);
+        }
+      }
+
+      // 4. Actionable status priority
+      if (c.status == ComplaintStatus.pendingInspection) {
+        score += 15.0;
+      }
+
+      scoredList.add(MapEntry(c, score));
+    }
+
+    // Sort descending by priority score
+    scoredList.sort((a, b) => b.value.compareTo(a.value));
+
+    _urgentComplaints = scoredList.map((e) => e.key).toList();
+    if (_currentPageIndex >= _urgentComplaints.length && _urgentComplaints.isNotEmpty) {
+      _currentPageIndex = 0;
+    }
+  }
+
+  String _formatCaseId(String rawId) {
+    if (rawId.startsWith('CMP-') || rawId.startsWith('cmp_') || rawId.startsWith('#CMP-')) {
+      return rawId.replaceAll('#', '').toUpperCase();
+    }
+    final short = rawId.length > 8 ? rawId.substring(0, 8) : rawId;
+    return 'CMP-${short.toUpperCase()}';
+  }
+
+  String _getIssueHighlight(ComplaintModel c) {
+    if (c.issues.isNotEmpty) {
+      return c.issues.first;
+    }
+    if (c.category.isNotEmpty) {
+      return c.category;
+    }
+    return 'Hygiene Inspection Required';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // 1. ALL-CLEAR STATE: When no cases have been assigned by Admin
+    if (_urgentComplaints.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.25) : const Color(0xFFECFDF5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark ? const Color(0xFF059669).withValues(alpha: 0.4) : const Color(0xFFA7F3D0),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.assignment_turned_in_rounded, color: Color(0xFF059669), size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'No Pending Field Cases',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                      color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF065F46),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'No inspection cases assigned by Admin yet. New cases will appear here once dispatched.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: isDark ? Colors.grey.shade400 : const Color(0xFF047857),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 2. SINGLE VISIT CARD
+    if (_urgentComplaints.length == 1) {
+      return _buildUrgentCard(_urgentComplaints.first, isDark, indexBadge: null);
+    }
+
+    // 3. MULTI-CARD AUTO-SWIPING CAROUSEL CONTAINER (5-Sec Rotation)
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 155,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification is ScrollStartNotification) {
+                // Pause timer while user is interacting manually
+                _autoSwipeTimer?.cancel();
+              } else if (notification is ScrollEndNotification) {
+                // Resume timer once user stops dragging
+                _resetTimer();
+              }
+              return false;
+            },
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: _urgentComplaints.length,
+              onPageChanged: (index) {
+                setState(() => _currentPageIndex = index);
+              },
+              itemBuilder: (context, index) {
+                final complaint = _urgentComplaints[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: _buildUrgentCard(
+                    complaint,
+                    isDark,
+                    indexBadge: '${index + 1}/${_urgentComplaints.length}',
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Smooth Page Indicator Dots
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_urgentComplaints.length, (idx) {
+            final isSelected = idx == _currentPageIndex;
+            final item = _urgentComplaints[idx];
+            final Color dotColor = item.severity == SeverityLevel.high
+                ? const Color(0xFFDC2626)
+                : (item.severity == SeverityLevel.medium ? const Color(0xFFD97706) : const Color(0xFF0284C7));
+
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              height: 5,
+              width: isSelected ? 20 : 6,
+              decoration: BoxDecoration(
+                color: isSelected ? dotColor : (isDark ? Colors.white24 : Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUrgentCard(ComplaintModel complaint, bool isDark, {String? indexBadge}) {
+    final caseId = _formatCaseId(complaint.id);
+    final restName = RestaurantStoreService.resolveRestaurantName(
+      complaint.restaurantName,
+      fallback: complaint.restaurantName,
+    );
+    final issueText = _getIssueHighlight(complaint);
+
+    // Dynamic Urgency & Severity Theming
+    final bool isUrgent = complaint.severity == SeverityLevel.high;
+    final bool isPriority = complaint.severity == SeverityLevel.medium;
+
+    final Color badgeColor;
+    final Color bgColor;
+    final Color borderColor;
+    final String badgeLabel;
+    final IconData badgeIcon;
+
+    if (isUrgent) {
+      badgeColor = const Color(0xFFDC2626);
+      bgColor = isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.25) : const Color(0xFFFEF2F2);
+      borderColor = isDark ? const Color(0xFFDC2626).withValues(alpha: 0.5) : const Color(0xFFFECACA);
+      badgeLabel = 'Urgent Visit';
+      badgeIcon = Icons.priority_high_rounded;
+    } else if (isPriority) {
+      badgeColor = const Color(0xFFD97706);
+      bgColor = isDark ? const Color(0xFF78350F).withValues(alpha: 0.25) : const Color(0xFFFFFBEB);
+      borderColor = isDark ? const Color(0xFFD97706).withValues(alpha: 0.5) : const Color(0xFFFDE68A);
+      badgeLabel = 'Priority Visit';
+      badgeIcon = Icons.schedule_rounded;
+    } else {
+      badgeColor = const Color(0xFF0284C7);
+      bgColor = isDark ? const Color(0xFF0C4A6E).withValues(alpha: 0.25) : const Color(0xFFF0F9FF);
+      borderColor = isDark ? const Color(0xFF0284C7).withValues(alpha: 0.5) : const Color(0xFFBAE6FD);
+      badgeLabel = 'Routine Visit';
+      badgeIcon = Icons.assignment_outlined;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: borderColor,
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Row 1: Header + Priority Badge + Case ID
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(badgeIcon, color: badgeColor, size: 16),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                badgeLabel,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: badgeColor,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const Spacer(),
+              if (indexBadge != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white12 : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    indexBadge,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white70 : Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                caseId,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: badgeColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+
+          // Row 2: Restaurant Name • Issue
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              '$restName • $issueText',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : const Color(0xFF1E293B),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+
+          // Row 3: Action Buttons
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 36,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: badgeColor,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.scheduleInspection,
+                        arguments: complaint,
+                      );
+                    },
+                    child: const Text(
+                      'Schedule Visit',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SizedBox(
+                  height: 36,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? const Color(0xFF5EEAD4) : const Color(0xFF0F766E),
+                      side: BorderSide(
+                        color: isDark ? const Color(0xFF14B8A6) : const Color(0xFF0D9488),
+                        width: 1.2,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.conductInspection,
+                        arguments: complaint,
+                      );
+                    },
+                    child: const Text(
+                      'Inspect Now',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

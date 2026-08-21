@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../../core/models/mock_seed_data.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/customer_store_service.dart';
@@ -210,18 +211,58 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                 subtitle: const Text('Submit a formal report to health inspectors'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  final restaurant = ModalRoute.of(context)?.settings.arguments as RestaurantModel? ?? MockSeedData.restaurants.first;
+                  final restaurant = ModalRoute.of(context)?.settings.arguments as RestaurantModel? ?? (RestaurantStoreService.restaurantsNotifier.value.isNotEmpty ? RestaurantStoreService.restaurantsNotifier.value.first : null);
                   Navigator.pushNamed(context, AppRoutes.submitComplaint, arguments: restaurant);
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.share_outlined, color: AppTheme.navyColor),
                 title: const Text('Share Restaurant Profile', style: TextStyle(fontWeight: FontWeight.bold)),
-                onTap: () {
+                subtitle: const Text('Share details, risk score & GPS map link via other apps'),
+                onTap: () async {
                   Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Restaurant link copied to clipboard!')),
+                  final restaurant = ModalRoute.of(context)?.settings.arguments as RestaurantModel? ??
+                      (RestaurantStoreService.restaurantsNotifier.value.isNotEmpty
+                          ? RestaurantStoreService.restaurantsNotifier.value.first
+                          : null);
+                  if (restaurant == null) return;
+
+                  final ratingInfo = RestaurantStoreService.getRatingSync(
+                    restaurant.id,
+                    restaurantName: restaurant.name,
                   );
+
+                  final String shareContent = '''🍽️ Check out ${restaurant.name} on HygieneTruth!
+
+📍 Address: ${restaurant.address}
+🏷️ Cuisine: ${restaurant.category}
+⭐ Rating: ${ratingInfo.ratingText} ★ ${ratingInfo.hasReviews ? '(${ratingInfo.totalReviews} reviews)' : ''}
+🛡️ Hygiene Status: ${restaurant.riskCategory.name.toUpperCase()} (Score: ${restaurant.hygieneRiskScore.toStringAsFixed(1)} / 100)
+⏰ Operating Hours: ${restaurant.operatingHours}
+
+🗺️ View on Google Maps: https://www.google.com/maps/search/?api=1&query=${restaurant.latitude},${restaurant.longitude}
+
+📱 Discover clean dining and real-time hygiene audit certificates on HygieneTruth!''';
+
+                  try {
+                    await SharePlus.instance.share(
+                      ShareParams(
+                        text: shareContent,
+                        subject: 'Check out ${restaurant.name} on HygieneTruth',
+                      ),
+                    );
+                  } catch (e) {
+                    // Fallback to Clipboard if running on Hot Reload before cold re-run
+                    await Clipboard.setData(ClipboardData(text: shareContent));
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('📋 Restaurant profile copied to clipboard!'),
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  }
                 },
               ),
             ],
@@ -1034,14 +1075,14 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
   Widget _buildRiskScoreCard(RestaurantModel restaurant) {
     final score = restaurant.hygieneRiskScore;
-    final isSafe = score < 30;
-    final isModerate = score >= 30 && score <= 60;
+    final isSafe = score < 25;
+    final isModerate = score >= 25 && score <= 60;
 
     final Color statusColor = isSafe
-        ? const Color(0xFF059669)
+        ? const Color(0xFF059669) // Emerald
         : isModerate
-            ? const Color(0xFFD97706)
-            : const Color(0xFFDC2626);
+            ? const Color(0xFFD97706) // Amber
+            : const Color(0xFFDC2626); // Red
 
     final Color bgColor = isSafe
         ? const Color(0xFFECFDF5)
@@ -1050,10 +1091,22 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
             : const Color(0xFFFEF2F2);
 
     final String statusText = isSafe
-        ? 'Safe (Low Risk)'
+        ? 'Safe'
         : isModerate
-            ? 'Moderate Risk'
+            ? 'Moderate'
             : 'High Risk';
+
+    final String headlineDesc = isSafe
+        ? 'Excellent Hygiene (Grade A)'
+        : isModerate
+            ? 'Moderate Risk • Monitor Needed'
+            : 'High Risk • Caution Advised';
+
+    final String explanatoryText = isSafe
+        ? 'Score ${score.toStringAsFixed(1)} / 100. High cleanliness standards observed with safe food preparation practices.'
+        : isModerate
+            ? 'Score ${score.toStringAsFixed(1)} / 100. Meets standard hygiene rules but has room for sanitation improvements.'
+            : 'Score ${score.toStringAsFixed(1)} / 100. Elevated risk score detected. Exercise caution when dining.';
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1072,12 +1125,22 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Hygiene Risk',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.navyColor),
+              Row(
+                children: [
+                  const Text(
+                    'Hygiene Risk',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.navyColor),
+                  ),
+                  const SizedBox(width: 6),
+                  Tooltip(
+                    message: 'Risk Scale: 0 (Safest) to 100 (Highest Risk)',
+                    child: Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey.shade400),
+                  ),
+                ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1086,39 +1149,59 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: statusColor.withValues(alpha: 0.3)),
                 ),
-                child: Text(
-                  statusText,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: statusColor,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      statusText,
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
+
+          // Main Gauge + Meaning Info
           Row(
             children: [
-              RiskScoreGauge(score: score),
-              const SizedBox(width: 18),
+              RiskScoreGauge(score: score, size: 76),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _riskMetricRow(
-                      icon: Icons.shield_outlined,
-                      label: 'Risk Tier',
-                      value: restaurant.riskCategory.name.toUpperCase(),
-                      valueColor: statusColor,
+                    Text(
+                      headlineDesc,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
+                      ),
                     ),
-                    const SizedBox(height: 6),
-                    _riskMetricRow(
-                      icon: Icons.gavel_outlined,
-                      label: 'Violations',
-                      value: '${restaurant.violationCount}',
-                      valueColor: restaurant.violationCount == 0 ? const Color(0xFF059669) : Colors.red,
+                    const SizedBox(height: 4),
+                    Text(
+                      explanatoryText,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.grey.shade600,
+                        height: 1.3,
+                      ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     _riskMetricRow(
                       icon: Icons.calendar_today_outlined,
-                      label: 'Last Audit',
+                      label: 'Last Updated',
                       value: restaurant.lastUpdated,
                       valueColor: Colors.grey.shade700,
                     ),
@@ -1126,6 +1209,123 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+
+          // Visual 3-Segment Risk Meter Bar (0 to 100 Scale)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFF1F5F9)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Risk Meter Scale',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                    ),
+                    Text(
+                      '${score.toStringAsFixed(1)} / 100',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Multi-color Segment Bar with Needle Indicator
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final totalWidth = constraints.maxWidth;
+                    final clampedScore = score.clamp(0.0, 100.0);
+                    final pointerLeft = ((clampedScore / 100.0) * totalWidth).clamp(0.0, totalWidth - 12);
+
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Segmented bar
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 25,
+                                child: Container(height: 8, color: const Color(0xFF10B981)), // Safe: 0-25
+                              ),
+                              const SizedBox(width: 2),
+                              Expanded(
+                                flex: 35,
+                                child: Container(height: 8, color: const Color(0xFFF59E0B)), // Moderate: 26-60
+                              ),
+                              const SizedBox(width: 2),
+                              Expanded(
+                                flex: 40,
+                                child: Container(height: 8, color: const Color(0xFFEF4444)), // High: 61-100
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Current Score Indicator Marker
+                        Positioned(
+                          left: pointerLeft,
+                          top: -3,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: statusColor, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
+
+                // Range Legend Text
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle)),
+                        const SizedBox(width: 4),
+                        const Text('0-25 Safe', style: TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFFF59E0B), shape: BoxShape.circle)),
+                        const SizedBox(width: 4),
+                        const Text('26-60 Moderate', style: TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle)),
+                        const SizedBox(width: 4),
+                        const Text('61-100 High', style: TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1153,14 +1353,23 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final restaurant = ModalRoute.of(context)?.settings.arguments as RestaurantModel? ?? (MockSeedData.restaurants.isNotEmpty ? MockSeedData.restaurants.first : null);
+    final routeArg = ModalRoute.of(context)?.settings.arguments as RestaurantModel?;
+    final targetId = routeArg?.id ?? '';
+    final targetName = routeArg?.name ?? '';
 
-    if (restaurant == null) {
-      return const Scaffold(
-        appBar: CustomAppBar(title: 'Restaurant Details'),
-        body: Center(child: Text('No restaurant data selected')),
-      );
-    }
+    return ValueListenableBuilder<List<RestaurantModel>>(
+      valueListenable: RestaurantStoreService.restaurantsNotifier,
+      builder: (context, allRestaurants, _) {
+        final restaurant = allRestaurants.where((r) => r.id == targetId || r.name == targetName).firstOrNull ??
+            routeArg ??
+            (allRestaurants.isNotEmpty ? allRestaurants.first : null);
+
+        if (restaurant == null) {
+          return const Scaffold(
+            appBar: CustomAppBar(title: 'Restaurant Details'),
+            body: Center(child: Text('No restaurant data selected')),
+          );
+        }
 
     final filteredReviews = _selectedFilterStar == 0
         ? _reviews
@@ -1264,6 +1473,44 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
               ],
             ),
             const SizedBox(height: 16),
+
+            // MOH ENFORCEMENT SUSPENSION BANNER (If Not Publicly Visible)
+            if (!restaurant.isPubliclyVisible) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFEF4444), width: 1.5),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'MOH Temporary Suspension Order',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            restaurant.isCompoundedOverdue
+                                ? 'This food premises has been temporarily taken down and suspended due to overdue statutory compound penalties under Section 11 Food Act 1983.'
+                                : 'This food premises is temporarily suspended by the Ministry of Health under Section 11 Food Act 1983 pending rectification and fine settlement.',
+                            style: const TextStyle(fontSize: 11.5, color: Color(0xFFB91C1C), height: 1.35),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             // Restaurant Title & Category
             Text(
@@ -1568,6 +1815,8 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
           ],
         ),
       ),
+    );
+      },
     );
   }
 

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/models/complaint_model.dart';
-import '../../core/models/mock_seed_data.dart';
 import '../../core/services/audit_log_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/restaurant_store_service.dart';
@@ -66,8 +65,8 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
     ComplaintModel? c;
     if (args is ComplaintModel) {
       c = args;
-    } else if (MockSeedData.complaints.isNotEmpty) {
-      c = MockSeedData.complaints.first;
+    } else if (RestaurantStoreService.complaintsNotifier.value.isNotEmpty) {
+      c = RestaurantStoreService.complaintsNotifier.value.first;
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;

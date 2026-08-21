@@ -339,7 +339,90 @@ class NotificationService {
     _updateStateAndPersist();
   }
 
-  /// Fetch all notifications for the given user from Supabase and local cache
+  /// Load user read state from Supabase users.settings and local SharedPreferences
+  static Future<Map<String, dynamic>> _loadUserReadState(String? cleanUserId, String? cleanEmail) async {
+    final Set<String> readIds = {};
+    DateTime? allReadAt;
+
+    // 1. Read from local SharedPreferences
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final localKey = 'user_read_ids_${cleanUserId ?? cleanEmail ?? "guest"}';
+      final localAllKey = 'user_all_read_at_${cleanUserId ?? cleanEmail ?? "guest"}';
+
+      final savedIds = prefs.getStringList(localKey);
+      if (savedIds != null) {
+        readIds.addAll(savedIds);
+      }
+
+      final savedAllStr = prefs.getString(localAllKey);
+      if (savedAllStr != null && savedAllStr.isNotEmpty) {
+        allReadAt = DateTime.tryParse(savedAllStr);
+      }
+    } catch (_) {}
+
+    // 2. Fetch cloud read state from Supabase users table settings column
+    if (cleanUserId != null && cleanUserId.isNotEmpty) {
+      try {
+        final supabase = SupabaseService.client;
+        final userRow = await supabase
+            .from('users')
+            .select('settings')
+            .eq('id', cleanUserId)
+            .maybeSingle();
+
+        if (userRow != null && userRow['settings'] is Map) {
+          final settings = Map<String, dynamic>.from(userRow['settings'] as Map);
+          final cloudReadIds = settings['read_notification_ids'];
+          if (cloudReadIds is List) {
+            for (final id in cloudReadIds) {
+              readIds.add(id.toString());
+            }
+          }
+          final cloudAllReadStr = settings['notifications_read_all_at']?.toString();
+          if (cloudAllReadStr != null && cloudAllReadStr.isNotEmpty) {
+            final cloudDt = DateTime.tryParse(cloudAllReadStr);
+            if (cloudDt != null) {
+              if (allReadAt == null || cloudDt.isAfter(allReadAt)) {
+                allReadAt = cloudDt;
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 3. Check audit_logs as backup cloud sync
+    try {
+      final supabase = SupabaseService.client;
+      final logs = await supabase
+          .from('audit_logs')
+          .select('action_type, description, created_at')
+          .or('action_type.eq.READ_NOTIFICATION,action_type.eq.READ_ALL_NOTIFICATIONS')
+          .order('created_at', ascending: false)
+          .limit(50);
+
+      for (final log in logs) {
+        final action = (log['action_type'] ?? '').toString();
+        final desc = (log['description'] ?? '').toString();
+        if (action == 'READ_NOTIFICATION' && desc.isNotEmpty) {
+          readIds.add(desc);
+        } else if (action == 'READ_ALL_NOTIFICATIONS') {
+          final logDt = DateTime.tryParse(log['created_at']?.toString() ?? '');
+          if (logDt != null && (allReadAt == null || logDt.isAfter(allReadAt))) {
+            allReadAt = logDt;
+          }
+        }
+      }
+    } catch (_) {}
+
+    return {
+      'readIds': readIds,
+      'allReadAt': allReadAt,
+    };
+  }
+
+  /// Fetch all notifications for the given user from Supabase and local cache with permanent read status
   static Future<List<AppNotificationModel>> fetchNotifications({
     String? userId,
     String? userEmail,
@@ -349,6 +432,11 @@ class NotificationService {
     final Set<String> seenIds = {};
     final cleanUserId = userId?.trim();
     final cleanEmail = userEmail?.trim().toLowerCase();
+
+    // Retrieve synchronized read history from cloud & local storage
+    final readState = await _loadUserReadState(cleanUserId, cleanEmail);
+    final Set<String> readIds = readState['readIds'] as Set<String>;
+    final DateTime? allReadAt = readState['allReadAt'] as DateTime?;
 
     // 1. Try fetching from Supabase public.notifications table
     try {
@@ -363,7 +451,10 @@ class NotificationService {
         final notif = AppNotificationModel.fromMap(map);
         if (!seenIds.contains(notif.id)) {
           seenIds.add(notif.id);
-          resultList.add(notif);
+          final bool isRead = notif.isRead ||
+              readIds.contains(notif.id) ||
+              (allReadAt != null && notif.createdAt.isBefore(allReadAt.add(const Duration(seconds: 10))));
+          resultList.add(notif.copyWith(isRead: isRead));
         }
       }
     } catch (_) {}
@@ -391,7 +482,10 @@ class NotificationService {
             final notif = AppNotificationModel.fromMap(parsedMap);
             if (!seenIds.contains(notif.id)) {
               seenIds.add(notif.id);
-              resultList.add(notif);
+              final bool isRead = notif.isRead ||
+                  readIds.contains(notif.id) ||
+                  (allReadAt != null && notif.createdAt.isBefore(allReadAt.add(const Duration(seconds: 10))));
+              resultList.add(notif.copyWith(isRead: isRead));
             }
           } catch (_) {}
         }
@@ -409,7 +503,10 @@ class NotificationService {
           final notif = AppNotificationModel.fromMap(Map<String, dynamic>.from(item as Map));
           if (!seenIds.contains(notif.id)) {
             seenIds.add(notif.id);
-            resultList.add(notif);
+            final bool isRead = notif.isRead ||
+                readIds.contains(notif.id) ||
+                (allReadAt != null && notif.createdAt.isBefore(allReadAt.add(const Duration(seconds: 10))));
+            resultList.add(notif.copyWith(isRead: isRead));
           }
         }
       }
@@ -421,7 +518,10 @@ class NotificationService {
       for (final s in seedList) {
         if (!seenIds.contains(s.id)) {
           seenIds.add(s.id);
-          resultList.add(s);
+          final bool isRead = s.isRead ||
+              readIds.contains(s.id) ||
+              (allReadAt != null && s.createdAt.isBefore(allReadAt.add(const Duration(seconds: 10))));
+          resultList.add(s.copyWith(isRead: isRead));
         }
       }
     }
@@ -440,30 +540,139 @@ class NotificationService {
     return _notifications;
   }
 
-  /// Mark single notification as read
-  static Future<void> markAsRead(String notificationId, {String? userId}) async {
+  /// Mark single notification as read with cloud persistence to Supabase and local cache
+  static Future<void> markAsRead(String notificationId, {String? userId, String? userEmail}) async {
     final idx = _notifications.indexWhere((n) => n.id == notificationId);
     if (idx != -1) {
       _notifications[idx] = _notifications[idx].copyWith(isRead: true);
       _updateStateAndPersist(userId: userId);
+
+      final cleanUserId = userId?.trim();
+      final cleanEmail = userEmail?.trim().toLowerCase();
+
+      // 1. Save to local SharedPreferences
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final localKey = 'user_read_ids_${cleanUserId ?? cleanEmail ?? "guest"}';
+        final existingList = prefs.getStringList(localKey) ?? [];
+        if (!existingList.contains(notificationId)) {
+          existingList.add(notificationId);
+          await prefs.setStringList(localKey, existingList);
+        }
+      } catch (_) {}
+
+      // 2. Update Supabase notifications table
       try {
         final supabase = SupabaseService.client;
         await supabase.from('notifications').update({'is_read': true}).eq('id', notificationId);
       } catch (_) {}
+
+      // 3. Sync to Supabase users.settings JSON
+      if (cleanUserId != null && cleanUserId.isNotEmpty) {
+        try {
+          final supabase = SupabaseService.client;
+          final userRow = await supabase
+              .from('users')
+              .select('settings')
+              .eq('id', cleanUserId)
+              .maybeSingle();
+
+          final currentSettings = Map<String, dynamic>.from((userRow?['settings'] as Map?) ?? {});
+          final List<String> currentReadIds = List<String>.from((currentSettings['read_notification_ids'] as List?) ?? []);
+          if (!currentReadIds.contains(notificationId)) {
+            currentReadIds.add(notificationId);
+            currentSettings['read_notification_ids'] = currentReadIds;
+            await supabase.from('users').update({'settings': currentSettings}).eq('id', cleanUserId);
+          }
+        } catch (_) {}
+      }
+
+      // 4. Log to audit_logs as backup cloud record
+      try {
+        final supabase = SupabaseService.client;
+        await supabase.from('audit_logs').insert({
+          'user_id': (cleanUserId != null && cleanUserId.length > 10) ? cleanUserId : 'e257a3d8-a2e2-4872-afcf-0d7324e8f0cf',
+          'user_email': cleanEmail ?? 'user@hygienetruth.com',
+          'action_type': 'READ_NOTIFICATION',
+          'category': 'Notification State',
+          'title': 'Notification Marked Read',
+          'description': notificationId,
+        });
+      } catch (_) {}
     }
   }
 
-  /// Mark all notifications as read
-  static Future<void> markAllAsRead({String? userId}) async {
+  /// Mark all notifications as read with cloud persistence to Supabase and local cache
+  static Future<void> markAllAsRead({String? userId, String? userEmail}) async {
     for (int i = 0; i < _notifications.length; i++) {
       _notifications[i] = _notifications[i].copyWith(isRead: true);
     }
     _updateStateAndPersist(userId: userId);
+
+    final cleanUserId = userId?.trim();
+    final cleanEmail = userEmail?.trim().toLowerCase();
+    final nowUtc = DateTime.now().toUtc();
+    final nowIso = nowUtc.toIso8601String();
+    final allIds = _notifications.map((n) => n.id).toList();
+
+    // 1. Save to local SharedPreferences
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final localKey = 'user_read_ids_${cleanUserId ?? cleanEmail ?? "guest"}';
+      final localAllKey = 'user_all_read_at_${cleanUserId ?? cleanEmail ?? "guest"}';
+
+      final existingList = prefs.getStringList(localKey) ?? [];
+      for (final id in allIds) {
+        if (!existingList.contains(id)) {
+          existingList.add(id);
+        }
+      }
+      await prefs.setStringList(localKey, existingList);
+      await prefs.setString(localAllKey, nowIso);
+    } catch (_) {}
+
+    // 2. Update Supabase notifications table
     try {
       final supabase = SupabaseService.client;
-      if (userId != null && userId.isNotEmpty) {
-        await supabase.from('notifications').update({'is_read': true}).eq('user_id', userId);
+      if (cleanUserId != null && cleanUserId.isNotEmpty) {
+        await supabase.from('notifications').update({'is_read': true}).eq('user_id', cleanUserId);
       }
+    } catch (_) {}
+
+    // 3. Sync to Supabase users.settings JSON
+    if (cleanUserId != null && cleanUserId.isNotEmpty) {
+      try {
+        final supabase = SupabaseService.client;
+        final userRow = await supabase
+            .from('users')
+            .select('settings')
+            .eq('id', cleanUserId)
+            .maybeSingle();
+
+        final currentSettings = Map<String, dynamic>.from((userRow?['settings'] as Map?) ?? {});
+        final List<String> currentReadIds = List<String>.from((currentSettings['read_notification_ids'] as List?) ?? []);
+        for (final id in allIds) {
+          if (!currentReadIds.contains(id)) {
+            currentReadIds.add(id);
+          }
+        }
+        currentSettings['read_notification_ids'] = currentReadIds;
+        currentSettings['notifications_read_all_at'] = nowIso;
+        await supabase.from('users').update({'settings': currentSettings}).eq('id', cleanUserId);
+      } catch (_) {}
+    }
+
+    // 4. Log to audit_logs as backup cloud record
+    try {
+      final supabase = SupabaseService.client;
+      await supabase.from('audit_logs').insert({
+        'user_id': (cleanUserId != null && cleanUserId.length > 10) ? cleanUserId : 'e257a3d8-a2e2-4872-afcf-0d7324e8f0cf',
+        'user_email': cleanEmail ?? 'user@hygienetruth.com',
+        'action_type': 'READ_ALL_NOTIFICATIONS',
+        'category': 'Notification State',
+        'title': 'All Notifications Marked Read',
+        'description': nowIso,
+      });
     } catch (_) {}
   }
 
