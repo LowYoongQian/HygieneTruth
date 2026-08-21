@@ -59,15 +59,30 @@ class _LoginScreenState extends State<LoginScreen> {
     final result = await CustomerStoreService.signInWithGoogle();
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message)),
-      );
       setState(() {
         _isLoading = false;
         _isGoogleLoading = false;
       });
-      if (result.success && CustomerStoreService.currentCustomer != null) {
-        Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
+
+      if (result.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message),
+            backgroundColor: const Color(0xFF059669),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        if (CustomerStoreService.currentCustomer != null) {
+          Navigator.pushReplacementNamed(context, AppRoutes.userDashboard);
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message),
+            backgroundColor: result.message.contains('cancelled') ? Colors.grey.shade800 : const Color(0xFFDC2626),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }

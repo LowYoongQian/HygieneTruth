@@ -218,10 +218,11 @@ class CustomerStoreService {
       final String webClientId = envClientId ??
           '927326709623-332ted8aosmjf5efmbq3if09ur98vtl5.apps.googleusercontent.com';
 
+      final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
       // 1. Initialize Native Google Sign-In SDK
       final GoogleSignIn googleSignIn = GoogleSignIn.instance;
       await googleSignIn.initialize(
-        clientId: webClientId,
+        clientId: isAndroid ? null : webClientId,
         serverClientId: webClientId,
       );
 
@@ -922,15 +923,80 @@ class CustomerStoreService {
       final String webClientId = envClientId ??
           '927326709623-332ted8aosmjf5efmbq3if09ur98vtl5.apps.googleusercontent.com';
 
+      final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
       // 1. Initialize Native Google Sign-In SDK
       final GoogleSignIn googleSignIn = GoogleSignIn.instance;
       await googleSignIn.initialize(
-        clientId: webClientId,
+        clientId: isAndroid ? null : webClientId,
         serverClientId: webClientId,
       );
 
       // 2. Prompt native Android / iOS "Choose an account" dialog
-      final googleUser = await googleSignIn.authenticate();
+      GoogleSignInAccount? googleUser;
+      try {
+        googleUser = await googleSignIn.authenticate();
+      } catch (authErr) {
+        if (kDebugMode) {
+          print('GoogleSignIn.authenticate error: $authErr');
+        }
+
+        final errText = authErr.toString().toLowerCase();
+
+        // Check if user specifically cancelled / dismissed the dialog
+        final bool isUserExplicitCancel = errText.contains('canceled_by_user') ||
+            errText.contains('user_canceled') ||
+            errText.contains('user canceled') ||
+            errText.contains('activity was cancelled by the user');
+
+        if (isUserExplicitCancel) {
+          return const CustomerAuthResult(
+            success: false,
+            message: 'Google Sign-In was cancelled.',
+          );
+        }
+
+        // Tier 2: Fallback to Supabase Web OAuth Flow if Credential Manager has SHA-1 / configuration issue
+        try {
+          if (kDebugMode) {
+            print('Attempting Supabase Web OAuth fallback...');
+          }
+          final bool launched = await supabase.auth.signInWithOAuth(
+            OAuthProvider.google,
+            redirectTo: kIsWeb ? null : 'io.supabase.colab://login-callback/',
+            authScreenLaunchMode: LaunchMode.externalApplication,
+          );
+
+          if (launched) {
+            final sessionUser = supabase.auth.currentUser;
+            if (sessionUser != null) {
+              final activeUser = await fetchActiveUserSession();
+              if (activeUser != null) {
+                return CustomerAuthResult(
+                  success: true,
+                  message: 'Signed in with Google as ${activeUser.email}',
+                  user: activeUser,
+                );
+              }
+            }
+            return const CustomerAuthResult(
+              success: true,
+              message: 'Redirecting to Google authentication...',
+            );
+          }
+        } catch (oauthErr) {
+          if (kDebugMode) {
+            print('Supabase Web OAuth error: $oauthErr');
+          }
+        }
+
+        return CustomerAuthResult(
+          success: false,
+          message: errText.contains('10') || errText.contains('developer')
+              ? 'Google Sign-In configuration mismatch (Developer 10). Please ensure SHA-1 fingerprint is registered in Google Cloud Console.'
+              : 'Google Sign-In failed ($errText). Please try again or use Email/Password.',
+        );
+      }
 
       // 3. Obtain authentication ID Token from native Google SDK
       final googleAuth = googleUser.authentication;
@@ -1002,7 +1068,7 @@ class CustomerStoreService {
       }
 
       final errStr = e.toString().toLowerCase();
-      if (errStr.contains('cancel') || errStr.contains('abort') || errStr.contains('closed')) {
+      if (errStr.contains('canceled_by_user') || errStr.contains('user_canceled')) {
         return const CustomerAuthResult(
           success: false,
           message: 'Google Sign-In was cancelled.',
@@ -1022,9 +1088,9 @@ class CustomerStoreService {
         }
       }
 
-      return const CustomerAuthResult(
+      return CustomerAuthResult(
         success: false,
-        message: 'Google Sign-In was cancelled or failed.',
+        message: 'Google Sign-In failed: ${e.toString().split(":").last.trim()}',
       );
     }
   }

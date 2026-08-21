@@ -111,6 +111,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
 
       if (result.success && CustomerStoreService.currentCustomer != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message),
+            backgroundColor: const Color(0xFF059669),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
         Navigator.pushNamedAndRemoveUntil(
           context,
           AppRoutes.userDashboard,
@@ -119,7 +126,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.message), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(result.message),
+            backgroundColor: result.message.contains('cancelled') ? Colors.grey.shade800 : const Color(0xFFDC2626),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
