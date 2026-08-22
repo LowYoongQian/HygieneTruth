@@ -409,6 +409,23 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     super.initState();
     _loadOwnerSession();
     _loadOwnerRestaurants();
+    ComplaintStoreService.fetchAllComplaints(forceRefresh: true);
+    RestaurantStoreService.fetchInspections();
+    ComplaintStoreService.complaintsNotifier.addListener(_onNoticesDataChanged);
+    RestaurantStoreService.inspectionsNotifier.addListener(_onNoticesDataChanged);
+  }
+
+  @override
+  void dispose() {
+    ComplaintStoreService.complaintsNotifier.removeListener(_onNoticesDataChanged);
+    RestaurantStoreService.inspectionsNotifier.removeListener(_onNoticesDataChanged);
+    super.dispose();
+  }
+
+  void _onNoticesDataChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _loadOwnerSession() async {
@@ -1719,6 +1736,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: CustomAppBar(
         title: _getTabTitle(_currentBottomTabIndex),
+        showBackButton: false,
       ),
       body: _buildTabBody(),
       bottomNavigationBar: BottomNavigationBar(
@@ -3209,264 +3227,302 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Widget _buildNoticesPanel() {
-    final allComplaints = RestaurantStoreService.complaintsNotifier.value;
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        ComplaintStoreService.complaintsNotifier,
+        RestaurantStoreService.inspectionsNotifier,
+        RestaurantStoreService.restaurantsNotifier,
+      ]),
+      builder: (context, _) {
+        final allComplaints = ComplaintStoreService.complaintsNotifier.value.isNotEmpty
+            ? ComplaintStoreService.complaintsNotifier.value
+            : RestaurantStoreService.complaintsNotifier.value;
+        final allInspections = RestaurantStoreService.inspectionsNotifier.value;
+        final activeR = _activeSelectedRestaurant;
 
-    // Filter by Active vs Closed
-    final activeNotices = allComplaints.where((c) => c.status != ComplaintStatus.resolved && c.status != ComplaintStatus.rejected).toList();
-    final closedNotices = allComplaints.where((c) => c.status == ComplaintStatus.resolved || c.status == ComplaintStatus.rejected).toList();
+        // Filter complaints & inspections for active restaurant / owned restaurants
+        final ownedNames = _fetchedOwnerRestaurants.map((r) => r.name.toLowerCase().trim()).toSet();
+        final ownedIds = _fetchedOwnerRestaurants.map((r) => r.id.toLowerCase().trim()).toSet();
 
-    final currentTabList = _noticeTab == 0 ? activeNotices : closedNotices;
+        final currentRestComplaints = activeR != null
+            ? allComplaints.where((c) =>
+                (c.restaurantId.isNotEmpty && c.restaurantId.toLowerCase().trim() == activeR.id.toLowerCase().trim()) ||
+                c.restaurantName.toLowerCase().trim() == activeR.name.toLowerCase().trim()).toList()
+            : allComplaints;
 
-    // Filter by Authority Category Index (_noticeAuthorityIndex)
-    final filteredList = currentTabList.where((c) {
-      if (_noticeAuthorityIndex == 0) return true;
-      final info = _getNoticeAuthorityInfo(c, currentTabList.indexOf(c));
-      return info['typeIndex'] == _noticeAuthorityIndex;
-    }).toList();
+        final currentRestInsp = activeR != null
+            ? allInspections.where((i) =>
+                (i.restaurantId.isNotEmpty && i.restaurantId.toLowerCase().trim() == activeR.id.toLowerCase().trim()) ||
+                i.restaurantName.toLowerCase().trim() == activeR.name.toLowerCase().trim()).toList()
+            : allInspections;
 
-    // Authority Counts for Header Summary
-    int govCount = activeNotices.where((c) => _getNoticeAuthorityInfo(c, activeNotices.indexOf(c))['typeIndex'] == 1).length;
-    int adminCount = activeNotices.where((c) => _getNoticeAuthorityInfo(c, activeNotices.indexOf(c))['typeIndex'] == 2).length;
+        final effectiveComplaints = currentRestComplaints.isNotEmpty
+            ? currentRestComplaints
+            : allComplaints.where((c) =>
+                (c.restaurantId.isNotEmpty && ownedIds.contains(c.restaurantId.toLowerCase().trim())) ||
+                ownedNames.contains(c.restaurantName.toLowerCase().trim())).toList();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1. HERO SUMMARY STATS HEADER
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0C2340), Color(0xFF0F766E)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0C2340).withValues(alpha: 0.2),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+        final effectiveInspections = currentRestInsp.isNotEmpty
+            ? currentRestInsp
+            : allInspections.where((i) =>
+                (i.restaurantId.isNotEmpty && ownedIds.contains(i.restaurantId.toLowerCase().trim())) ||
+                ownedNames.contains(i.restaurantName.toLowerCase().trim())).toList();
+
+        // Fallback to all complaints & inspections if none specifically matched so demo/testing data displays
+        final displayComplaints = effectiveComplaints.isNotEmpty ? effectiveComplaints : allComplaints;
+        final displayInspections = effectiveInspections.isNotEmpty ? effectiveInspections : allInspections;
+
+        // Filter by Active vs Closed
+        final activeNotices = displayComplaints.where((c) => c.status != ComplaintStatus.resolved && c.status != ComplaintStatus.rejected).toList();
+        final closedNotices = displayComplaints.where((c) => c.status == ComplaintStatus.resolved || c.status == ComplaintStatus.rejected).toList();
+
+        final activeInsp = displayInspections.where((i) {
+          final hasAction = i.issuedAction != EnforcementType.none || i.outcome == InspectionOutcome.pending;
+          final isUnpaid = i.fineAmount > 0 && !i.isFinePaid;
+          final isProgress = i.enforcementStatus == EnforcementStatus.inProgress || (activeR != null && activeR.hasActiveEnforcement) || i.outcome == InspectionOutcome.pending;
+          return hasAction && (isUnpaid || isProgress);
+        }).toList();
+
+        final completedInsp = displayInspections.where((i) {
+          return i.isFinePaid || i.enforcementStatus == EnforcementStatus.completed || i.outcome == InspectionOutcome.compliant;
+        }).toList();
+
+        final currentTabList = _noticeTab == 0 ? activeNotices : closedNotices;
+        final currentInspList = _noticeTab == 0 ? activeInsp : completedInsp;
+
+        // Filter by Authority Category Index (_noticeAuthorityIndex)
+        final filteredList = currentTabList.where((c) {
+          if (_noticeAuthorityIndex == 0) return true;
+          final info = _getNoticeAuthorityInfo(c, currentTabList.indexOf(c));
+          return info['typeIndex'] == _noticeAuthorityIndex;
+        }).toList();
+
+        // Authority Counts for Header Summary
+        final govComplaintCount = activeNotices.where((c) => _getNoticeAuthorityInfo(c, activeNotices.indexOf(c))['typeIndex'] == 1).length;
+        final int govCount = govComplaintCount + activeInsp.length;
+        final int adminCount = activeNotices.where((c) => _getNoticeAuthorityInfo(c, activeNotices.indexOf(c))['typeIndex'] == 2).length;
+        final int totalActiveCount = activeNotices.length + activeInsp.length;
+        final int totalClosedCount = closedNotices.length + completedInsp.length;
+
+        final bool showGovInsp = (_noticeAuthorityIndex == 0 || _noticeAuthorityIndex == 1);
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. HERO SUMMARY STATS HEADER
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0C2340), Color(0xFF0F766E)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0C2340).withValues(alpha: 0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        children: const [
-                          Icon(Icons.verified_user_rounded, color: Colors.white, size: 22),
-                          SizedBox(width: 8),
-                          Text(
-                            'Health Notices',
-                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: const [
+                              Icon(Icons.verified_user_rounded, color: Colors.white, size: 22),
+                              SizedBox(width: 8),
+                              Text(
+                                'Health Notices',
+                                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white30),
+                            ),
+                            child: Text(
+                              '$totalActiveCount Active Notices',
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ],
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white30),
-                        ),
-                        child: Text(
-                          '${activeNotices.length} Active Notices',
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.white24),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: const [
-                                  Icon(Icons.gavel_rounded, color: Color(0xFF5EEAD4), size: 16),
-                                  SizedBox(width: 4),
-                                  Text('Government', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: Colors.white24),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: const [
+                                      Icon(Icons.gavel_rounded, color: Color(0xFF5EEAD4), size: 16),
+                                      SizedBox(width: 4),
+                                      Text('Government', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text('$govCount Government Notices', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                                 ],
                               ),
-                              const SizedBox(height: 4),
-                              Text('$govCount Government Notices', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.white24),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: const [
-                                  Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF93C5FD), size: 16),
-                                  SizedBox(width: 4),
-                                  Text('Admin Audits', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: Colors.white24),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: const [
+                                      Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF93C5FD), size: 16),
+                                      SizedBox(width: 4),
+                                      Text('Admin Audits', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text('$adminCount Admin Notices', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                                 ],
                               ),
-                              const SizedBox(height: 4),
-                              Text('$adminCount Admin Notices', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 18),
+              const SizedBox(height: 18),
 
-          // 2. STATUS TOGGLE TABS (Active Warnings vs Completed Fixes)
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => setState(() => _noticeTab = 0),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _noticeTab == 0 ? Colors.white : Colors.transparent,
+              // 2. STATUS TOGGLE TABS (Active Warnings vs Completed Fixes)
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => _noticeTab = 0),
                         borderRadius: BorderRadius.circular(10),
-                        boxShadow: _noticeTab == 0
-                            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]
-                            : [],
-                      ),
-                      child: Center(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.warning_amber_rounded, size: 16, color: _noticeTab == 0 ? AppTheme.primaryColor : Colors.grey.shade600),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Active Warnings (${activeNotices.length})',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                color: _noticeTab == 0 ? AppTheme.navyColor : Colors.grey.shade600,
-                              ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _noticeTab == 0 ? Colors.white : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: _noticeTab == 0
+                                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]
+                                : [],
+                          ),
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.warning_amber_rounded, size: 16, color: _noticeTab == 0 ? AppTheme.primaryColor : Colors.grey.shade600),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Active Warnings ($totalActiveCount)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: _noticeTab == 0 ? AppTheme.navyColor : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => setState(() => _noticeTab = 1),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _noticeTab == 1 ? Colors.white : Colors.transparent,
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => _noticeTab = 1),
                         borderRadius: BorderRadius.circular(10),
-                        boxShadow: _noticeTab == 1
-                            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]
-                            : [],
-                      ),
-                      child: Center(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check_circle_rounded, size: 16, color: _noticeTab == 1 ? const Color(0xFF0F766E) : Colors.grey.shade600),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Completed Fixes (${closedNotices.length})',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                color: _noticeTab == 1 ? AppTheme.navyColor : Colors.grey.shade600,
-                              ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _noticeTab == 1 ? Colors.white : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: _noticeTab == 1
+                                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]
+                                : [],
+                          ),
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check_circle_rounded, size: 16, color: _noticeTab == 1 ? const Color(0xFF0F766E) : Colors.grey.shade600),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Completed Fixes ($totalClosedCount)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: _noticeTab == 1 ? AppTheme.navyColor : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
+              ),
+              const SizedBox(height: 14),
 
-          // 3. AUTHORITY CATEGORY FILTER CHIPS (All, Government, Admin, Complaints)
-          const Text('Filter by Authority Source:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildAuthorityChip(0, 'All Notices', Icons.dashboard_customize_rounded, Colors.grey.shade800),
-                const SizedBox(width: 8),
-                _buildAuthorityChip(1, '🏛️ Government (KKM/DBKL)', Icons.account_balance_rounded, const Color(0xFF0F766E)),
-                const SizedBox(width: 8),
-                _buildAuthorityChip(2, '🛡️ Admin Audits', Icons.admin_panel_settings_rounded, const Color(0xFF0C2340)),
-                const SizedBox(width: 8),
-                _buildAuthorityChip(3, '⚠️ Public Complaints', Icons.report_problem_rounded, const Color(0xFFD97706)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
+              // 3. AUTHORITY CATEGORY FILTER CHIPS (All, Government, Admin, Complaints)
+              const Text('Filter by Authority Source:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.navyColor)),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildAuthorityChip(0, 'All Notices', Icons.dashboard_customize_rounded, Colors.grey.shade800),
+                    const SizedBox(width: 8),
+                    _buildAuthorityChip(1, '🏛️ Government (KKM/DBKL)', Icons.account_balance_rounded, const Color(0xFF0F766E)),
+                    const SizedBox(width: 8),
+                    _buildAuthorityChip(2, '🛡️ Admin Audits', Icons.admin_panel_settings_rounded, const Color(0xFF0C2340)),
+                    const SizedBox(width: 8),
+                    _buildAuthorityChip(3, '⚠️ Public Complaints', Icons.report_problem_rounded, const Color(0xFFD97706)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
 
-          // 4. NOTICE CARDS LIST
-          Builder(
-            builder: (ctx) {
-              final activeR = _activeSelectedRestaurant;
-              final allInspections = RestaurantStoreService.inspectionsNotifier.value;
-              final currentRestInsp = activeR != null
-                  ? allInspections.where((i) => i.restaurantId == activeR.id || i.restaurantName == activeR.name).toList()
-                  : allInspections;
-
-              final activeInsp = currentRestInsp.where((i) {
-                final hasAction = i.issuedAction != EnforcementType.none;
-                final isUnpaid = i.fineAmount > 0 && !i.isFinePaid;
-                final isProgress = i.enforcementStatus == EnforcementStatus.inProgress || (activeR != null && activeR.hasActiveEnforcement);
-                return hasAction && (isUnpaid || isProgress);
-              }).toList();
-
-              final completedInsp = currentRestInsp.where((i) {
-                return i.issuedAction != EnforcementType.none && (i.isFinePaid || i.enforcementStatus == EnforcementStatus.completed);
-              }).toList();
-
-              final currentInspList = _noticeTab == 0 ? activeInsp : completedInsp;
-              final bool showGovInsp = (_noticeAuthorityIndex == 0 || _noticeAuthorityIndex == 1);
-
-              if (filteredList.isEmpty && (!showGovInsp || currentInspList.isEmpty)) {
-                return Container(
+              // 4. NOTICE CARDS LIST
+              if (filteredList.isEmpty && (!showGovInsp || currentInspList.isEmpty)) ...[
+                Container(
                   padding: const EdgeInsets.all(32),
                   alignment: Alignment.center,
                   child: Column(
@@ -3479,54 +3535,61 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                       ),
                     ],
                   ),
-                );
-              }
+                ),
+              ] else ...[
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Official Government Inspection & Compound Fine Orders
+                    if (showGovInsp && currentInspList.isNotEmpty) ...[
+                      ...currentInspList.map((insp) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _buildGovernmentEnforcementNoticeCard(insp, activeR),
+                          )),
+                    ],
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Official Government Inspection & Compound Fine Orders
-                  if (showGovInsp && currentInspList.isNotEmpty) ...[
-                    ...currentInspList.map((insp) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildGovernmentEnforcementNoticeCard(insp, activeR),
-                        )),
+                    // Complaints and Admin Audits
+                    if (filteredList.isNotEmpty)
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: filteredList.length,
+                        separatorBuilder: (ctx, i) => const SizedBox(height: 12),
+                        itemBuilder: (ctx, index) {
+                          final c = filteredList[index];
+                          final info = _getNoticeAuthorityInfo(c, index);
+                          final daysLeft = (4 - index * 3);
+
+                          return _buildEnhancedNoticeCard(c, info, daysLeft);
+                        },
+                      ),
                   ],
-
-                  // Complaints and Admin Audits
-                  if (filteredList.isNotEmpty)
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: filteredList.length,
-                      separatorBuilder: (ctx, i) => const SizedBox(height: 12),
-                      itemBuilder: (ctx, index) {
-                        final c = filteredList[index];
-                        final info = _getNoticeAuthorityInfo(c, index);
-                        final daysLeft = (4 - index * 3);
-
-                        return _buildEnhancedNoticeCard(c, info, daysLeft);
-                      },
-                    ),
-                ],
-              );
-            },
+                ),
+              ],
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildGovernmentEnforcementNoticeCard(InspectionModel insp, RestaurantModel? rest) {
     final bool isUnpaidFine = insp.fineAmount > 0 && !insp.isFinePaid;
     final bool isClosure = insp.issuedAction == EnforcementType.closure;
+    final bool isScheduled = insp.outcome == InspectionOutcome.pending && insp.conductedDate == null;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final Color cardBorder = isClosure || isUnpaidFine ? const Color(0xFFDC2626) : const Color(0xFF0F766E);
-    final Color headerColor = isClosure || isUnpaidFine ? const Color(0xFFDC2626) : const Color(0xFF0F766E);
+    final Color cardBorder = isClosure || isUnpaidFine
+        ? const Color(0xFFDC2626)
+        : (isScheduled ? const Color(0xFF0284C7) : const Color(0xFF0F766E));
+    final Color headerColor = isClosure || isUnpaidFine
+        ? const Color(0xFFDC2626)
+        : (isScheduled ? const Color(0xFF0284C7) : const Color(0xFF0F766E));
 
     String actionTitle = 'MOH Form 32 Warning Directive';
-    if (insp.issuedAction == EnforcementType.closure) {
+    if (isScheduled) {
+      actionTitle = '📅 Scheduled Health Inspection Visit';
+    } else if (isClosure) {
       actionTitle = 'MOH Premise Closure Order (14 Days)';
     } else if (insp.issuedAction == EnforcementType.fine || insp.fineAmount > 0) {
       actionTitle = 'MOH Compound Penalty: RM ${insp.fineAmount.toStringAsFixed(2)}';
@@ -3564,17 +3627,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.gavel_rounded, size: 13, color: headerColor),
+                    Icon(isScheduled ? Icons.event_note_rounded : Icons.gavel_rounded, size: 13, color: headerColor),
                     const SizedBox(width: 5),
                     Text(
-                      'Ministry of Health (KKM) Decree',
+                      isScheduled ? 'MOH Inspection Schedule' : 'Ministry of Health (KKM) Decree',
                       style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: headerColor),
                     ),
                   ],
                 ),
               ),
               Text(
-                'ID: ${_formatNoticeId(insp.complaintId)}',
+                'ID: ${_formatNoticeId(insp.complaintId.isNotEmpty ? insp.complaintId : insp.id)}',
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600),
               ),
             ],
@@ -3582,13 +3645,24 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           const SizedBox(height: 12),
 
           Text(
-            actionTitle,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
+            'Restaurant: ${insp.restaurantName.isNotEmpty ? insp.restaurantName : (rest?.name ?? "Premises")}',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
           ),
           const SizedBox(height: 4),
           Text(
-            'Citation: ${insp.statutoryCitation ?? "Food Act 1983 - Section 11"}',
-            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
+            actionTitle,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: headerColor),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            isScheduled
+                ? 'Scheduled: ${insp.scheduledDate} • Officer: ${insp.officerName}'
+                : 'Citation: ${insp.statutoryCitation ?? "Food Act 1983 - Section 11"}',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: isScheduled ? const Color(0xFF0284C7) : const Color(0xFF0F766E),
+            ),
           ),
           if (insp.findings.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -3610,7 +3684,23 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
           Row(
             children: [
-              if (insp.isFinePaid || (insp.fineAmount <= 0 && insp.enforcementStatus == EnforcementStatus.completed))
+              if (isScheduled)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F2FE),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.calendar_today_rounded, size: 13, color: Color(0xFF0284C7)),
+                      SizedBox(width: 4),
+                      Text('Upcoming Visit', style: TextStyle(color: Color(0xFF0284C7), fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                )
+              else if (insp.isFinePaid || (insp.fineAmount <= 0 && insp.enforcementStatus == EnforcementStatus.completed))
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -3799,7 +3889,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    c.restaurantName,
+                    'Restaurant: ${c.restaurantName}',
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
                   ),
                 ),

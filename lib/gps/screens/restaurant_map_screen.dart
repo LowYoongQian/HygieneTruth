@@ -15,6 +15,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/shimmer_skeletons.dart';
+import '../../core/widgets/voice_search_modal.dart';
 
 class RestaurantMapScreen extends StatefulWidget {
   final bool showAppBar;
@@ -45,7 +46,6 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
   final TextEditingController _listSearchCtrl = TextEditingController();
 
   final stt.SpeechToText _speechToText = stt.SpeechToText();
-  bool _isListening = false;
 
   Set<Marker> _markers = {};
   Set<Circle> _heatmapCircles = {};
@@ -66,8 +66,8 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
       if (args is RestaurantModel) {
         _targetRestaurant = args;
         _isNavigationMode = false;
-      } else if (args is Map<String, dynamic>) {
-        _targetRestaurant = args['restaurant'] as RestaurantModel?;
+      } else if (args is Map) {
+        _targetRestaurant = args['restaurant'] is RestaurantModel ? args['restaurant'] as RestaurantModel : null;
         _isNavigationMode = args['showDirections'] == true;
       }
 
@@ -84,7 +84,6 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
     _pageController = PageController(viewportFraction: 0.88, initialPage: 0);
     _loadRestaurantsFromSupabase();
     _fetchUserLocation();
-    _initSpeechState();
 
     Future.delayed(const Duration(milliseconds: 900), () {
       if (mounted) {
@@ -148,45 +147,110 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
   }
 
   void _showMapTypeOptionsSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Drag Handle Bar
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4.5,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white24 : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Select Google Map View',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildMapTypeCard('3D Vector Map', MapType.normal, Icons.view_in_ar),
-                    _buildMapTypeCard('Satellite View', MapType.hybrid, Icons.satellite_alt),
-                    _buildMapTypeCard('Terrain View', MapType.terrain, Icons.terrain),
-                  ],
-                ),
-                const SizedBox(height: 12),
-              ],
+                  const SizedBox(height: 16),
+
+                  // Header Row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [AppTheme.primaryColor, Color(0xFF14B8A6)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.layers_rounded, color: Colors.white, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Select Google Map View',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : AppTheme.navyColor,
+                                ),
+                              ),
+                              Text(
+                                'Switch rendering mode and satellite layers',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded, color: isDark ? Colors.white70 : Colors.grey.shade700),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildMapTypeCard('3D Vector', MapType.normal, Icons.view_in_ar_rounded, isDark),
+                      _buildMapTypeCard('Satellite', MapType.hybrid, Icons.satellite_alt_rounded, isDark),
+                      _buildMapTypeCard('Terrain', MapType.terrain, Icons.terrain_rounded, isDark),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
             ),
           ),
         );
@@ -194,7 +258,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
     );
   }
 
-  Widget _buildMapTypeCard(String label, MapType type, IconData icon) {
+  Widget _buildMapTypeCard(String label, MapType type, IconData icon, bool isDark) {
     final isSelected = _currentMapType == type;
     return GestureDetector(
       onTap: () {
@@ -206,29 +270,51 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
       child: Column(
         children: [
           Container(
-            width: 60,
-            height: 60,
+            width: 72,
+            height: 72,
             decoration: BoxDecoration(
-              color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.15) : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(16),
+              gradient: isSelected
+                  ? const LinearGradient(
+                      colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+              color: isSelected
+                  ? null
+                  : (isDark ? const Color(0xFF282828) : const Color(0xFFF1F5F9)),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: isSelected ? AppTheme.primaryColor : Colors.grey.shade300,
+                color: isSelected
+                    ? AppTheme.primaryColor
+                    : (isDark ? Colors.white12 : Colors.grey.shade300),
                 width: isSelected ? 2 : 1,
               ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : null,
             ),
             child: Icon(
               icon,
-              color: isSelected ? AppTheme.primaryColor : Colors.grey.shade700,
-              size: 26,
+              color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.grey.shade700),
+              size: 30,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             label,
             style: TextStyle(
               fontSize: 12,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? AppTheme.primaryColor : AppTheme.navyColor,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              color: isSelected
+                  ? AppTheme.primaryColor
+                  : (isDark ? Colors.white70 : AppTheme.navyColor),
             ),
           ),
         ],
@@ -236,143 +322,29 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
     );
   }
 
-  Future<void> _initSpeechState() async {
-    try {
-      await _speechToText.initialize(
-        onStatus: (status) {
-          if (status == 'done' || status == 'notListening') {
-            if (mounted) {
-              setState(() {
-                _isListening = false;
-              });
-            }
-          }
-        },
-        onError: (errorNotification) {
-          if (mounted) {
-            setState(() {
-              _isListening = false;
-            });
-          }
-        },
-      );
-    } catch (_) {}
-  }
 
-  Future<void> _startVoiceSearch() async {
-    bool available = await _speechToText.initialize();
-    if (!available) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Speech recognition not available on this device.')),
-        );
-      }
-      return;
-    }
 
-    setState(() {
-      _isListening = true;
-    });
-
-    _showVoiceSearchBottomSheet();
-
-    await _speechToText.listen(
-      onResult: (result) {
+  void _startVoiceSearch() {
+    VoiceSearchModal.show(
+      context: context,
+      initialText: _listSearchCtrl.text,
+      speechToText: _speechToText,
+      suggestions: const [
+        'Golden Dragon',
+        'Halal Bistro',
+        'Dim Sum',
+        'Noodles',
+        'Mamak',
+        'Café',
+        'Bakery',
+      ],
+      onResult: (text) {
         if (mounted) {
           setState(() {
-            _listSearchCtrl.text = result.recognizedWords;
+            _listSearchCtrl.text = text;
             _filterRestaurantList();
           });
         }
-        if (result.finalResult) {
-          _speechToText.stop();
-          Future.delayed(const Duration(milliseconds: 600), () {
-            if (mounted && Navigator.canPop(context)) {
-              Navigator.pop(context);
-            }
-          });
-        }
-      },
-      listenOptions: stt.SpeechListenOptions(
-        listenFor: const Duration(seconds: 15),
-        pauseFor: const Duration(seconds: 3),
-      ),
-    );
-  }
-
-  void _stopVoiceSearch() {
-    _speechToText.stop();
-    setState(() {
-      _isListening = false;
-    });
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context);
-    }
-  }
-
-  void _showVoiceSearchBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isDismissible: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Listening for Outlets & Cuisine...',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _listSearchCtrl.text.isEmpty ? 'Speak outlet name (e.g. Golden Dragon)' : _listSearchCtrl.text,
-                    style: TextStyle(fontSize: 14, color: _listSearchCtrl.text.isEmpty ? Colors.grey : AppTheme.primaryColor, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Animated Voice Pulse Waveform
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Container(
-                        width: 54,
-                        height: 54,
-                        decoration: const BoxDecoration(
-                          color: AppTheme.primaryColor,
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.mic, color: Colors.white, size: 28),
-                          onPressed: _stopVoiceSearch,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  OutlinedButton(
-                    onPressed: _stopVoiceSearch,
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text('Done'),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
       },
     );
   }
@@ -746,114 +718,176 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
 
   void _showFilterBottomSheet() {
     String tempFilter = _filterRisk;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Handle Bar
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Header Title & Reset Button Row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          t('filter_by_hygiene'),
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            setSheetState(() => tempFilter = 'All');
-                          },
-                          child: Text(t('reset'), style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Choice Chips
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        {'raw': 'All', 'label': t('all')},
-                        {'raw': 'Safe', 'label': t('safe')},
-                        {'raw': 'Moderate', 'label': t('moderate')},
-                        {'raw': 'High Risk', 'label': t('high_risk')},
-                      ].map((item) {
-                        final filterKey = item['raw']!;
-                        final displayLabel = item['label']!;
-                        final isSelected = tempFilter == filterKey;
-                        Color chipColor = AppTheme.primaryColor;
-                        if (filterKey == 'Safe') chipColor = const Color(0xFF10B981);
-                        if (filterKey == 'Moderate') chipColor = const Color(0xFFF59E0B);
-                        if (filterKey == 'High Risk') chipColor = const Color(0xFFEF4444);
-
-                        return ChoiceChip(
-                          label: Text(displayLabel),
-                          selected: isSelected,
-                          selectedColor: chipColor,
-                          backgroundColor: Colors.grey.shade100,
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : Colors.black87,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            return Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 20,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Top Drag Handle Bar
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 4.5,
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white24 : Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(3),
                           ),
-                          onSelected: (val) {
-                            if (val) {
-                              setSheetState(() => tempFilter = filterKey);
-                            }
-                          },
-                        );
-                      }).toList(),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Apply Filter Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _filterRisk = tempFilter;
-                            _filterRestaurantList();
-                          });
-                          Navigator.pop(ctx);
-                        },
-                        child: Text(
-                          t('apply_filter'),
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+
+                      // Header Title & Reset Button Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [AppTheme.primaryColor, Color(0xFF14B8A6)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(Icons.filter_list_rounded, color: Colors.white, size: 22),
+                              ),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    t('filter_by_hygiene'),
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : AppTheme.navyColor,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Filter outlets by health inspection level',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setSheetState(() => tempFilter = 'All');
+                            },
+                            child: Text(t('reset'), style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+
+                      // Choice Chips / Filter Cards
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          {'raw': 'All', 'label': t('all'), 'desc': 'All ratings'},
+                          {'raw': 'Safe', 'label': t('safe'), 'desc': 'Grade A (0-30 Risk)'},
+                          {'raw': 'Moderate', 'label': t('moderate'), 'desc': 'Grade B (31-60 Risk)'},
+                          {'raw': 'High Risk', 'label': t('high_risk'), 'desc': 'Grade C (>60 Risk)'},
+                        ].map((item) {
+                          final filterKey = item['raw']!;
+                          final displayLabel = item['label']!;
+                          final isSelected = tempFilter == filterKey;
+                          Color chipColor = AppTheme.primaryColor;
+                          if (filterKey == 'Safe') chipColor = const Color(0xFF10B981);
+                          if (filterKey == 'Moderate') chipColor = const Color(0xFFF59E0B);
+                          if (filterKey == 'High Risk') chipColor = const Color(0xFFEF4444);
+
+                          return ChoiceChip(
+                            label: Text(displayLabel),
+                            selected: isSelected,
+                            selectedColor: chipColor,
+                            backgroundColor: isDark ? const Color(0xFF282828) : Colors.grey.shade100,
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              fontSize: 13,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(
+                                color: isSelected ? chipColor : (isDark ? Colors.white12 : Colors.grey.shade300),
+                              ),
+                            ),
+                            onSelected: (val) {
+                              if (val) {
+                                setSheetState(() => tempFilter = filterKey);
+                              }
+                            },
+                          );
+                        }).toList(),
+                      ),
+
+                      const SizedBox(height: 22),
+
+                      // Apply Filter Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _filterRisk = tempFilter;
+                              _filterRestaurantList();
+                            });
+                            Navigator.pop(ctx);
+                          },
+                          child: Text(
+                            t('apply_filter'),
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -870,7 +904,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
       builder: (context, _) {
         if (_isMapLoading) {
           return Scaffold(
-            appBar: widget.showAppBar ? CustomAppBar(title: t('map')) : null,
+            appBar: widget.showAppBar ? CustomAppBar(title: t('map'), showBackButton: Navigator.canPop(context)) : null,
             body: const MapSkeletonLoader(),
           );
         }
@@ -883,7 +917,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                 : _defaultCenter);
 
         return Scaffold(
-          appBar: widget.showAppBar ? CustomAppBar(title: t('map')) : null,
+          appBar: widget.showAppBar ? CustomAppBar(title: t('map'), showBackButton: Navigator.canPop(context)) : null,
           body: Stack(
             children: [
               // 1. FULL-SCREEN GOOGLE MAP BACKGROUND
@@ -1074,9 +1108,9 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                                         },
                                       ),
                                     IconButton(
-                                      icon: Icon(
-                                        _isListening ? Icons.mic : Icons.mic_none,
-                                        color: _isListening ? Colors.red : AppTheme.primaryColor,
+                                      icon: const Icon(
+                                        Icons.mic_rounded,
+                                        color: AppTheme.primaryColor,
                                       ),
                                       tooltip: 'Voice Search',
                                       onPressed: _startVoiceSearch,

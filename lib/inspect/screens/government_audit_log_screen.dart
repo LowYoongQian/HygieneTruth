@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/models/audit_log_model.dart';
 import '../../core/services/audit_log_service.dart';
@@ -208,69 +209,306 @@ class _GovernmentAuditLogScreenState extends State<GovernmentAuditLogScreen> {
   void _showDetailDialog(BuildContext context, AuditLogModel log) {
     final visuals = _getLogVisuals(log);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color themeColor = visuals['color'] as Color;
+    final Color themeBg = visuals['bg'] as Color;
+    final String tag = visuals['tag'] as String;
+    final IconData icon = visuals['icon'] as IconData;
+
+    final shortId = log.id.length > 8 ? log.id.substring(0, 8).toUpperCase() : log.id.toUpperCase();
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: (visuals['color'] as Color).withValues(alpha: 0.12),
-                shape: BoxShape.circle,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
               ),
-              child: Icon(visuals['icon'] as IconData, color: visuals['color'] as Color, size: 20),
-            ),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Text('Government Audit Record', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(log.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            const SizedBox(height: 6),
-            Text(log.description, style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.grey.shade700)),
-            const SizedBox(height: 14),
-            const Divider(),
-            const SizedBox(height: 8),
-            _buildDialogRow('Activity Tag:', visuals['tag'] as String, isDark),
-            _buildDialogRow('Timestamp:', _formatTimestamp(log.timestamp), isDark),
-            _buildDialogRow('Initiator Officer:', log.userEmail, isDark),
-            _buildDialogRow('Record ID:', log.id, isDark),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close', style: TextStyle(fontWeight: FontWeight.bold)),
+            ],
           ),
-        ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. TOP HEADER BANNER
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  color: isDark ? themeColor.withValues(alpha: 0.15) : themeBg.withValues(alpha: 0.6),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: themeColor.withValues(alpha: 0.2),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: themeColor,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: themeColor.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(icon, color: Colors.white, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Government Audit Record',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF0C2340),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: themeColor.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  tag,
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: themeColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      onPressed: () => Navigator.pop(ctx),
+                      splashRadius: 20,
+                    ),
+                  ],
+                ),
+              ),
+
+              // 2. BODY CONTENT
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Action Title
+                    Text(
+                      log.title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : const Color(0xFF0C2340),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Description / Notes Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF141414) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Text(
+                        log.description,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          color: isDark ? Colors.white70 : const Color(0xFF334155),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Key-Value Grid
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF262626) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildDetailRow(
+                            Icons.category_outlined,
+                            'Category',
+                            log.category.isNotEmpty ? log.category : 'Government',
+                            isDark,
+                          ),
+                          const Divider(height: 14),
+                          _buildDetailRow(
+                            Icons.access_time_rounded,
+                            'Timestamp',
+                            _formatTimestamp(log.timestamp),
+                            isDark,
+                          ),
+                          const Divider(height: 14),
+                          _buildDetailRow(
+                            Icons.person_outline_rounded,
+                            'Initiator Officer',
+                            log.userEmail.isNotEmpty ? log.userEmail : 'System Admin',
+                            isDark,
+                          ),
+                          const Divider(height: 14),
+                          _buildRecordIdRow(
+                            'AUD-$shortId',
+                            log.id,
+                            isDark,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Close Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F766E),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text(
+                          'Dismiss Record',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildDialogRow(String label, String value, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 110,
-            child: Text(label, style: TextStyle(fontSize: 11.5, color: isDark ? Colors.white60 : Colors.grey.shade600, fontWeight: FontWeight.bold)),
+  Widget _buildDetailRow(IconData icon, String label, String value, bool isDark) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: isDark ? Colors.white60 : const Color(0xFF64748B)),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white60 : const Color(0xFF64748B),
           ),
-          Expanded(
-            child: Text(value, style: TextStyle(fontSize: 11.5, color: isDark ? Colors.white : Colors.black87)),
+        ),
+        const Spacer(),
+        Flexible(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecordIdRow(String shortId, String fullId, bool isDark) {
+    return Builder(
+      builder: (context) {
+        return Row(
+          children: [
+            Icon(Icons.fingerprint_rounded, size: 16, color: isDark ? Colors.white60 : const Color(0xFF64748B)),
+            const SizedBox(width: 8),
+            Text(
+              'Record ID',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white60 : const Color(0xFF64748B),
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white10 : Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    shortId,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? const Color(0xFF5EEAD4) : const Color(0xFF0F766E),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  InkWell(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: fullId));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Record ID copied to clipboard'),
+                          duration: Duration(seconds: 2),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    child: Icon(
+                      Icons.copy_rounded,
+                      size: 13,
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

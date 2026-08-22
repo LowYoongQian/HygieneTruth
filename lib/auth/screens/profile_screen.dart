@@ -52,6 +52,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return Scaffold(
           appBar: CustomAppBar(
             title: t('Profile'),
+            showBackButton: true,
             actions: [
               IconButton(
                 icon: const Icon(Icons.edit_outlined),

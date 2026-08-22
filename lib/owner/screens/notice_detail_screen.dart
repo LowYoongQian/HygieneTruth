@@ -1,6 +1,7 @@
 import '../../core/services/restaurant_store_service.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../core/models/complaint_model.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
@@ -125,7 +126,7 @@ class NoticeDetailScreen extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    c.restaurantName,
+                    'Restaurant: ${c.restaurantName}',
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
                   ),
                 ),
@@ -237,14 +238,74 @@ class NoticeDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // 5. GPS LOCATION
+            // 5. GPS LOCATION (REAL GOOGLE MAP)
             const Text('Inspection Pin Map Location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.navyColor)),
             const SizedBox(height: 8),
-            WireframeBox(
-              height: 110,
-              icon: Icons.map_rounded,
-              label: 'GPS Coordinates: ${c.latitude}, ${c.longitude}',
-              sublabel: 'Verified Inspection Coordinates',
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: Colors.grey.shade300),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Stack(
+                  children: [
+                    GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: LatLng(c.latitude, c.longitude),
+                        zoom: 16.0,
+                      ),
+                      markers: {
+                        Marker(
+                          markerId: MarkerId(c.id),
+                          position: LatLng(c.latitude, c.longitude),
+                          infoWindow: InfoWindow(
+                            title: 'Restaurant: ${c.restaurantName}',
+                            snippet: 'GPS: ${c.latitude.toStringAsFixed(4)}, ${c.longitude.toStringAsFixed(4)}',
+                          ),
+                        ),
+                      },
+                      zoomControlsEnabled: false,
+                      myLocationButtonEnabled: false,
+                      mapToolbarEnabled: false,
+                    ),
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.95),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.location_on_rounded, color: AppTheme.primaryColor, size: 16),
+                            const SizedBox(width: 6),
+                            Text(
+                              'GPS: ${c.latitude.toStringAsFixed(4)}, ${c.longitude.toStringAsFixed(4)}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.navyColor),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 20),
 

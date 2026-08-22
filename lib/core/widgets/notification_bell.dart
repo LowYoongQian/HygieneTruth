@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../services/notification_service.dart';
 import '../services/customer_store_service.dart';
+import '../theme/app_theme.dart';
 import '../../notifications/screens/notification_center_screen.dart';
 
 class NotificationBell extends StatefulWidget {
@@ -78,6 +79,11 @@ class _NotificationBellState extends State<NotificationBell>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final effectiveIconColor = widget.iconColor ??
+        Theme.of(context).appBarTheme.iconTheme?.color ??
+        (isDark ? Colors.white : AppTheme.navyColor);
+
     return ValueListenableBuilder<int>(
       valueListenable: NotificationService.unreadCountNotifier,
       builder: (context, unreadCount, _) {
@@ -107,7 +113,7 @@ class _NotificationBellState extends State<NotificationBell>
                           : Icons.notifications_none_rounded,
                       color: unreadCount > 0
                           ? const Color(0xFFF59E0B)
-                          : (widget.iconColor ?? Colors.black87),
+                          : effectiveIconColor,
                     ),
                     tooltip: 'Notifications',
                     onPressed: widget.onPressed ??

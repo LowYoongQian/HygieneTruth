@@ -217,6 +217,105 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
 
+            // KKM PRIORITY ASSESSMENT BANNER
+            if (c.category.toLowerCase().contains('food') ||
+                c.category.toLowerCase().contains('poison') ||
+                c.category.toLowerCase().contains('pest') ||
+                c.category.toLowerCase().contains('cockroach')) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFECDD3)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFEE2E2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.local_hospital_rounded, color: Color(0xFFDC2626), size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'CRITICAL KKM FOOD SAFETY PRIORITY',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF991B1B),
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Highest inspection priority for health officers. Mandates immediate on-site food cold storage audit and microbial swab evaluation.',
+                            style: TextStyle(fontSize: 11, color: Color(0xFFB91C1C), height: 1.3),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+            ] else if (c.category.toLowerCase().contains('rude') ||
+                c.category.toLowerCase().contains('conduct') ||
+                c.category.toLowerCase().contains('employee') ||
+                c.category.toLowerCase().contains('service')) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFFEDD5)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFFEDD5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.info_rounded, color: Color(0xFFEA580C), size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'STAFF CONDUCT REPORT (SECONDARY PRIORITY)',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF9A3412),
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Note: KKM officers prioritize kitchen cleanliness & food safety. Staff service concerns are addressed as secondary advisory notices.',
+                            style: TextStyle(fontSize: 11, color: Color(0xFFC2410C), height: 1.3),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+
             // 3. DETAILS & EVIDENCE BREAKDOWN CARD
             Container(
               padding: const EdgeInsets.all(18),
@@ -486,9 +585,26 @@ class ComplaintReviewDetailScreen extends StatelessWidget {
 
   void _showAssignOfficerModal(BuildContext context, ComplaintModel complaint) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    String selectedOfficer = 'Officer Ahmad (Senior Health Inspector)';
+    String selectedOfficer = 'Officer Ahmad Razak (Senior Health Inspector)';
     String selectedOfficerId = 'gov_officer_001';
-    final directivesController = TextEditingController();
+
+    final isFood = complaint.category.toLowerCase().contains('food') || complaint.category.toLowerCase().contains('poison');
+    final isPest = complaint.category.toLowerCase().contains('pest') || complaint.category.toLowerCase().contains('cockroach');
+    final isStaff = complaint.category.toLowerCase().contains('rude') ||
+        complaint.category.toLowerCase().contains('conduct') ||
+        complaint.category.toLowerCase().contains('employee') ||
+        complaint.category.toLowerCase().contains('service');
+
+    String defaultDirective = 'Conduct comprehensive premise hygiene inspection and verify sanitary compliance.';
+    if (isFood) {
+      defaultDirective = 'Urgent food audit: Inspect raw food storage, cold chain temperature, ingredient expiry, and take microbiological food swabs.';
+    } else if (isPest) {
+      defaultDirective = 'Urgent pest audit: Inspect pest entry traps, waste drainage, storage rooms, and verify pest control certificate.';
+    } else if (isStaff) {
+      defaultDirective = 'Verify food handling hygiene practices, staff attire compliance, and address customer service conduct.';
+    }
+
+    final directivesController = TextEditingController(text: defaultDirective);
 
     final List<Map<String, String>> officers = [
       {

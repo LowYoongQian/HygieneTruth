@@ -7,6 +7,7 @@ import '../../core/services/restaurant_store_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_button.dart';
+import '../../core/widgets/voice_search_modal.dart';
 import '../../gps/widgets/restaurant_card.dart';
 
 class RecommendationHomeScreen extends StatefulWidget {
@@ -22,6 +23,7 @@ class RecommendationHomeScreen extends StatefulWidget {
 }
 
 class _RecommendationHomeScreenState extends State<RecommendationHomeScreen> {
+  final TextEditingController _searchCtrl = TextEditingController();
   double _userLat = 3.1466;
   double _userLng = 101.6958;
   bool _hasUserLocation = false;
@@ -31,6 +33,12 @@ class _RecommendationHomeScreenState extends State<RecommendationHomeScreen> {
   void initState() {
     super.initState();
     _fetchUserGpsLocation();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchUserGpsLocation() async {
@@ -53,8 +61,15 @@ class _RecommendationHomeScreenState extends State<RecommendationHomeScreen> {
   }
 
   List<RestaurantModel> _getSafeRestaurants(List<RestaurantModel> allRestaurants) {
+    final query = _searchCtrl.text.trim().toLowerCase();
     final list = allRestaurants
         .where((r) => r.status == RestaurantStatus.approved && (r.riskCategory == RiskCategory.safe || r.hygieneRiskScore <= 25.0))
+        .where((r) {
+          if (query.isEmpty) return true;
+          return r.name.toLowerCase().contains(query) ||
+              r.category.toLowerCase().contains(query) ||
+              r.address.toLowerCase().contains(query);
+        })
         .toList();
 
     // Sort primarily by nearest distance, then highest star rating & safety score
@@ -81,6 +96,7 @@ class _RecommendationHomeScreenState extends State<RecommendationHomeScreen> {
       appBar: widget.showAppBar
           ? const CustomAppBar(
               title: 'Recommendation',
+              showBackButton: false,
             )
           : null,
       body: ValueListenableBuilder<List<RestaurantModel>>(
@@ -168,9 +184,92 @@ class _RecommendationHomeScreenState extends State<RecommendationHomeScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
 
-                // 2. INTERACTIVE DISTANCE TIER FILTER CHIPS
+                // 2. SEARCH BAR BELOW BANNER
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _searchCtrl.text.isNotEmpty
+                          ? const Color(0xFF00A88F).withValues(alpha: 0.6)
+                          : (isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
+                      width: _searchCtrl.text.isNotEmpty ? 1.5 : 1.0,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (_) => setState(() {}),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : AppTheme.navyColor,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Search safe restaurants by name or cuisine...',
+                      hintStyle: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.normal,
+                        color: isDark ? Colors.white38 : Colors.grey.shade400,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: Color(0xFF00A88F),
+                        size: 22,
+                      ),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_searchCtrl.text.isNotEmpty)
+                            IconButton(
+                              icon: Icon(
+                                Icons.clear,
+                                size: 18,
+                                color: isDark ? Colors.white60 : Colors.grey.shade600,
+                              ),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() {});
+                              },
+                            ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.mic_rounded,
+                              color: Color(0xFF00A88F),
+                              size: 22,
+                            ),
+                            tooltip: 'Voice Search',
+                            onPressed: () {
+                              VoiceSearchModal.show(
+                                context: context,
+                                initialText: _searchCtrl.text,
+                                onResult: (text) {
+                                  setState(() {
+                                    _searchCtrl.text = text;
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                // 3. INTERACTIVE DISTANCE TIER FILTER CHIPS
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -201,7 +300,7 @@ class _RecommendationHomeScreenState extends State<RecommendationHomeScreen> {
 
                 const SizedBox(height: 18),
 
-                // 3. SEQUENTIAL DISTANCE SECTIONS
+                // 4. SEQUENTIAL DISTANCE SECTIONS OR EMPTY SEARCH STATE
                 if (safeList.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 40),
@@ -210,10 +309,27 @@ class _RecommendationHomeScreenState extends State<RecommendationHomeScreen> {
                         children: [
                           Icon(Icons.restaurant_outlined, size: 48, color: Colors.grey.shade400),
                           const SizedBox(height: 12),
-                          const Text(
-                            'No safe outlets found in your area.',
-                            style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600),
+                          Text(
+                            _searchCtrl.text.isNotEmpty
+                                ? 'No safe restaurants found matching "${_searchCtrl.text.trim()}".'
+                                : 'No safe outlets found in your area.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w600),
                           ),
+                          if (_searchCtrl.text.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            TextButton.icon(
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() {});
+                              },
+                              icon: const Icon(Icons.clear, size: 16),
+                              label: const Text('Clear Search'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF00A88F),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

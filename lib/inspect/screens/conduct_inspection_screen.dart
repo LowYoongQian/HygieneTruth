@@ -560,12 +560,13 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
 
                 setState(() => _isSubmitting = true);
 
-                // Update complaint status in memory & Supabase
+                // 1. Update complaint status in memory & ComplaintStoreService
                 if (c != null) {
                   final nonNullC = c;
-                  final idx = RestaurantStoreService.complaintsNotifier.value.indexWhere((x) => x.id == nonNullC.id);
+                  final idx = ComplaintStoreService.complaintsNotifier.value.indexWhere((x) => x.id == nonNullC.id);
                   if (idx != -1) {
-                    RestaurantStoreService.complaintsNotifier.value[idx] = ComplaintModel(
+                    final currentComplaints = List<ComplaintModel>.from(ComplaintStoreService.complaintsNotifier.value);
+                    currentComplaints[idx] = ComplaintModel(
                       id: nonNullC.id,
                       restaurantId: nonNullC.restaurantId,
                       restaurantName: nonNullC.restaurantName,
@@ -582,8 +583,45 @@ class _ConductInspectionScreenState extends State<ConductInspectionScreen> {
                       severity: nonNullC.severity,
                       isFlaggedForReview: false,
                     );
+                    ComplaintStoreService.complaintsNotifier.value = currentComplaints;
                   }
                 }
+
+                // 2. Create and register InspectionModel in inspectionsNotifier
+                final issuedType = _outcome == InspectionOutcome.compliant
+                    ? EnforcementType.none
+                    : (_enforcementAction.contains('Closure')
+                        ? EnforcementType.closure
+                        : (_enforcementAction.contains('Compound') || _enforcementAction.contains('Fine')
+                            ? EnforcementType.fine
+                            : EnforcementType.warning));
+
+                final newInsp = InspectionModel(
+                  id: 'insp_${DateTime.now().millisecondsSinceEpoch}',
+                  complaintId: c?.id ?? '',
+                  restaurantId: c?.restaurantId ?? '',
+                  restaurantName: restName,
+                  scheduledDate: DateTime.now().toIso8601String().split('T').first,
+                  conductedDate: DateTime.now().toIso8601String().split('T').first,
+                  officerName: 'Health Inspector (KKM)',
+                  outcome: _outcome,
+                  findings: findings,
+                  recommendedAction: issuedType,
+                  issuedAction: issuedType,
+                  justification: 'Official hygiene inspection conducted. Outcome: ${_outcome.name.toUpperCase()}. Action: $_enforcementAction',
+                  fineAmount: issuedType == EnforcementType.fine ? 1000.0 : 0.0,
+                  statutoryCitation: 'Food Act 1983 - Section 11',
+                  enforcementStatus: _outcome == InspectionOutcome.compliant ? EnforcementStatus.completed : EnforcementStatus.inProgress,
+                );
+
+                final currentInspections = List<InspectionModel>.from(RestaurantStoreService.inspectionsNotifier.value);
+                final existingIdx = currentInspections.indexWhere((x) => x.complaintId.isNotEmpty && x.complaintId == c?.id);
+                if (existingIdx != -1) {
+                  currentInspections[existingIdx] = newInsp;
+                } else {
+                  currentInspections.insert(0, newInsp);
+                }
+                RestaurantStoreService.inspectionsNotifier.value = currentInspections;
 
                 // Log audit action
                 AuditLogService.logAction(

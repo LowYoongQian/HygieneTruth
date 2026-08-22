@@ -16,11 +16,13 @@ class RiskRankingListScreen extends StatefulWidget {
   State<RiskRankingListScreen> createState() => _RiskRankingListScreenState();
 }
 
-class _RiskRankingListScreenState extends State<RiskRankingListScreen> with SingleTickerProviderStateMixin {
+class _RiskRankingListScreenState extends State<RiskRankingListScreen>
+    with TickerProviderStateMixin {
   String _selectedPeriod = 'Today'; // 'Today' or 'Week'
   String _selectedTierFilter = 'All';
 
   late AnimationController _celebrationController;
+  late AnimationController _pillarController;
 
   @override
   void initState() {
@@ -29,11 +31,18 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
       vsync: this,
       duration: const Duration(seconds: 4),
     )..repeat();
+
+    _pillarController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    _pillarController.forward();
   }
 
   @override
   void dispose() {
     _celebrationController.dispose();
+    _pillarController.dispose();
     super.dispose();
   }
 
@@ -344,9 +353,12 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                     Expanded(
                       child: GestureDetector(
                         onTap: () {
-                          setState(() {
-                            _selectedPeriod = 'Today';
-                          });
+                          if (_selectedPeriod != 'Today') {
+                            setState(() {
+                              _selectedPeriod = 'Today';
+                            });
+                            _pillarController.forward(from: 0.0);
+                          }
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 250),
@@ -379,9 +391,12 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                     Expanded(
                       child: GestureDetector(
                         onTap: () {
-                          setState(() {
-                            _selectedPeriod = 'Week';
-                          });
+                          if (_selectedPeriod != 'Week') {
+                            setState(() {
+                              _selectedPeriod = 'Week';
+                            });
+                            _pillarController.forward(from: 0.0);
+                          }
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 250),
@@ -475,16 +490,39 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                               ],
                             ),
                             const SizedBox(height: 24),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                if (secondPlace != null) _buildPodiumColumn(secondPlace, 2, const Color(0xFFF97316), 110, isDark),
-                                const SizedBox(width: 12),
-                                if (firstPlace != null) _buildPodiumColumn(firstPlace, 1, const Color(0xFF7C3AED), 145, isDark),
-                                const SizedBox(width: 12),
-                                if (thirdPlace != null) _buildPodiumColumn(thirdPlace, 3, const Color(0xFFFB923C), 90, isDark),
-                              ],
+                            AnimatedBuilder(
+                              animation: Listenable.merge([_celebrationController, _pillarController]),
+                              builder: (context, _) {
+                                final double p1Anim = CurvedAnimation(
+                                  parent: _pillarController,
+                                  curve: const Interval(0.2, 1.0, curve: Curves.easeOutBack),
+                                ).value;
+
+                                final double p2Anim = CurvedAnimation(
+                                  parent: _pillarController,
+                                  curve: const Interval(0.08, 0.88, curve: Curves.easeOutBack),
+                                ).value;
+
+                                final double p3Anim = CurvedAnimation(
+                                  parent: _pillarController,
+                                  curve: const Interval(0.0, 0.78, curve: Curves.easeOutBack),
+                                ).value;
+
+                                return Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    if (secondPlace != null)
+                                      _buildPodiumColumn(secondPlace, 2, 115, isDark, p2Anim),
+                                    const SizedBox(width: 10),
+                                    if (firstPlace != null)
+                                      _buildPodiumColumn(firstPlace, 1, 155, isDark, p1Anim),
+                                    const SizedBox(width: 10),
+                                    if (thirdPlace != null)
+                                      _buildPodiumColumn(thirdPlace, 3, 92, isDark, p3Anim),
+                                  ],
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -535,6 +573,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
                                 setState(() {
                                   _selectedTierFilter = val ? tier : 'All';
                                 });
+                                _pillarController.forward(from: 0.0);
                               },
                             ),
                           );
@@ -788,101 +827,450 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
     );
   }
 
-  Widget _buildPodiumColumn(RestaurantModel restaurant, int rank, Color color, double targetHeight, bool isDark) {
+  Widget _buildPodiumColumn(
+    RestaurantModel restaurant,
+    int rank,
+    double targetHeight,
+    bool isDark,
+    double animProgress,
+  ) {
     final tier = _getRestaurantTier(restaurant);
+    final double currentHeight = (targetHeight * animProgress).clamp(12.0, targetHeight);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.topCenter,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: color, width: 2.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: CircleAvatar(
-                radius: rank == 1 ? 28 : 22,
-                backgroundColor: isDark ? const Color(0xFF282828) : Colors.grey.shade200,
-                backgroundImage: restaurant.imageUrl.isNotEmpty ? NetworkImage(restaurant.imageUrl) : null,
-                child: restaurant.imageUrl.isEmpty
-                    ? Text(
-                        restaurant.name[0],
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: rank == 1 ? 18 : 14,
-                          color: color,
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(context, AppRoutes.restaurantDetail, arguments: restaurant);
+      },
+      child: Transform.translate(
+        offset: Offset(0, (1.0 - animProgress) * 45),
+        child: Opacity(
+          opacity: animProgress.clamp(0.0, 1.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. AVATAR STACK: Glory Light with Wings & 3D Golden Halo (Rank 1), 3D Silver Halo (Rank 2), Clean (Rank 3)
+              if (rank == 1)
+                Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    // Shimmering Golden Angel Wings, Floating 3D Golden Halo, & Sparkles
+                    CustomPaint(
+                      size: const Size(160, 100),
+                      painter: GoldenWingsPainter(shimmer: _celebrationController.value),
+                    ),
+                    // Avatar with Gold Ring
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFFFFF7D6),
+                            Color(0xFFFFD700),
+                            Color(0xFFF59E0B),
+                            Color(0xFFB45309)
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                      )
-                    : null,
-              ),
-            ),
-            if (rank == 1)
-              const Positioned(
-                top: -16,
-                child: Icon(
-                  Icons.stars_rounded,
-                  color: Color(0xFFF59E0B),
-                  size: 22,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFFD700).withValues(alpha: 0.65),
+                            blurRadius: 18,
+                            spreadRadius: 3,
+                          ),
+                          BoxShadow(
+                            color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 28,
+                        backgroundColor: isDark ? const Color(0xFF242424) : Colors.grey.shade100,
+                        backgroundImage: restaurant.imageUrl.isNotEmpty
+                            ? NetworkImage(restaurant.imageUrl)
+                            : null,
+                        child: restaurant.imageUrl.isEmpty
+                            ? Text(
+                                restaurant.name[0],
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                  color: Color(0xFFD97706),
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                  ],
+                )
+              else if (rank == 2)
+                Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    // Floating 3D Silver Halo & Silver Sparkles
+                    CustomPaint(
+                      size: const Size(90, 75),
+                      painter: SilverHaloPainter(shimmer: _celebrationController.value),
+                    ),
+                    // Avatar with Silver Chrome Ring
+                    Container(
+                      padding: const EdgeInsets.all(2.5),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFFFFFFFF),
+                            Color(0xFFE2E8F0),
+                            Color(0xFF94A3B8),
+                            Color(0xFF475569)
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF94A3B8).withValues(alpha: 0.45),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 23,
+                        backgroundColor: isDark ? const Color(0xFF282828) : Colors.grey.shade200,
+                        backgroundImage: restaurant.imageUrl.isNotEmpty
+                            ? NetworkImage(restaurant.imageUrl)
+                            : null,
+                        child: restaurant.imageUrl.isEmpty
+                            ? Text(
+                                restaurant.name[0],
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  color: Color(0xFF475569),
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    // Rank 3: Remain Nothing (Clean avatar, no wings, no glory light)
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFFFFEDD5),
+                            Color(0xFFFB923C),
+                            Color(0xFFC2410C),
+                            Color(0xFF7C2D12)
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF9A3412).withValues(alpha: 0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 20,
+                        backgroundColor: isDark ? const Color(0xFF282828) : Colors.grey.shade200,
+                        backgroundImage: restaurant.imageUrl.isNotEmpty
+                            ? NetworkImage(restaurant.imageUrl)
+                            : null,
+                        child: restaurant.imageUrl.isEmpty
+                            ? Text(
+                                restaurant.name[0],
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: Color(0xFF9A3412),
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                    // Small Bronze Dot
+                    Positioned(
+                      top: -10,
+                      child: Container(
+                        padding: const EdgeInsets.all(2.5),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFCD7F32),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.circle,
+                          color: Color(0xFFFFEDD5),
+                          size: 8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+              const SizedBox(height: 6),
+
+              // Restaurant Name
+              SizedBox(
+                width: 86,
+                child: Text(
+                  restaurant.name,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                    color: isDark ? Colors.white : AppTheme.navyColor,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-          ],
-        ),
-        const SizedBox(height: 6),
+              const SizedBox(height: 2),
 
-        SizedBox(
-          width: 85,
-          child: Text(
-            restaurant.name,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.white : AppTheme.navyColor),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-          decoration: BoxDecoration(
-            color: isDark ? _getTierColor(tier).withValues(alpha: 0.2) : _getTierBgColor(tier),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            _getTierName(tier),
-            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: _getTierColor(tier)),
-          ),
-        ),
-        const SizedBox(height: 6),
+              // Tier Badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? _getTierColor(tier).withValues(alpha: 0.2)
+                      : _getTierBgColor(tier),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  _getTierName(tier),
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: _getTierColor(tier),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
 
-        Container(
-          width: 75,
-          height: targetHeight,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [color, color.withValues(alpha: 0.85)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          ),
-          child: Center(
-            child: Text(
-              '$rank',
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
+              // 2. METALLIC PODIUM PILLAR
+              if (rank == 1)
+                // Gold Brush Color Pillar
+                Container(
+                  width: 82,
+                  height: currentHeight,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFFFFF9DB), // Gold brushed reflect highlight
+                        Color(0xFFFFE082), // Soft gold
+                        Color(0xFFFFD700), // Pure golden yellow
+                        Color(0xFFF59E0B), // Vibrant amber gold
+                        Color(0xFFD97706), // Rich dark gold
+                        Color(0xFF92400E), // Gold brush shade
+                      ],
+                      stops: [0.0, 0.18, 0.42, 0.68, 0.88, 1.0],
+                    ),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    border: Border.all(color: const Color(0xFFFFF3B0), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFD97706).withValues(alpha: 0.45),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        height: 9,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+                          border: Border(
+                            bottom: BorderSide(color: Color(0xFFB45309), width: 1.5),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            '1',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                              color: const Color(0xFF78350F),
+                              shadows: [
+                                Shadow(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  offset: const Offset(0, 1.5),
+                                  blurRadius: 2,
+                                ),
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.35),
+                                  offset: const Offset(0, -1),
+                                  blurRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else if (rank == 2)
+                // Silver Metallic Color Pillar
+                Container(
+                  width: 74,
+                  height: currentHeight,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFFFFFFFF), // Chrome mirror reflect
+                        Color(0xFFF1F5F9), // Pure silver
+                        Color(0xFFCBD5E1), // Metallic steel
+                        Color(0xFF94A3B8), // Brushed slate silver
+                        Color(0xFF475569), // Dark silver shadow
+                      ],
+                      stops: [0.0, 0.22, 0.5, 0.78, 1.0],
+                    ),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    border: Border.all(color: const Color(0xFFF1F5F9), width: 1.2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF64748B).withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+                          border: Border(
+                            bottom: BorderSide(color: Color(0xFF64748B), width: 1.2),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            '2',
+                            style: TextStyle(
+                              fontSize: 25,
+                              fontWeight: FontWeight.w900,
+                              color: const Color(0xFF334155),
+                              shadows: [
+                                const Shadow(
+                                  color: Colors.white,
+                                  offset: Offset(0, 1.2),
+                                  blurRadius: 2,
+                                ),
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  offset: const Offset(0, -1),
+                                  blurRadius: 1.5,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                // Bronze Brown Color Pillar
+                Container(
+                  width: 70,
+                  height: currentHeight,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFFFFEDD5), // Bronze brushed highlight
+                        Color(0xFFFB923C), // Warm copper bronze
+                        Color(0xFFEA580C), // Deep metallic bronze
+                        Color(0xFFC2410C), // Rust bronze
+                        Color(0xFF7C2D12), // Dark bronze brown base
+                      ],
+                      stops: [0.0, 0.22, 0.52, 0.78, 1.0],
+                    ),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    border: Border.all(color: const Color(0xFFFDBA74), width: 1.2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF7C2D12).withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFFEDD5),
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+                          border: Border(
+                            bottom: BorderSide(color: Color(0xFF9A3412), width: 1.2),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            '3',
+                            style: TextStyle(
+                              fontSize: 23,
+                              fontWeight: FontWeight.w900,
+                              color: const Color(0xFF451A03),
+                              shadows: [
+                                const Shadow(
+                                  color: Color(0xFFFFEDD5),
+                                  offset: Offset(0, 1),
+                                  blurRadius: 2,
+                                ),
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.35),
+                                  offset: const Offset(0, -1),
+                                  blurRadius: 1.5,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -894,6 +1282,7 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
         setState(() {
           _selectedTierFilter = isSelected ? 'All' : name;
         });
+        _pillarController.forward(from: 0.0);
       },
       child: Column(
         children: [
@@ -934,6 +1323,374 @@ class _RiskRankingListScreenState extends State<RiskRankingListScreen> with Sing
         ],
       ),
     );
+  }
+}
+
+class GoldenWingsPainter extends CustomPainter {
+  final double shimmer; // 0.0 to 1.0
+
+  GoldenWingsPainter({this.shimmer = 0.0});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2 + 6);
+
+    // 1. Radiant Ambient Glory Glow behind Avatar & Wings
+    final glowPulse = 0.35 + 0.15 * math.sin(shimmer * math.pi * 2);
+    final glowPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFFFFD700).withValues(alpha: (glowPulse * 0.7).clamp(0.0, 1.0)),
+          const Color(0xFFF59E0B).withValues(alpha: (glowPulse * 0.45).clamp(0.0, 1.0)),
+          const Color(0xFFB45309).withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.55, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: size.width * 0.48));
+
+    canvas.drawCircle(center, size.width * 0.48, glowPaint);
+
+    // 2. WINGS GEOMETRY - Pure Radiant Gold Color
+    final wingOutlinePaint = Paint()
+      ..color = const Color(0xFFB45309) // Deep warm gold border
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final featherLinePaint = Paint()
+      ..color = const Color(0xFFD97706) // Rich amber gold feather scallop lines
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+
+    final wingHighlightPaint = Paint()
+      ..color = const Color(0xFFFFFBEB).withValues(alpha: 0.85) // Specular gold shine
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round;
+
+    final wingFillPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0xFFFFFBEB), // Bright light-gold highlight
+          Color(0xFFFFF3B0), // Champagne gold
+          Color(0xFFFFD700), // Pure vibrant yellow gold
+          Color(0xFFF59E0B), // Warm amber gold
+          Color(0xFFD97706), // Rich deep gold shading
+          Color(0xFF92400E), // Base gold shadow
+        ],
+        stops: [0.0, 0.15, 0.38, 0.62, 0.85, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..style = PaintingStyle.fill;
+
+    // Draw Left Wing Path
+    final leftWingPath = Path();
+    leftWingPath.moveTo(center.dx - 22, center.dy + 8);
+    // Smooth top wing ridge sweeping upward and outward to top primary feather
+    leftWingPath.cubicTo(
+      center.dx - 36, center.dy - 12,
+      center.dx - 52, center.dy - 22,
+      center.dx - 68, center.dy - 14,
+    );
+    // Feather 1 (Top wingtip)
+    leftWingPath.cubicTo(
+      center.dx - 62, center.dy - 4,
+      center.dx - 54, center.dy + 2,
+      center.dx - 48, center.dy + 6,
+    );
+    // Feather 2
+    leftWingPath.cubicTo(
+      center.dx - 58, center.dy + 8,
+      center.dx - 64, center.dy + 4,
+      center.dx - 66, center.dy + 10,
+    );
+    leftWingPath.cubicTo(
+      center.dx - 58, center.dy + 16,
+      center.dx - 48, center.dy + 18,
+      center.dx - 42, center.dy + 18,
+    );
+    // Feather 3
+    leftWingPath.cubicTo(
+      center.dx - 50, center.dy + 22,
+      center.dx - 56, center.dy + 20,
+      center.dx - 58, center.dy + 26,
+    );
+    leftWingPath.cubicTo(
+      center.dx - 50, center.dy + 30,
+      center.dx - 40, center.dy + 30,
+      center.dx - 34, center.dy + 28,
+    );
+    // Feather 4 (Bottom-most rounded feather)
+    leftWingPath.cubicTo(
+      center.dx - 40, center.dy + 32,
+      center.dx - 44, center.dy + 34,
+      center.dx - 44, center.dy + 38,
+    );
+    leftWingPath.cubicTo(
+      center.dx - 36, center.dy + 40,
+      center.dx - 28, center.dy + 34,
+      center.dx - 20, center.dy + 26,
+    );
+    leftWingPath.close();
+
+    // Top ridge highlight path
+    final ridgeHighlight = Path();
+    ridgeHighlight.moveTo(center.dx - 28, center.dy + 4);
+    ridgeHighlight.cubicTo(
+      center.dx - 40, center.dy - 8,
+      center.dx - 52, center.dy - 18,
+      center.dx - 64, center.dy - 12,
+    );
+
+    // Internal scallop feather layer curves
+    final scallopPath1 = Path();
+    scallopPath1.moveTo(center.dx - 38, center.dy + 4);
+    scallopPath1.cubicTo(
+      center.dx - 44, center.dy + 10,
+      center.dx - 46, center.dy + 16,
+      center.dx - 34, center.dy + 20,
+    );
+
+    final scallopPath2 = Path();
+    scallopPath2.moveTo(center.dx - 48, center.dy + 12);
+    scallopPath2.cubicTo(
+      center.dx - 54, center.dy + 16,
+      center.dx - 54, center.dy + 22,
+      center.dx - 44, center.dy + 24,
+    );
+
+    // Draw Left Wing
+    canvas.drawPath(leftWingPath, wingFillPaint);
+    canvas.drawPath(leftWingPath, wingOutlinePaint);
+    canvas.drawPath(ridgeHighlight, wingHighlightPaint);
+    canvas.drawPath(scallopPath1, featherLinePaint);
+    canvas.drawPath(scallopPath2, featherLinePaint);
+
+    // Draw Right Wing (Perfect Symmetrical Reflection)
+    canvas.save();
+    canvas.translate(center.dx, 0);
+    canvas.scale(-1, 1);
+    canvas.translate(-center.dx, 0);
+    canvas.drawPath(leftWingPath, wingFillPaint);
+    canvas.drawPath(leftWingPath, wingOutlinePaint);
+    canvas.drawPath(ridgeHighlight, wingHighlightPaint);
+    canvas.drawPath(scallopPath1, featherLinePaint);
+    canvas.drawPath(scallopPath2, featherLinePaint);
+    canvas.restore();
+
+    // 3. FLOATING 3D GOLDEN HALO RING (Matching top-center reference)
+    final haloCenter = Offset(center.dx, center.dy - 44);
+
+    // Ambient Halo Glow
+    final haloGlowPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFFFFD700).withValues(
+            alpha: (0.6 + 0.2 * math.sin(shimmer * math.pi * 2)).clamp(0.0, 1.0),
+          ),
+          const Color(0xFFF59E0B).withValues(alpha: 0.25),
+          const Color(0xFFFFD700).withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.55, 1.0],
+      ).createShader(Rect.fromCircle(center: haloCenter, radius: 36));
+
+    canvas.drawCircle(haloCenter, 36, haloGlowPaint);
+
+    // Halo Torus Ring Path (Outer oval minus inner oval)
+    final outerHalo = Path()
+      ..addOval(Rect.fromCenter(center: haloCenter, width: 44, height: 16));
+    final innerHalo = Path()
+      ..addOval(Rect.fromCenter(center: haloCenter, width: 28, height: 9));
+    final ringPath = Path.combine(PathOperation.difference, outerHalo, innerHalo);
+
+    final haloFill = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0xFFFFFDE7), // Light yellow highlight
+          Color(0xFFFFEE58), // Bright gold
+          Color(0xFFFFC107), // Amber gold
+          Color(0xFFFFA000), // Deep warm gold
+          Color(0xFFFF8F00), // Shaded gold
+        ],
+        stops: [0.0, 0.25, 0.55, 0.8, 1.0],
+      ).createShader(Rect.fromCenter(center: haloCenter, width: 44, height: 16))
+      ..style = PaintingStyle.fill;
+
+    final haloStroke = Paint()
+      ..color = const Color(0xFFD97706)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.3;
+
+    canvas.drawPath(ringPath, haloFill);
+    canvas.drawPath(outerHalo, haloStroke);
+    canvas.drawPath(innerHalo, haloStroke);
+
+    // Specular Shine Arc on Top Edge of Halo
+    final shinePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round;
+
+    final shineArc = Path();
+    shineArc.addArc(
+      Rect.fromCenter(center: haloCenter, width: 40, height: 13),
+      -math.pi * 0.85,
+      math.pi * 0.7,
+    );
+    canvas.drawPath(shineArc, shinePaint);
+
+    // 4. FLOATING SPARKLE STARS & PARTICLES (✦ in gold & white)
+    final starAlpha = 0.55 + 0.45 * math.sin(shimmer * math.pi * 2);
+    _drawSparkle(canvas, Offset(haloCenter.dx - 26, haloCenter.dy - 6), 4.5, const Color(0xFFFFF7D6), starAlpha);
+    _drawSparkle(canvas, Offset(haloCenter.dx + 25, haloCenter.dy - 7), 5.0, const Color(0xFFFFF7D6), starAlpha * 0.9);
+    _drawSparkle(canvas, Offset(haloCenter.dx - 18, haloCenter.dy + 9), 3.5, const Color(0xFFFFD700), starAlpha * 0.85);
+    _drawSparkle(canvas, Offset(haloCenter.dx + 20, haloCenter.dy + 8), 4.0, const Color(0xFFFFD700), starAlpha);
+    _drawSparkle(canvas, Offset(center.dx - 64, center.dy - 20), 4.2, const Color(0xFFFFD700), starAlpha * 0.85);
+    _drawSparkle(canvas, Offset(center.dx + 64, center.dy - 20), 4.2, const Color(0xFFFFD700), starAlpha * 0.85);
+
+    // Glowing Dust Specks
+    final speckPaint = Paint()..style = PaintingStyle.fill;
+    final specks = [
+      Offset(haloCenter.dx - 32, haloCenter.dy + 2),
+      Offset(haloCenter.dx + 30, haloCenter.dy - 2),
+      Offset(haloCenter.dx - 10, haloCenter.dy - 12),
+      Offset(haloCenter.dx + 12, haloCenter.dy - 12),
+      Offset(haloCenter.dx + 4, haloCenter.dy + 12),
+    ];
+    for (int i = 0; i < specks.length; i++) {
+      final p = specks[i];
+      final a = ((math.sin((shimmer * math.pi * 2) + i) + 1) / 2 * 0.75 + 0.25).clamp(0.0, 1.0);
+      speckPaint.color = Colors.white.withValues(alpha: a);
+      canvas.drawCircle(p, 1.5, speckPaint);
+    }
+  }
+
+  void _drawSparkle(Canvas canvas, Offset pos, double size, Color color, double alpha) {
+    if (alpha <= 0.05) return;
+    final paint = Paint()
+      ..color = color.withValues(alpha: alpha.clamp(0.0, 1.0))
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    path.moveTo(pos.dx, pos.dy - size);
+    path.quadraticBezierTo(pos.dx, pos.dy, pos.dx + size, pos.dy);
+    path.quadraticBezierTo(pos.dx, pos.dy, pos.dx, pos.dy + size);
+    path.quadraticBezierTo(pos.dx, pos.dy, pos.dx - size, pos.dy);
+    path.quadraticBezierTo(pos.dx, pos.dy, pos.dx, pos.dy - size);
+    path.close();
+
+    canvas.drawPath(path, paint);
+    canvas.drawCircle(pos, size * 0.3, Paint()..color = Colors.white.withValues(alpha: alpha.clamp(0.0, 1.0)));
+  }
+
+  @override
+  bool shouldRepaint(covariant GoldenWingsPainter oldDelegate) {
+    return oldDelegate.shimmer != shimmer;
+  }
+}
+
+class SilverHaloPainter extends CustomPainter {
+  final double shimmer;
+
+  SilverHaloPainter({this.shimmer = 0.0});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2 + 6);
+    final haloCenter = Offset(center.dx, center.dy - 38);
+
+    // 1. Soft Ambient Silver/Cyan Halo Glow
+    final glowPulse = 0.35 + 0.15 * math.sin(shimmer * math.pi * 2);
+    final haloGlowPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF38BDF8).withValues(alpha: (glowPulse * 0.6).clamp(0.0, 1.0)),
+          const Color(0xFFCBD5E1).withValues(alpha: (glowPulse * 0.4).clamp(0.0, 1.0)),
+          const Color(0xFF94A3B8).withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.55, 1.0],
+      ).createShader(Rect.fromCircle(center: haloCenter, radius: 28));
+
+    canvas.drawCircle(haloCenter, 28, haloGlowPaint);
+
+    // 2. Silver Torus Ring Path
+    final outerHalo = Path()
+      ..addOval(Rect.fromCenter(center: haloCenter, width: 38, height: 14));
+    final innerHalo = Path()
+      ..addOval(Rect.fromCenter(center: haloCenter, width: 24, height: 8));
+    final ringPath = Path.combine(PathOperation.difference, outerHalo, innerHalo);
+
+    final haloFill = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white,
+          Color(0xFFF1F5F9),
+          Color(0xFFCBD5E1),
+          Color(0xFF94A3B8),
+        ],
+      ).createShader(Rect.fromCenter(center: haloCenter, width: 38, height: 14))
+      ..style = PaintingStyle.fill;
+
+    final haloStroke = Paint()
+      ..color = const Color(0xFF64748B)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+
+    canvas.drawPath(ringPath, haloFill);
+    canvas.drawPath(outerHalo, haloStroke);
+    canvas.drawPath(innerHalo, haloStroke);
+
+    // Specular Shine Arc on Top Edge
+    final shinePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.95)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+
+    final shineArc = Path();
+    shineArc.addArc(
+      Rect.fromCenter(center: haloCenter, width: 34, height: 11),
+      -math.pi * 0.85,
+      math.pi * 0.7,
+    );
+    canvas.drawPath(shineArc, shinePaint);
+
+    // Sparkle Stars
+    final starAlpha = 0.5 + 0.45 * math.sin(shimmer * math.pi * 2);
+    _drawSparkle(canvas, Offset(haloCenter.dx - 22, haloCenter.dy - 4), 3.8, const Color(0xFFE2E8F0), starAlpha);
+    _drawSparkle(canvas, Offset(haloCenter.dx + 20, haloCenter.dy - 5), 4.0, const Color(0xFF38BDF8), starAlpha * 0.85);
+    _drawSparkle(canvas, Offset(haloCenter.dx - 12, haloCenter.dy + 7), 3.0, Colors.white, starAlpha);
+    _drawSparkle(canvas, Offset(haloCenter.dx + 15, haloCenter.dy + 6), 3.2, const Color(0xFFE2E8F0), starAlpha * 0.9);
+  }
+
+  void _drawSparkle(Canvas canvas, Offset pos, double size, Color color, double alpha) {
+    if (alpha <= 0.05) return;
+    final paint = Paint()
+      ..color = color.withValues(alpha: alpha.clamp(0.0, 1.0))
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    path.moveTo(pos.dx, pos.dy - size);
+    path.quadraticBezierTo(pos.dx, pos.dy, pos.dx + size, pos.dy);
+    path.quadraticBezierTo(pos.dx, pos.dy, pos.dx, pos.dy + size);
+    path.quadraticBezierTo(pos.dx, pos.dy, pos.dx - size, pos.dy);
+    path.quadraticBezierTo(pos.dx, pos.dy, pos.dx, pos.dy - size);
+    path.close();
+
+    canvas.drawPath(path, paint);
+    canvas.drawCircle(pos, size * 0.3, Paint()..color = Colors.white.withValues(alpha: alpha.clamp(0.0, 1.0)));
+  }
+
+  @override
+  bool shouldRepaint(covariant SilverHaloPainter oldDelegate) {
+    return oldDelegate.shimmer != shimmer;
   }
 }
 

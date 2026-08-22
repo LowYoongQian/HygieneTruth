@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/services/places_location_service.dart';
 import '../../core/services/restaurant_store_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/ssm_validator_helper.dart';
@@ -28,71 +31,9 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   bool _hasCustomPin = false;
 
   Timer? _addressDebounce;
-  List<Map<String, dynamic>> _addressSuggestions = [];
+  List<PlaceSuggestion> _addressSuggestions = [];
+  bool _isSearchingAddress = false;
   final FocusNode _addressFocusNode = FocusNode();
-
-  static const List<Map<String, dynamic>> _presetMalaysianLocations = [
-    {
-      'title': 'Petaling Street (Chinatown)',
-      'address': '12 Jalan Petaling, City Centre, 50000 Kuala Lumpur',
-      'lat': 3.1466,
-      'lng': 101.6958,
-    },
-    {
-      'title': 'Pavilion Bukit Bintang',
-      'address': '168 Jalan Bukit Bintang, Bukit Bintang, 55100 Kuala Lumpur',
-      'lat': 3.1488,
-      'lng': 101.7132,
-    },
-    {
-      'title': 'Suria KLCC Twin Towers',
-      'address': '241 Suria KLCC, Kuala Lumpur City Centre, 50088 Kuala Lumpur',
-      'lat': 3.1579,
-      'lng': 101.7116,
-    },
-    {
-      'title': 'Bangsar Telawi Commercial Hub',
-      'address': '28 Jalan Telawi 3, Bangsar Baru, 59100 Kuala Lumpur',
-      'lat': 3.1311,
-      'lng': 101.6715,
-    },
-    {
-      'title': 'Subang Jaya SS15 Food Street',
-      'address': '15 Jalan SS 15/4D, SS 15, 47500 Subang Jaya, Selangor',
-      'lat': 3.0760,
-      'lng': 101.5888,
-    },
-    {
-      'title': 'Solaris Mont Kiara Business Park',
-      'address': 'A-G-01 Solaris Mont Kiara, Jalan Solaris 2, 50480 Kuala Lumpur',
-      'lat': 3.1751,
-      'lng': 101.6599,
-    },
-    {
-      'title': 'Uptown Damansara Utama',
-      'address': '10 Jalan SS 21/39, Damansara Utama, 47400 Petaling Jaya, Selangor',
-      'lat': 3.1345,
-      'lng': 101.6224,
-    },
-    {
-      'title': 'Presint 2 Government Center',
-      'address': 'Persiaran Perdana, Presint 2, 62000 Putrajaya',
-      'lat': 2.9264,
-      'lng': 101.6964,
-    },
-    {
-      'title': 'Gurney Drive Promenade',
-      'address': 'Gurney Drive Promenade, 10250 George Town, Penang',
-      'lat': 5.4375,
-      'lng': 100.3098,
-    },
-    {
-      'title': 'Johor Bahru City Center',
-      'address': 'Jalan Wong Ah Fook, Bandar Johor Bahru, 80000 Johor Bahru, Johor',
-      'lat': 1.4554,
-      'lng': 103.7643,
-    },
-  ];
 
   TimeOfDay _openingTime = const TimeOfDay(hour: 10, minute: 0);
   TimeOfDay _closingTime = const TimeOfDay(hour: 22, minute: 0);
@@ -189,40 +130,36 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   void _onAddressInputChanged() {
     final text = _addressCtrl.text.trim();
     if (text.isEmpty) {
-      if (_addressSuggestions.isNotEmpty) {
-        setState(() => _addressSuggestions = []);
+      if (_addressSuggestions.isNotEmpty || _isSearchingAddress) {
+        setState(() {
+          _addressSuggestions = [];
+          _isSearchingAddress = false;
+        });
       }
       return;
     }
 
     _addressDebounce?.cancel();
-    _addressDebounce = Timer(const Duration(milliseconds: 200), () {
-      final query = text.toLowerCase();
-      final matches = _presetMalaysianLocations.where((loc) {
-        final addr = (loc['address'] as String).toLowerCase();
-        final title = (loc['title'] as String).toLowerCase();
-        return addr.contains(query) || title.contains(query);
-      }).toList();
-
-      if (mounted) {
-        setState(() {
-          _addressSuggestions = matches;
-        });
+    _addressDebounce = Timer(const Duration(milliseconds: 250), () async {
+      setState(() => _isSearchingAddress = true);
+      try {
+        final results = await PlacesLocationService.searchPlaces(
+          text,
+          userLat: _selectedLat,
+          userLng: _selectedLong,
+        );
+        if (mounted) {
+          setState(() {
+            _addressSuggestions = results;
+            _isSearchingAddress = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() => _isSearchingAddress = false);
+        }
       }
     });
-  }
-
-  String _reverseGeocodeLocation(double lat, double lng) {
-    for (final loc in _presetMalaysianLocations) {
-      final double targetLat = loc['lat'];
-      final double targetLng = loc['lng'];
-      final double diffLat = (lat - targetLat).abs();
-      final double diffLng = (lng - targetLng).abs();
-      if (diffLat < 0.008 && diffLng < 0.008) {
-        return loc['address'] as String;
-      }
-    }
-    return '18 Jalan Commercial, Lat: ${lat.toStringAsFixed(4)}, Long: ${lng.toStringAsFixed(4)}, Kuala Lumpur';
   }
 
   @override
@@ -295,44 +232,111 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   }
 
   void _showImageSourcePickerModal() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         return Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
               ),
-              const SizedBox(height: 16),
-              const Text(
-                'Upload SSM Certificate',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.navyColor,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Select an official image or document file from camera or gallery',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              Row(
+            ],
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
+                  // Top Drag Handle Bar
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4.5,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white24 : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Header with Icon & Close Button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [AppTheme.primaryColor, Color(0xFF14B8A6)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.document_scanner_rounded, color: Colors.white, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Upload SSM Certificate',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : AppTheme.navyColor,
+                                ),
+                              ),
+                              Text(
+                                'AI OCR verification enabled',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded, color: isDark ? Colors.white70 : Colors.grey.shade700),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Select an official SSM business registration certificate for automatic OCR recognition and official verification.',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: isDark ? Colors.white70 : Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Option 1: Camera Card
+                  Material(
+                    color: Colors.transparent,
                     child: InkWell(
                       onTap: () {
                         Navigator.pop(ctx);
@@ -340,31 +344,92 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                       },
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0F766E).withValues(alpha: 0.08),
+                          color: isDark ? const Color(0xFF282828) : const Color(0xFFF0FDFA),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF0F766E).withValues(alpha: 0.2)),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF0F766E).withValues(alpha: 0.4) : const Color(0xFF0F766E).withValues(alpha: 0.25),
+                            width: 1.2,
+                          ),
                         ),
-                        child: Column(
-                          children: const [
-                            Icon(Icons.camera_alt_rounded, color: Color(0xFF0F766E), size: 32),
-                            SizedBox(height: 8),
-                            Text(
-                              'Take Photo',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Color(0xFF0F766E),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF0F766E).withValues(alpha: 0.25),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 22),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Capture with Camera',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: isDark ? Colors.white : AppTheme.navyColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF0F766E).withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Scan',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF0F766E),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Take a clear photo of the physical SSM document',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                            const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF0F766E), size: 15),
                           ],
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
+
+                  const SizedBox(height: 12),
+
+                  // Option 2: Gallery / Files Card
+                  Material(
+                    color: Colors.transparent,
                     child: InkWell(
                       onTap: () {
                         Navigator.pop(ctx);
@@ -372,33 +437,91 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                       },
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+                          color: isDark ? const Color(0xFF282828) : const Color(0xFFF0F9FF),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.2)),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF0284C7).withValues(alpha: 0.4) : const Color(0xFF0284C7).withValues(alpha: 0.25),
+                            width: 1.2,
+                          ),
                         ),
-                        child: Column(
-                          children: const [
-                            Icon(Icons.photo_library_rounded, color: Color(0xFF0284C7), size: 32),
-                            SizedBox(height: 8),
-                            Text(
-                              'Choose File',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Color(0xFF0284C7),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF0284C7), Color(0xFF38BDF8)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.photo_library_rounded, color: Colors.white, size: 22),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Choose from Gallery / Files',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: isDark ? Colors.white : AppTheme.navyColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Upload',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF0284C7),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Select PDF screenshot or saved SSM certificate image',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                            const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF0284C7), size: 15),
                           ],
                         ),
                       ),
                     ),
                   ),
+
+                  const SizedBox(height: 16),
                 ],
               ),
-              const SizedBox(height: 12),
-            ],
+            ),
           ),
         );
       },
@@ -426,54 +549,112 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   }
 
   void _showBannerSourcePickerModal() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         return Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: const [
-                  Icon(Icons.add_a_photo_rounded, color: AppTheme.primaryColor, size: 24),
-                  SizedBox(width: 10),
-                  Text(
-                    'Upload Restaurant Banner',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.navyColor,
+            ],
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Drag Handle Bar
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4.5,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white24 : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Upload your custom restaurant storefront photo or pick a high-quality preset banner.',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-              Row(
-                children: [
-                  Expanded(
+                  // Header with Icon & Close Button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [AppTheme.primaryColor, Color(0xFF14B8A6)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.image_rounded, color: Colors.white, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Upload Restaurant Banner',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : AppTheme.navyColor,
+                                ),
+                              ),
+                              Text(
+                                'Storefront cover photo (16:9)',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded, color: isDark ? Colors.white70 : Colors.grey.shade700),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Upload your custom restaurant storefront photo or pick a high-quality preset banner.',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: isDark ? Colors.white70 : Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Action 1: Camera Card
+                  Material(
+                    color: Colors.transparent,
                     child: InkWell(
                       onTap: () {
                         Navigator.pop(ctx);
@@ -481,31 +662,92 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                       },
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0F766E).withValues(alpha: 0.08),
+                          color: isDark ? const Color(0xFF282828) : const Color(0xFFF0FDFA),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF0F766E).withValues(alpha: 0.2)),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF0F766E).withValues(alpha: 0.4) : const Color(0xFF0F766E).withValues(alpha: 0.25),
+                            width: 1.2,
+                          ),
                         ),
-                        child: Column(
-                          children: const [
-                            Icon(Icons.camera_alt_rounded, color: Color(0xFF0F766E), size: 30),
-                            SizedBox(height: 8),
-                            Text(
-                              'Take Photo',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Color(0xFF0F766E),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF0F766E).withValues(alpha: 0.25),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 22),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Take Photo with Camera',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: isDark ? Colors.white : AppTheme.navyColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF0F766E).withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Instant',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF0F766E),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Capture a live photo of your restaurant storefront',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                            const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF0F766E), size: 15),
                           ],
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
+
+                  const SizedBox(height: 12),
+
+                  // Action 2: Gallery Card
+                  Material(
+                    color: Colors.transparent,
                     child: InkWell(
                       onTap: () {
                         Navigator.pop(ctx);
@@ -513,116 +755,214 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                       },
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+                          color: isDark ? const Color(0xFF282828) : const Color(0xFFF0F9FF),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.2)),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF0284C7).withValues(alpha: 0.4) : const Color(0xFF0284C7).withValues(alpha: 0.25),
+                            width: 1.2,
+                          ),
                         ),
-                        child: Column(
-                          children: const [
-                            Icon(Icons.photo_library_rounded, color: Color(0xFF0284C7), size: 30),
-                            SizedBox(height: 8),
-                            Text(
-                              'Choose Photo',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Color(0xFF0284C7),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF0284C7), Color(0xFF38BDF8)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.photo_library_rounded, color: Colors.white, size: 22),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Choose from Device Gallery',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: isDark ? Colors.white : AppTheme.navyColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Albums',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF0284C7),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Select an existing high-res storefront photo from gallery',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                            const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF0284C7), size: 15),
                           ],
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 20),
 
-              const Text(
-                'Or Select Curated Preset Banner Gallery:',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 115,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _presetBannerImages.length,
-                  separatorBuilder: (ctx, i) => const SizedBox(width: 12),
-                  itemBuilder: (ctx, idx) {
-                    final item = _presetBannerImages[idx];
-                    final String title = item['title']!;
-                    final String url = item['url']!;
-                    final bool isSelected = _selectedBannerUrl == url && _bannerImageFile == null;
+                  const SizedBox(height: 18),
 
-                    return InkWell(
-                      onTap: () {
-                        setState(() {
-                          _selectedBannerUrl = url;
-                          _bannerImageFile = null;
-                        });
-                        Navigator.pop(ctx);
-                        _showSnackBar('✓ Preset Banner Selected: $title', const Color(0xFF0F766E));
-                      },
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        width: 140,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isSelected ? AppTheme.primaryColor : Colors.grey.shade300,
-                            width: isSelected ? 2.5 : 1.0,
-                          ),
+                  // Horizontal Preset Gallery Carousel
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Or Select Curated Preset Banner:',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : AppTheme.navyColor,
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(13),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Image.network(url, fit: BoxFit.cover),
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
-                                    begin: Alignment.bottomCenter,
-                                    end: Alignment.topCenter,
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                bottom: 8,
-                                left: 8,
-                                right: 8,
-                                child: Text(
-                                  title,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11,
-                                    shadows: [Shadow(blurRadius: 4, color: Colors.black)],
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (isSelected)
-                                const Positioned(
-                                  top: 6,
-                                  right: 6,
-                                  child: Icon(Icons.check_circle, color: Colors.white, size: 20),
-                                ),
-                            ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF282828) : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${_presetBannerImages.length} Presets',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white60 : Colors.grey.shade700,
                           ),
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 115,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _presetBannerImages.length,
+                      separatorBuilder: (ctx, i) => const SizedBox(width: 12),
+                      itemBuilder: (ctx, idx) {
+                        final item = _presetBannerImages[idx];
+                        final String title = item['title']!;
+                        final String url = item['url']!;
+                        final bool isSelected = _selectedBannerUrl == url && _bannerImageFile == null;
+
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedBannerUrl = url;
+                              _bannerImageFile = null;
+                            });
+                            Navigator.pop(ctx);
+                            _showSnackBar('✓ Preset Banner Selected: $title', const Color(0xFF0F766E));
+                          },
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            width: 145,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isSelected ? AppTheme.primaryColor : (isDark ? Colors.white24 : Colors.grey.shade300),
+                                width: isSelected ? 2.5 : 1.0,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(13),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.network(url, fit: BoxFit.cover),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [Colors.black.withValues(alpha: 0.75), Colors.transparent],
+                                        begin: Alignment.bottomCenter,
+                                        end: Alignment.topCenter,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    Positioned(
+                                      top: 6,
+                                      right: 6,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(3),
+                                        decoration: const BoxDecoration(
+                                          color: AppTheme.primaryColor,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.check_rounded, color: Colors.white, size: 14),
+                                      ),
+                                    ),
+                                  Positioned(
+                                    bottom: 8,
+                                    left: 8,
+                                    right: 8,
+                                    child: Text(
+                                      title,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11,
+                                        shadows: [Shadow(blurRadius: 4, color: Colors.black)],
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-            ],
+            ),
           ),
         );
       },
@@ -780,16 +1120,23 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   void _openGoogleMapPickerModal() {
     LatLng tempPickedLocation = LatLng(_selectedLat, _selectedLong);
     GoogleMapController? mapCtrl;
+    final searchCtrl = TextEditingController();
+    List<PlaceSuggestion> modalSuggestions = [];
+    bool isSearchingModal = false;
+    bool isMapDragging = false;
+    String currentReverseAddress = PlacesLocationService.reverseGeocode(tempPickedLocation.latitude, tempPickedLocation.longitude);
+    Timer? modalDebounce;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (modalCtx, setModalState) {
             return Container(
-              height: MediaQuery.of(context).size.height * 0.85,
+              height: MediaQuery.of(context).size.height * 0.90,
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -797,27 +1144,29 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
               child: Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                     child: Column(
                       children: [
-                        Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(2),
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade300,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Row(
                               children: const [
-                                Icon(Icons.pin_drop, color: Color(0xFF0F766E), size: 22),
+                                Icon(Icons.pin_drop_rounded, color: Color(0xFF0F766E), size: 22),
                                 SizedBox(width: 8),
                                 Text(
-                                  'Pin Location on Google Map',
+                                  'Google Map Location Finder',
                                   style: TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.bold,
@@ -828,36 +1177,120 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                             ),
                             IconButton(
                               icon: const Icon(Icons.close, color: Colors.grey),
-                              onPressed: () => Navigator.pop(ctx),
+                              onPressed: () {
+                                modalDebounce?.cancel();
+                                Navigator.pop(ctx);
+                              },
                             ),
                           ],
                         ),
+                        const SizedBox(height: 8),
+
+                        // Real-Time Google Maps Style Search Bar inside Modal
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0F766E).withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(10),
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
                           ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.my_location, size: 16, color: Color(0xFF0F766E)),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'Tap map to set pin: ${tempPickedLocation.latitude.toStringAsFixed(4)}, ${tempPickedLocation.longitude.toStringAsFixed(4)}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F766E),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: TextField(
+                            controller: searchCtrl,
+                            onChanged: (val) {
+                              modalDebounce?.cancel();
+                              if (val.trim().isEmpty) {
+                                setModalState(() {
+                                  modalSuggestions = [];
+                                  isSearchingModal = false;
+                                });
+                                return;
+                              }
+                              setModalState(() => isSearchingModal = true);
+                              modalDebounce = Timer(const Duration(milliseconds: 250), () async {
+                                final res = await PlacesLocationService.searchPlaces(
+                                  val,
+                                  userLat: tempPickedLocation.latitude,
+                                  userLng: tempPickedLocation.longitude,
+                                );
+                                setModalState(() {
+                                  modalSuggestions = res;
+                                  isSearchingModal = false;
+                                });
+                              });
+                            },
+                            decoration: InputDecoration(
+                              hintText: 'Search city, street or landmark (e.g. Melaka, Jonker, KLCC)...',
+                              hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                              prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF0F766E), size: 20),
+                              suffixIcon: isSearchingModal
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F766E)),
+                                      ),
+                                    )
+                                  : searchCtrl.text.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                                          onPressed: () {
+                                            searchCtrl.clear();
+                                            setModalState(() {
+                                              modalSuggestions = [];
+                                              isSearchingModal = false;
+                                            });
+                                          },
+                                        )
+                                      : null,
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
+
+                  // Area Quick Shortcut Chips
+                  Container(
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        _buildModalAreaPill('📍 Melaka', 2.1953, 102.2482, mapCtrl, setModalState, (pos) {
+                          tempPickedLocation = pos;
+                          currentReverseAddress = PlacesLocationService.reverseGeocode(pos.latitude, pos.longitude);
+                        }),
+                        _buildModalAreaPill('📍 Jonker Walk', 2.1953, 102.2482, mapCtrl, setModalState, (pos) {
+                          tempPickedLocation = pos;
+                          currentReverseAddress = PlacesLocationService.reverseGeocode(pos.latitude, pos.longitude);
+                        }),
+                        _buildModalAreaPill('📍 KLCC & Pavilion', 3.1579, 101.7116, mapCtrl, setModalState, (pos) {
+                          tempPickedLocation = pos;
+                          currentReverseAddress = PlacesLocationService.reverseGeocode(pos.latitude, pos.longitude);
+                        }),
+                        _buildModalAreaPill('📍 Petaling Jaya SS2', 3.1189, 101.6214, mapCtrl, setModalState, (pos) {
+                          tempPickedLocation = pos;
+                          currentReverseAddress = PlacesLocationService.reverseGeocode(pos.latitude, pos.longitude);
+                        }),
+                        _buildModalAreaPill('📍 Penang Gurney', 5.4375, 100.3098, mapCtrl, setModalState, (pos) {
+                          tempPickedLocation = pos;
+                          currentReverseAddress = PlacesLocationService.reverseGeocode(pos.latitude, pos.longitude);
+                        }),
+                        _buildModalAreaPill('📍 Johor Bahru', 1.4623, 103.7638, mapCtrl, setModalState, (pos) {
+                          tempPickedLocation = pos;
+                          currentReverseAddress = PlacesLocationService.reverseGeocode(pos.latitude, pos.longitude);
+                        }),
+                        _buildModalAreaPill('📍 Ipoh Old Town', 4.5968, 101.0778, mapCtrl, setModalState, (pos) {
+                          tempPickedLocation = pos;
+                          currentReverseAddress = PlacesLocationService.reverseGeocode(pos.latitude, pos.longitude);
+                        }),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
                   Expanded(
                     child: Stack(
                       children: [
@@ -865,33 +1298,185 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                           initialCameraPosition: CameraPosition(
                             target: tempPickedLocation,
                             zoom: 16.5,
-                            tilt: 45.0,
+                            tilt: 35.0,
                           ),
                           onMapCreated: (controller) => mapCtrl = controller,
+                          gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                            Factory<OneSequenceGestureRecognizer>(
+                              () => EagerGestureRecognizer(),
+                            ),
+                          },
+                          scrollGesturesEnabled: true,
+                          zoomGesturesEnabled: true,
+                          tiltGesturesEnabled: true,
+                          rotateGesturesEnabled: true,
+                          onCameraMove: (position) {
+                            tempPickedLocation = position.target;
+                            if (!isMapDragging) {
+                              setModalState(() => isMapDragging = true);
+                            }
+                          },
+                          onCameraIdle: () {
+                            final addr = PlacesLocationService.reverseGeocode(
+                              tempPickedLocation.latitude,
+                              tempPickedLocation.longitude,
+                            );
+                            setModalState(() {
+                              isMapDragging = false;
+                              currentReverseAddress = addr;
+                            });
+                          },
                           onTap: (point) {
                             setModalState(() {
                               tempPickedLocation = point;
+                              modalSuggestions = [];
                             });
+                            mapCtrl?.animateCamera(CameraUpdate.newLatLng(point));
                           },
-                          markers: {
-                            Marker(
-                              markerId: const MarkerId('picked_restaurant_location'),
-                              position: tempPickedLocation,
-                              infoWindow: const InfoWindow(title: 'Selected Restaurant Location'),
-                              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-                            ),
-                          },
+                          myLocationEnabled: true,
+                          myLocationButtonEnabled: false,
+                          zoomControlsEnabled: false,
                         ),
+
+                        // Center Interactive Drag Pin with Lift & Shadow (Google Maps Style)
+                        Center(
+                          child: IgnorePointer(
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 38), // Tip points directly to map center
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                curve: Curves.easeOut,
+                                transform: Matrix4.translationValues(0, isMapDragging ? -16 : 0, 0),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Live Status Tooltip Pill
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: isMapDragging ? const Color(0xFFD97706) : const Color(0xFF0F766E),
+                                        borderRadius: BorderRadius.circular(16),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.25),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            isMapDragging ? Icons.open_with_rounded : Icons.place_rounded,
+                                            color: Colors.white,
+                                            size: 13,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            isMapDragging ? 'Release to pin here' : 'Drag map to move pin',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    // Pin Icon
+                                    Stack(
+                                      alignment: Alignment.center,
+                                      children: const [
+                                        Icon(Icons.location_on, size: 48, color: Color(0xFF0F766E)),
+                                        Positioned(
+                                          top: 10,
+                                          child: Icon(Icons.circle, size: 14, color: Colors.white),
+                                        ),
+                                      ],
+                                    ),
+                                    // Ground Shadow that shrinks when lifted
+                                    AnimatedContainer(
+                                      duration: const Duration(milliseconds: 150),
+                                      width: isMapDragging ? 8 : 16,
+                                      height: isMapDragging ? 3 : 5,
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: isMapDragging ? 0.18 : 0.35),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // Suggestions Dropdown Overlay inside Map
+                        if (modalSuggestions.isNotEmpty)
+                          Positioned(
+                            top: 8,
+                            left: 12,
+                            right: 12,
+                            child: Container(
+                              constraints: const BoxConstraints(maxHeight: 250),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.15),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                itemCount: modalSuggestions.length,
+                                separatorBuilder: (ctx, i) => const Divider(height: 1),
+                                itemBuilder: (itemCtx, i) {
+                                  final item = modalSuggestions[i];
+                                  return ListTile(
+                                    dense: true,
+                                    leading: const Icon(Icons.place_rounded, color: Color(0xFF0F766E), size: 20),
+                                    title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.navyColor)),
+                                    subtitle: Text(item.address, style: TextStyle(fontSize: 11, color: Colors.grey.shade600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    trailing: item.distanceKm != null
+                                        ? Text('${item.distanceKm!.toStringAsFixed(1)} km', style: const TextStyle(fontSize: 11, color: Color(0xFF0F766E), fontWeight: FontWeight.w600))
+                                        : null,
+                                    onTap: () {
+                                      final newPos = LatLng(item.latitude, item.longitude);
+                                      setModalState(() {
+                                        tempPickedLocation = newPos;
+                                        modalSuggestions = [];
+                                        searchCtrl.text = item.title;
+                                        currentReverseAddress = PlacesLocationService.reverseGeocode(newPos.latitude, newPos.longitude);
+                                      });
+                                      mapCtrl?.animateCamera(CameraUpdate.newLatLngZoom(newPos, 16.5));
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+
+                        // Floating Recenter Button
                         Positioned(
-                          top: 12,
+                          bottom: 12,
                           right: 12,
                           child: FloatingActionButton.small(
                             backgroundColor: Colors.white,
                             foregroundColor: AppTheme.navyColor,
                             elevation: 4,
                             onPressed: () {
-                              final defaultPos = LatLng(3.1475, 101.7085);
-                              setModalState(() => tempPickedLocation = defaultPos);
+                              final defaultPos = LatLng(_selectedLat, _selectedLong);
+                              setModalState(() {
+                                tempPickedLocation = defaultPos;
+                                currentReverseAddress = PlacesLocationService.reverseGeocode(defaultPos.latitude, defaultPos.longitude);
+                              });
                               mapCtrl?.animateCamera(CameraUpdate.newLatLng(defaultPos));
                             },
                             child: const Icon(Icons.my_location),
@@ -900,35 +1485,105 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                       ],
                     ),
                   ),
+
+                  // Bottom Confirmation Action Bar
                   SafeArea(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0F766E),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F766E).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFF0F766E).withValues(alpha: 0.2)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.pin_drop_rounded, size: 18, color: Color(0xFF0F766E)),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        currentReverseAddress,
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF0F766E),
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: Colors.grey.shade300),
+                                      ),
+                                      child: Text(
+                                        'GPS: ${tempPickedLocation.latitude.toStringAsFixed(4)}, ${tempPickedLocation.longitude.toStringAsFixed(4)}',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontFamily: 'monospace',
+                                          color: Colors.grey.shade700,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      isMapDragging ? '📍 Moving map...' : '✓ Drag map to fine-tune',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontStyle: FontStyle.italic,
+                                        color: isMapDragging ? Colors.amber.shade800 : Colors.teal.shade800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                          onPressed: () {
-                            final reverseAddr = _reverseGeocodeLocation(tempPickedLocation.latitude, tempPickedLocation.longitude);
-                            setState(() {
-                              _selectedLat = tempPickedLocation.latitude;
-                              _selectedLong = tempPickedLocation.longitude;
-                              _hasCustomPin = true;
-                              _addressCtrl.text = reverseAddr;
-                              _addressSuggestions = [];
-                            });
-                            Navigator.pop(ctx);
-                            _showSnackBar('✓ Map pin updated & address auto-filled!', const Color(0xFF0F766E));
-                          },
-                          icon: const Icon(Icons.check_circle, color: Colors.white),
-                          label: const Text(
-                            'Confirm This Map Location Pin',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0F766E),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _selectedLat = tempPickedLocation.latitude;
+                                  _selectedLong = tempPickedLocation.longitude;
+                                  _hasCustomPin = true;
+                                  _addressCtrl.text = currentReverseAddress;
+                                  _addressSuggestions = [];
+                                });
+                                modalDebounce?.cancel();
+                                Navigator.pop(ctx);
+                                _showSnackBar('✓ Map pin updated & address auto-filled!', const Color(0xFF0F766E));
+                              },
+                              icon: const Icon(Icons.check_circle, color: Colors.white),
+                              label: const Text(
+                                'Confirm This Map Location Pin',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
@@ -938,6 +1593,35 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildModalAreaPill(
+    String label,
+    double lat,
+    double lng,
+    GoogleMapController? mapCtrl,
+    StateSetter setModalState,
+    void Function(LatLng pos) onSelect,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ActionChip(
+        backgroundColor: const Color(0xFFF1F5F9),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: Colors.grey.shade300),
+        ),
+        label: Text(
+          label,
+          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
+        ),
+        onPressed: () {
+          final pos = LatLng(lat, lng);
+          setModalState(() => onSelect(pos));
+          mapCtrl?.animateCamera(CameraUpdate.newLatLngZoom(pos, 16.0));
+        },
+      ),
     );
   }
 
@@ -1534,17 +2218,26 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                       focusNode: _addressFocusNode,
                       decoration: InputDecoration(
                         labelText: 'Street Address & Location Details *',
-                        hintText: 'e.g. 12 Jalan Petaling, City Centre, 50000 Kuala Lumpur',
+                        hintText: 'e.g. Jonker Street, Melaka or 12 Jalan Petaling, KL',
                         prefixIcon: const Icon(Icons.location_on_outlined, color: Color(0xFF0F766E)),
-                        suffixIcon: _addressCtrl.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
-                                onPressed: () {
-                                  _addressCtrl.clear();
-                                  setState(() => _addressSuggestions = []);
-                                },
+                        suffixIcon: _isSearchingAddress
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F766E)),
+                                ),
                               )
-                            : null,
+                            : _addressCtrl.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                                    onPressed: () {
+                                      _addressCtrl.clear();
+                                      setState(() => _addressSuggestions = []);
+                                    },
+                                  )
+                                : null,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -1554,11 +2247,11 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                       maxLines: 2,
                     ),
 
-                    // Location Autocomplete Dropdown Overlay Card
+                    // Location Autocomplete Dropdown Overlay Card (Google Maps Style)
                     if (_addressSuggestions.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Container(
-                        constraints: const BoxConstraints(maxHeight: 220),
+                        constraints: const BoxConstraints(maxHeight: 250),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(14),
@@ -1578,23 +2271,68 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                           separatorBuilder: (ctx, i) => const Divider(height: 1, indent: 12, endIndent: 12),
                           itemBuilder: (ctx, idx) {
                             final item = _addressSuggestions[idx];
-                            final String title = item['title'];
-                            final String address = item['address'];
-                            final double lat = item['lat'];
-                            final double lng = item['lng'];
+                            final String title = item.title;
+                            final String address = item.address;
+                            final double lat = item.latitude;
+                            final double lng = item.longitude;
+                            final String category = item.category;
+                            final double? dist = item.distanceKm;
 
                             return ListTile(
                               dense: true,
                               leading: Container(
-                                padding: const EdgeInsets.all(6),
+                                padding: const EdgeInsets.all(7),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF0F766E).withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.place_rounded, color: Color(0xFF0F766E), size: 18),
+                                child: Icon(item.icon, color: const Color(0xFF0F766E), size: 18),
                               ),
-                              title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.navyColor)),
-                              subtitle: Text(address, style: TextStyle(fontSize: 11, color: Colors.grey.shade600), maxLines: 2, overflow: TextOverflow.ellipsis),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      title,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.navyColor),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0F766E).withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      category,
+                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF0F766E)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        address,
+                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (dist != null) ...[
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '${dist.toStringAsFixed(1)} km',
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
                               onTap: () {
                                 _addressCtrl.text = address;
                                 setState(() {
@@ -1604,7 +2342,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                                   _addressSuggestions = [];
                                 });
                                 _addressFocusNode.unfocus();
-                                _showSnackBar('✓ Suggested Location & Map Pin Coordinates Selected!', const Color(0xFF0F766E));
+                                _showSnackBar('✓ Selected: $title (Lat: ${lat.toStringAsFixed(4)}, Long: ${lng.toStringAsFixed(4)})', const Color(0xFF0F766E));
                               },
                             );
                           },

@@ -1268,11 +1268,72 @@ class RestaurantStoreService {
                 'ownerReply': m['ownerReply']?.toString() ?? '',
                 'date': m['date']?.toString() ?? '',
                 'timestamp': m['timestamp']?.toString() ?? log['created_at']?.toString() ?? '',
+                'likedUserIds': m['likedUserIds']?.toString() ?? '[]',
+                'helpfulCount': m['helpfulCount']?.toString() ?? '0',
               });
             }
           } catch (_) {}
         }
       }
+
+      // Merge realtime Helpful votes recorded in audit_logs across all devices
+      try {
+        final voteLogs = await supabase
+            .from('audit_logs')
+            .select()
+            .eq('action_type', 'REVIEW_HELPFUL_VOTE')
+            .eq('category', 'RESTAURANT_REVIEW')
+            .order('created_at', ascending: true);
+
+        for (final vlog in voteLogs) {
+          final desc = (vlog['description'] ?? '').toString();
+          if (desc.startsWith('{') && desc.endsWith('}')) {
+            try {
+              final vm = Map<String, dynamic>.from(jsonDecode(desc) as Map);
+              final rId = (vm['restaurantId'] ?? '').toString().toLowerCase();
+              final rName = (vm['restaurantName'] ?? '').toString().toLowerCase();
+              final bool isMatch = (rId == restaurantId.toLowerCase()) ||
+                  (cleanName != null && cleanName.isNotEmpty && (rName == cleanName.toLowerCase() || (vlog['title'] ?? '').toString().toLowerCase() == cleanName.toLowerCase()));
+
+              if (isMatch) {
+                final targetRevKey = (vm['reviewIdOrKey'] ?? '').toString();
+                final voter = (vm['userIdentifier'] ?? vlog['user_email'] ?? vlog['user_id'] ?? '').toString().trim();
+                final bool isLiked = vm['isLiked'] == true;
+
+                if (targetRevKey.isNotEmpty && voter.isNotEmpty) {
+                  for (int i = 0; i < remoteReviews.length; i++) {
+                    final r = remoteReviews[i];
+                    final id = r['id'] ?? '';
+                    final key = '${r['userName']}-${r['date']}-${r['comment']?.hashCode}-$i';
+                    if (id == targetRevKey || key == targetRevKey || (id.isNotEmpty && targetRevKey.contains(id))) {
+                      List<String> list = [];
+                      try {
+                        final raw = r['likedUserIds'] ?? '[]';
+                        if (raw.startsWith('[')) {
+                          list = List<String>.from(jsonDecode(raw) as List);
+                        }
+                      } catch (_) {}
+
+                      final cleanVoter = voter.toLowerCase();
+                      if (isLiked) {
+                        if (!list.map((e) => e.toLowerCase()).contains(cleanVoter)) {
+                          list.add(voter);
+                        }
+                      } else {
+                        list.removeWhere((e) => e.toLowerCase() == cleanVoter);
+                      }
+                      r['likedUserIds'] = jsonEncode(list);
+                      r['helpfulCount'] = '${list.length}';
+                      remoteReviews[i] = r;
+                      break;
+                    }
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
 
       if (remoteReviews.isNotEmpty) {
         _reviewMemoryCache[restaurantId] = remoteReviews;
@@ -1382,6 +1443,8 @@ class RestaurantStoreService {
             'ownerReply': m['owner_reply']?.toString() ?? '',
             'date': m['date']?.toString() ?? '',
             'timestamp': m['created_at']?.toString() ?? '',
+            'likedUserIds': m['liked_user_ids']?.toString() ?? m['likedUserIds']?.toString() ?? '[]',
+            'helpfulCount': m['helpful_count']?.toString() ?? m['helpfulCount']?.toString() ?? '0',
           });
         }
         if (dbReviews.isNotEmpty) {
@@ -1525,6 +1588,8 @@ class RestaurantStoreService {
               'ownerReply': r['ownerReply'] ?? '',
               'date': r['date'] ?? '',
               'timestamp': r['timestamp'] ?? DateTime.now().toUtc().toIso8601String(),
+              'likedUserIds': r['likedUserIds'] ?? '[]',
+              'helpfulCount': r['helpfulCount'] ?? '0',
             }),
           });
         } catch (_) {}
@@ -1547,10 +1612,102 @@ class RestaurantStoreService {
             'owner_reply': r['ownerReply'] ?? '',
             'date': r['date'] ?? '',
             'created_at': r['timestamp'] ?? DateTime.now().toUtc().toIso8601String(),
+            'liked_user_ids': r['likedUserIds'] ?? '[]',
+            'helpful_count': int.tryParse(r['helpfulCount'] ?? '0') ?? 0,
           });
         } catch (_) {}
       }
     } catch (_) {}
+  }
+
+  /// Toggle Helpful vote for a review with cross-device Supabase sync and 1-vote-per-account enforcement
+  static Future<Map<String, dynamic>> toggleReviewHelpfulVote({
+    required String restaurantId,
+    required String reviewIdOrKey,
+    required String userIdentifier,
+    String? restaurantName,
+  }) async {
+    final cleanName = restaurantName?.trim();
+    final reviews = await fetchReviews(restaurantId, restaurantName: cleanName);
+
+    bool isLikedNow = false;
+    int updatedCount = 0;
+    final cleanUser = userIdentifier.trim().toLowerCase();
+
+    for (int i = 0; i < reviews.length; i++) {
+      final r = Map<String, String>.from(reviews[i]);
+      final id = r['id'] ?? '';
+      final key = '${r['userName']}-${r['date']}-${r['comment']?.hashCode}-$i';
+
+      if (id == reviewIdOrKey || key == reviewIdOrKey || (id.isNotEmpty && reviewIdOrKey.contains(id))) {
+        final rawLikedStr = r['likedUserIds'] ?? '[]';
+        List<String> likedList = [];
+        try {
+          if (rawLikedStr.startsWith('[')) {
+            likedList = List<String>.from(jsonDecode(rawLikedStr) as List);
+          } else if (rawLikedStr.isNotEmpty) {
+            likedList = rawLikedStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+          }
+        } catch (_) {}
+
+        if (likedList.map((e) => e.toLowerCase()).contains(cleanUser)) {
+          // Already voted -> Toggle OFF (Unlike)
+          likedList.removeWhere((e) => e.toLowerCase() == cleanUser);
+          isLikedNow = false;
+        } else {
+          // Not voted yet -> Add 1 vote for this account
+          likedList.add(userIdentifier.trim());
+          isLikedNow = true;
+        }
+
+        updatedCount = likedList.length;
+        r['likedUserIds'] = jsonEncode(likedList);
+        r['helpfulCount'] = '$updatedCount';
+        reviews[i] = r;
+        break;
+      }
+    }
+
+    // 1. Persist updated reviews list with likedUserIds to Supabase and cache
+    await saveReviewsToSupabase(restaurantId, reviews, restaurantName: cleanName);
+
+    // 2. Insert vote transaction log in Supabase 'audit_logs' (for real-time Postgres broadcast & cross-device sync)
+    try {
+      final supabase = SupabaseService.client;
+      final validUserId = userIdentifier.length > 10
+          ? userIdentifier
+          : (CustomerStoreService.currentCustomer?.id.isNotEmpty == true
+              ? CustomerStoreService.currentCustomer!.id
+              : 'e257a3d8-a2e2-4872-afcf-0d7324e8f0cf');
+      final validEmail = userIdentifier.contains('@')
+          ? userIdentifier
+          : (CustomerStoreService.currentCustomer?.email.isNotEmpty == true
+              ? CustomerStoreService.currentCustomer!.email
+              : 'customer@hygienetruth.com');
+
+      await supabase.from('audit_logs').insert({
+        'user_id': validUserId,
+        'user_email': validEmail,
+        'action_type': 'REVIEW_HELPFUL_VOTE',
+        'category': 'RESTAURANT_REVIEW',
+        'title': cleanName ?? restaurantId,
+        'description': jsonEncode({
+          'restaurantId': restaurantId,
+          'restaurantName': cleanName ?? restaurantId,
+          'reviewIdOrKey': reviewIdOrKey,
+          'userIdentifier': userIdentifier,
+          'isLiked': isLikedNow,
+          'helpfulCount': updatedCount,
+          'timestamp': DateTime.now().toUtc().toIso8601String(),
+        }),
+      });
+    } catch (_) {}
+
+    return {
+      'isLiked': isLikedNow,
+      'helpfulCount': updatedCount,
+      'reviews': reviews,
+    };
   }
 
   /// Preload reviews for multiple restaurants using models (ID & Name)

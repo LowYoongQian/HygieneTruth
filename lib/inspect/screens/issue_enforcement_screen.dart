@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/models/complaint_model.dart';
 import '../../core/models/inspection_model.dart';
 import '../../core/services/audit_log_service.dart';
 import '../../core/services/notification_service.dart';
@@ -405,27 +406,61 @@ class _IssueEnforcementScreenState extends State<IssueEnforcementScreen> {
 
                 setState(() => _isSubmitting = true);
 
-                // Update in memory inspections
+                // Update in memory inspections reactively
+                final currentInspections = List<InspectionModel>.from(RestaurantStoreService.inspectionsNotifier.value);
                 final nonNullInsp = insp;
                 if (nonNullInsp != null) {
-                  final idx = RestaurantStoreService.inspectionsNotifier.value.indexWhere((x) => x.id == nonNullInsp.id);
+                  final updatedInsp = InspectionModel(
+                    id: nonNullInsp.id,
+                    complaintId: nonNullInsp.complaintId,
+                    restaurantId: nonNullInsp.restaurantId,
+                    restaurantName: nonNullInsp.restaurantName,
+                    scheduledDate: nonNullInsp.scheduledDate,
+                    conductedDate: nonNullInsp.conductedDate ?? DateTime.now().toIso8601String().split('T').first,
+                    officerName: nonNullInsp.officerName,
+                    outcome: nonNullInsp.outcome,
+                    findings: nonNullInsp.findings.isNotEmpty ? nonNullInsp.findings : justText,
+                    recommendedAction: nonNullInsp.recommendedAction,
+                    issuedAction: _selectedAction,
+                    justification: justText,
+                    fineAmount: fineAmt,
+                    statutoryCitation: _selectedLawClause,
+                    enforcementStatus: EnforcementStatus.inProgress,
+                  );
+
+                  final idx = currentInspections.indexWhere((x) => x.id == nonNullInsp.id || (x.complaintId.isNotEmpty && x.complaintId == nonNullInsp.complaintId));
                   if (idx != -1) {
-                    RestaurantStoreService.inspectionsNotifier.value[idx] = InspectionModel(
-                      id: nonNullInsp.id,
-                      complaintId: nonNullInsp.complaintId,
-                      restaurantId: nonNullInsp.restaurantId,
-                      restaurantName: nonNullInsp.restaurantName,
-                      scheduledDate: nonNullInsp.scheduledDate,
-                      conductedDate: nonNullInsp.conductedDate ?? DateTime.now().toIso8601String().split('T').first,
-                      officerName: nonNullInsp.officerName,
-                      outcome: nonNullInsp.outcome,
-                      findings: nonNullInsp.findings,
-                      recommendedAction: nonNullInsp.recommendedAction,
-                      issuedAction: _selectedAction,
-                      justification: justText,
-                      fineAmount: fineAmt,
-                      enforcementStatus: EnforcementStatus.inProgress,
-                    );
+                    currentInspections[idx] = updatedInsp;
+                  } else {
+                    currentInspections.insert(0, updatedInsp);
+                  }
+                  RestaurantStoreService.inspectionsNotifier.value = currentInspections;
+
+                  // Sync complaint status
+                  if (nonNullInsp.complaintId.isNotEmpty) {
+                    final compIdx = ComplaintStoreService.complaintsNotifier.value.indexWhere((x) => x.id == nonNullInsp.complaintId);
+                    if (compIdx != -1) {
+                      final currentComplaints = List<ComplaintModel>.from(ComplaintStoreService.complaintsNotifier.value);
+                      final c = currentComplaints[compIdx];
+                      currentComplaints[compIdx] = ComplaintModel(
+                        id: c.id,
+                        restaurantId: c.restaurantId,
+                        restaurantName: c.restaurantName,
+                        userId: c.userId,
+                        userName: c.userName,
+                        issues: c.issues,
+                        description: c.description,
+                        category: c.category,
+                        submittedAt: c.submittedAt,
+                        status: ComplaintStatus.investigating,
+                        photoUrls: c.photoUrls,
+                        latitude: c.latitude,
+                        longitude: c.longitude,
+                        severity: SeverityLevel.high,
+                        isFlaggedForReview: false,
+                      );
+                      ComplaintStoreService.complaintsNotifier.value = currentComplaints;
+                    }
                   }
                 }
 

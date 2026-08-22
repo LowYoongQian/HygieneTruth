@@ -11,6 +11,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/translations.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/shimmer_skeletons.dart';
+import '../../core/widgets/voice_search_modal.dart';
 import '../widgets/restaurant_card.dart';
 
 class RestaurantSearchScreen extends StatefulWidget {
@@ -24,8 +25,6 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   final stt.SpeechToText _speechToText = stt.SpeechToText();
 
-  bool _isSpeechAvailable = false;
-  bool _isListening = false;
   bool _isLoading = true;
 
   StreamSubscription? _realtimeSub;
@@ -60,7 +59,6 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
   @override
   void initState() {
     super.initState();
-    _initSpeech();
     _setupRealtimeSubscription();
     _loadRestaurantsFromSupabase();
     RestaurantStoreService.restaurantsNotifier.addListener(_onRestaurantsUpdated);
@@ -115,179 +113,31 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
     super.dispose();
   }
 
-  void _initSpeech() async {
-    try {
-      _isSpeechAvailable = await _speechToText.initialize(
-        onError: (val) => debugPrint('STT Error: $val'),
-        onStatus: (val) {
-          if (val == 'done' || val == 'notListening') {
-            if (mounted) {
-              setState(() {
-                _isListening = false;
-              });
-            }
-          }
-        },
-      );
-      setState(() {});
-    } catch (e) {
-      debugPrint('Error initializing SpeechToText: $e');
-    }
-  }
 
-  void _startVoiceSearch() async {
-    if (!_isSpeechAvailable) {
-      _isSpeechAvailable = await _speechToText.initialize();
-      if (!_isSpeechAvailable) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Voice search speech recognition not available on this device.')),
-          );
-        }
-        return;
-      }
-    }
 
-    setState(() {
-      _isListening = true;
-    });
-
-    _showVoiceSearchBottomSheet();
-
-    await _speechToText.listen(
-      onResult: (result) {
+  void _startVoiceSearch() {
+    VoiceSearchModal.show(
+      context: context,
+      initialText: _searchCtrl.text,
+      speechToText: _speechToText,
+      suggestions: const [
+        'Golden Dragon',
+        'Halal Bistro',
+        'Dim Sum',
+        'Noodles',
+        'Mamak',
+        'Café',
+        'Bakery',
+      ],
+      onResult: (text) {
         if (mounted) {
           setState(() {
-            _searchCtrl.text = result.recognizedWords;
+            _searchCtrl.text = text;
             _applyFilters();
           });
         }
-        if (result.finalResult) {
-          _speechToText.stop();
-          Future.delayed(const Duration(milliseconds: 600), () {
-            if (mounted && Navigator.canPop(context)) {
-              Navigator.pop(context);
-            }
-          });
-        }
       },
-      listenOptions: stt.SpeechListenOptions(
-        listenFor: const Duration(seconds: 15),
-        pauseFor: const Duration(seconds: 3),
-      ),
     );
-  }
-
-  void _stopVoiceSearch() {
-    _speechToText.stop();
-    setState(() {
-      _isListening = false;
-    });
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context);
-    }
-  }
-
-  void _showVoiceSearchBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isDismissible: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Listening for Outlets & Cuisine...',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.navyColor),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Try saying "Noodle", "Bistro", "Mamak" or "Chinese"',
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Animated Pulsing Mic Icon
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 1.0, end: 1.2),
-                    duration: const Duration(milliseconds: 700),
-                    curve: Curves.easeInOut,
-                    builder: (context, scale, child) {
-                      return Transform.scale(
-                        scale: scale,
-                        child: Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.15),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppTheme.primaryColor, width: 2),
-                          ),
-                          child: const Icon(
-                            Icons.mic,
-                            size: 40,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Dynamic Speech Recognized Words Display
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      _searchCtrl.text.isEmpty ? 'Say something...' : _searchCtrl.text,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: _searchCtrl.text.isEmpty ? Colors.grey : AppTheme.navyColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  ElevatedButton.icon(
-                    onPressed: _stopVoiceSearch,
-                    icon: const Icon(Icons.stop, color: Colors.white),
-                    label: const Text('Done'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      minimumSize: const Size.fromHeight(48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    ).then((_) {
-      if (_isListening) {
-        _speechToText.stop();
-        setState(() {
-          _isListening = false;
-        });
-      }
-    });
   }
 
   void _applyFilters() {
@@ -579,9 +429,9 @@ class _RestaurantSearchScreenState extends State<RestaurantSearchScreen> {
                                     },
                                   ),
                                 IconButton(
-                                  icon: Icon(
-                                    _isListening ? Icons.mic : Icons.mic_none,
-                                    color: _isListening ? Colors.red : AppTheme.primaryColor,
+                                  icon: const Icon(
+                                    Icons.mic_rounded,
+                                    color: AppTheme.primaryColor,
                                   ),
                                   tooltip: 'Voice Search',
                                   onPressed: _startVoiceSearch,

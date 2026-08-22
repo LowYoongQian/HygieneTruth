@@ -1,12 +1,15 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/models/restaurant_model.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/services/customer_store_service.dart';
 import '../../core/services/restaurant_store_service.dart';
+import '../../core/services/supabase_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_button.dart';
@@ -28,14 +31,62 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   final _commentFocusNode = FocusNode();
   int _selectedRating = 5;
 
+  final _scrollController = ScrollController();
   List<Map<String, String>> _reviews = [];
   String? _loadedRestaurantId;
   RestaurantModel? _currentRestaurant;
 
+  int _selectedFilterStar = 0;
+  String _selectedSortOption = 'helpful'; // 'helpful' (Top Helpful), 'recent', 'highest', 'lowest'
+  int _currentReviewPage = 1;
+  static const int _reviewsPerPage = 3;
+  RealtimeChannel? _realtimeChannel;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupRealtime();
+  }
+
+  void _setupRealtime() {
+    try {
+      _realtimeChannel = SupabaseService.client
+          .channel('public:restaurant_detail_helpful_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'audit_logs',
+            callback: (payload) async {
+              if (mounted && _loadedRestaurantId != null) {
+                _loadReviewsForRestaurant(_loadedRestaurantId!, restaurantName: _currentRestaurant?.name);
+              }
+            },
+          )
+          .subscribe();
+    } catch (_) {}
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final restaurant = ModalRoute.of(context)?.settings.arguments as RestaurantModel?;
+    final dynamic args = ModalRoute.of(context)?.settings.arguments;
+    RestaurantModel? restaurant;
+    bool shouldScrollToReviews = false;
+
+    if (args is RestaurantModel) {
+      restaurant = args;
+    } else if (args is Map) {
+      if (args['restaurant'] is RestaurantModel) {
+        restaurant = args['restaurant'] as RestaurantModel;
+      } else if (args['restaurantId'] != null || args['id'] != null) {
+        final rId = (args['restaurantId'] ?? args['id']).toString();
+        restaurant = RestaurantStoreService.restaurantsNotifier.value
+            .where((r) => r.id == rId || r.name.toLowerCase() == rId.toLowerCase())
+            .firstOrNull;
+      }
+      shouldScrollToReviews = args['scrollToReviews'] == true;
+    }
+
     if (restaurant != null) {
       _currentRestaurant = restaurant;
       if (restaurant.id != _loadedRestaurantId) {
@@ -43,6 +94,20 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
         _isSaved = BookmarkService.isBookmarked(restaurant.id);
         _loadReviewsForRestaurant(restaurant.id, restaurantName: restaurant.name);
         RestaurantStoreService.recordRecentVisit(restaurant);
+
+        if (shouldScrollToReviews) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (_scrollController.hasClients) {
+                _scrollController.animateTo(
+                  _scrollController.position.maxScrollExtent * 0.75,
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.easeOutCubic,
+                );
+              }
+            });
+          });
+        }
       }
     }
   }
@@ -71,6 +136,10 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
   @override
   void dispose() {
+    try {
+      _realtimeChannel?.unsubscribe();
+    } catch (_) {}
+    _scrollController.dispose();
     _newCommentController.dispose();
     _commentFocusNode.dispose();
     super.dispose();
@@ -187,53 +256,217 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
 
   void _showReportOptionsDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final restaurant = _currentRestaurant ??
+        (RestaurantStoreService.restaurantsNotifier.value.isNotEmpty
+            ? RestaurantStoreService.restaurantsNotifier.value.first
+            : null);
+
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 8, bottom: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
               ),
-              ListTile(
-                leading: const Icon(Icons.report_problem_outlined, color: Colors.red),
-                title: const Text('Report Hygiene Issue', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-                subtitle: const Text('Submit a formal report to health inspectors'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  final restaurant = ModalRoute.of(context)?.settings.arguments as RestaurantModel? ?? (RestaurantStoreService.restaurantsNotifier.value.isNotEmpty ? RestaurantStoreService.restaurantsNotifier.value.first : null);
-                  Navigator.pushNamed(context, AppRoutes.submitComplaint, arguments: restaurant);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.share_outlined, color: AppTheme.navyColor),
-                title: const Text('Share Restaurant Profile', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Share details, risk score & GPS map link via other apps'),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final restaurant = ModalRoute.of(context)?.settings.arguments as RestaurantModel? ??
-                      (RestaurantStoreService.restaurantsNotifier.value.isNotEmpty
-                          ? RestaurantStoreService.restaurantsNotifier.value.first
-                          : null);
-                  if (restaurant == null) return;
+            ],
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Drag Handle Bar
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4.5,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white24 : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
-                  final ratingInfo = RestaurantStoreService.getRatingSync(
-                    restaurant.id,
-                    restaurantName: restaurant.name,
-                  );
+                  // Header with Icon & Close Button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [AppTheme.primaryColor, Color(0xFF14B8A6)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.more_horiz_rounded, color: Colors.white, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Restaurant Actions',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : AppTheme.navyColor,
+                                ),
+                              ),
+                              if (restaurant != null)
+                                SizedBox(
+                                  width: MediaQuery.of(context).size.width * 0.55,
+                                  child: Text(
+                                    restaurant.name,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded, color: isDark ? Colors.white70 : Colors.grey.shade700),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
 
-                  final String shareContent = '''🍽️ Check out ${restaurant.name} on HygieneTruth!
+                  // Action 1: Report Hygiene Issue Card
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        Navigator.pushNamed(context, AppRoutes.submitComplaint, arguments: restaurant);
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF282828) : const Color(0xFFFFF1F2),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.red.withValues(alpha: isDark ? 0.4 : 0.25),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFE11D48), Color(0xFFF43F5E)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.red.withValues(alpha: 0.3),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.report_problem_rounded, color: Colors.white, size: 22),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Text(
+                                        'Report Hygiene Issue',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: Color(0xFFE11D48),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Inspectors',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFFE11D48),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Submit a formal complaint to public health enforcement',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFFE11D48), size: 15),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Action 2: Share Restaurant Profile Card
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        if (restaurant == null) return;
+
+                        final ratingInfo = RestaurantStoreService.getRatingSync(
+                          restaurant.id,
+                          restaurantName: restaurant.name,
+                        );
+
+                        final String shareContent = '''🍽️ Check out ${restaurant.name} on HygieneTruth!
 
 📍 Address: ${restaurant.address}
 🏷️ Cuisine: ${restaurant.category}
@@ -245,36 +478,115 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
 📱 Discover clean dining and real-time hygiene audit certificates on HygieneTruth!''';
 
-                  try {
-                    await SharePlus.instance.share(
-                      ShareParams(
-                        text: shareContent,
-                        subject: 'Check out ${restaurant.name} on HygieneTruth',
-                      ),
-                    );
-                  } catch (e) {
-                    // Fallback to Clipboard if running on Hot Reload before cold re-run
-                    await Clipboard.setData(ClipboardData(text: shareContent));
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('📋 Restaurant profile copied to clipboard!'),
-                          duration: Duration(seconds: 3),
+                        try {
+                          await SharePlus.instance.share(
+                            ShareParams(
+                              text: shareContent,
+                              subject: 'Check out ${restaurant.name} on HygieneTruth',
+                            ),
+                          );
+                        } catch (e) {
+                          await Clipboard.setData(ClipboardData(text: shareContent));
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('📋 Restaurant profile copied to clipboard!'),
+                                duration: Duration(seconds: 3),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF282828) : const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0xFF0F766E).withValues(alpha: isDark ? 0.4 : 0.25),
+                            width: 1.2,
+                          ),
                         ),
-                      );
-                    }
-                  }
-                },
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF0F766E).withValues(alpha: 0.25),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.share_rounded, color: Colors.white, size: 22),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Share Restaurant Profile',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: isDark ? Colors.white : AppTheme.navyColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF0F766E).withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Share',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF0F766E),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Share hygiene rating, location & safety score link',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF0F766E), size: 15),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         );
       },
     );
   }
-
-  int _selectedFilterStar = 0; // 0 = All, 5 = 5 stars, 4 = 4 stars, etc.
-  final Set<int> _likedReviewIndices = {};
 
   Widget _buildOutletQuickActions(RestaurantModel restaurant) {
     return Padding(
@@ -612,7 +924,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          '$starsCount ★ Verified Diner',
+                          '$starsCount ★ Your Review',
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,
@@ -1388,15 +1700,18 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final routeArg = ModalRoute.of(context)?.settings.arguments as RestaurantModel?;
-    final targetId = routeArg?.id ?? '';
-    final targetName = routeArg?.name ?? '';
+    final targetId = _currentRestaurant?.id ?? '';
+    final targetName = _currentRestaurant?.name ?? '';
 
     return ValueListenableBuilder<List<RestaurantModel>>(
       valueListenable: RestaurantStoreService.restaurantsNotifier,
       builder: (context, allRestaurants, _) {
-        final restaurant = allRestaurants.where((r) => r.id == targetId || r.name == targetName).firstOrNull ??
-            routeArg ??
+        final restaurant = allRestaurants
+                .where((r) =>
+                    r.id == targetId ||
+                    (targetName.isNotEmpty && r.name.toLowerCase() == targetName.toLowerCase()))
+                .firstOrNull ??
+            _currentRestaurant ??
             (allRestaurants.isNotEmpty ? allRestaurants.first : null);
 
         if (restaurant == null) {
@@ -1407,9 +1722,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
           );
         }
 
-    final filteredReviews = _selectedFilterStar == 0
-        ? _reviews
-        : _reviews.where((r) => int.tryParse(r['stars'] ?? '5') == _selectedFilterStar).toList();
+    final processedReviews = _getSortedAndFilteredReviews();
+    final totalCount = processedReviews.length;
+    final totalPages = (totalCount / _reviewsPerPage).ceil().clamp(1, 999);
+    final currentPage = _currentReviewPage.clamp(1, totalPages);
+    final startIndex = (currentPage - 1) * _reviewsPerPage;
+    final paginatedReviews = processedReviews.skip(startIndex).take(_reviewsPerPage).toList();
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
@@ -1423,6 +1741,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
         ],
       ),
       body: SingleChildScrollView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1595,19 +1914,25 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
             _buildInteractiveMapSection(restaurant),
             const SizedBox(height: 20),
 
-            // Customer Reviews Header
+            // Customer Reviews Header & Sort Dropdown
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Icon(Icons.comment_bank_outlined, color: AppTheme.primaryColor, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Customer Reviews',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : AppTheme.navyColor,
-                  ),
+                Row(
+                  children: [
+                    const Icon(Icons.comment_bank_outlined, color: AppTheme.primaryColor, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Customer Reviews (${_reviews.length})',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppTheme.navyColor,
+                      ),
+                    ),
+                  ],
                 ),
+                _buildSortDropdown(isDark),
               ],
             ),
             const SizedBox(height: 8),
@@ -1625,237 +1950,125 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                 child: Row(
                   children: [
                     _filterChip('All (${_reviews.length})', 0),
-                    _filterChip('5 ★', 5),
-                    _filterChip('4 ★', 4),
-                    _filterChip('3 ★', 3),
-                    _filterChip('1-2 ★', 2),
+                    _filterChip('5 ★ Best', 5),
+                    _filterChip('4 ★ Good', 4),
+                    _filterChip('3 ★ Fair', 3),
+                    _filterChip('1-2 ★ Poor', 2),
                   ],
                 ),
+              ),
+              const SizedBox(height: 10),
+
+              // Active Sort Status & Info Indicator
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _selectedSortOption == 'helpful'
+                        ? '🏆 Top Helpful Reviews'
+                        : (_selectedSortOption == 'highest'
+                            ? '⭐ Highest Star Rating First'
+                            : (_selectedSortOption == 'lowest'
+                                ? '📉 Critical Feedback First'
+                                : '🕒 Most Recent First')),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? const Color(0xFF5EEAD4) : const Color(0xFF0F766E),
+                    ),
+                  ),
+                  if (processedReviews.isNotEmpty)
+                    Text(
+                      'Page $currentPage of $totalPages',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: isDark ? Colors.white60 : Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 12),
             ],
 
             // Review Cards List or Empty State
-            if (filteredReviews.isEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
-                margin: const EdgeInsets.only(bottom: 16),
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : const Color(0xFFFEF3C7),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.star_outline_rounded, size: 36, color: Colors.amber.shade700),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _selectedFilterStar == 0 ? 'No Customer Reviews Yet' : 'No $_selectedFilterStar Star Reviews',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: isDark ? Colors.white : AppTheme.navyColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _selectedFilterStar == 0
-                          ? 'Be the first to leave a review for this outlet!'
-                          : 'No reviews found matching this star rating filter.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: isDark ? Colors.white60 : Colors.grey),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ...filteredReviews.asMap().entries.map((entry) {
-                final idx = entry.key;
+            if (processedReviews.isEmpty)
+              _buildEmptyReviewsState(isDark)
+            else ...[
+              ...paginatedReviews.asMap().entries.map((entry) {
+                final pageIdx = entry.key;
+                final globalIdx = startIndex + pageIdx;
                 final review = entry.value;
                 final starsCount = int.tryParse(review['stars'] ?? '5') ?? 5;
-                final isLiked = _likedReviewIndices.contains(idx);
+                final reviewKey = _getReviewKey(review, globalIdx);
+                final isLiked = _isReviewLikedByCurrentUser(review);
+                final helpfulCount = _getHelpfulCount(review, globalIdx);
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          UserAvatar(
-                            avatarUrl: review['avatarUrl'],
-                            radius: 18,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      review['userName'] ?? 'Customer',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                        color: isDark ? Colors.white : AppTheme.navyColor,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: isDark ? const Color(0xFF065F46) : const Color(0xFFECFDF5),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0)),
-                                      ),
-                                      child: Text(
-                                        'Verified Diner',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
-                                          color: isDark ? const Color(0xFFA7F3D0) : const Color(0xFF059669),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Text(
-                                  review['date'] ?? '',
-                                  style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade500),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Row(
-                            children: List.generate(5, (starIndex) {
-                              return Icon(
-                                starIndex < starsCount ? Icons.star_rounded : Icons.star_border_rounded,
-                                color: starIndex < starsCount ? Colors.amber : (isDark ? Colors.white24 : Colors.grey.shade400),
-                                size: 16,
-                              );
-                            }),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        review['comment'] ?? '',
-                        style: TextStyle(fontSize: 13, color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87, height: 1.4),
-                      ),
-                      if ((review['ownerReply'] ?? '').isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(11),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF121212) : const Color(0xFF0C2340).withValues(alpha: 0.04),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: isDark ? const Color(0xFF0F766E).withValues(alpha: 0.5) : AppTheme.primaryColor.withValues(alpha: 0.3)),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withValues(alpha: 0.12),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.storefront_rounded, size: 14, color: AppTheme.primaryColor),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Official Response from Restaurant Owner',
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.bold,
-                                        color: isDark ? const Color(0xFF5EEAD4) : AppTheme.navyColor,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      review['ownerReply']!,
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        color: isDark ? Colors.white70 : const Color(0xFF282828),
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          InkWell(
-                            onTap: () {
-                              setState(() {
-                                if (isLiked) {
-                                  _likedReviewIndices.remove(idx);
-                                } else {
-                                  _likedReviewIndices.add(idx);
-                                }
-                              });
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    isLiked ? Icons.thumb_up_rounded : Icons.thumb_up_outlined,
-                                    size: 14,
-                                    color: isLiked ? AppTheme.primaryColor : Colors.grey,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    isLiked ? 'Helpful (1)' : 'Helpful',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: isLiked ? FontWeight.bold : FontWeight.normal,
-                                      color: isLiked ? AppTheme.primaryColor : Colors.grey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                return _buildReviewCard(
+                  review: review,
+                  starsCount: starsCount,
+                  isLiked: isLiked,
+                  helpfulCount: helpfulCount,
+                  isDark: isDark,
+                  onHelpfulTap: () async {
+                    final userIdent = _getCurrentUserIdentifier();
+                    final rest = _currentRestaurant;
+                    if (rest == null) return;
+
+                    // Optimistic update of local review state
+                    final rawLiked = review['likedUserIds'] ?? '[]';
+                    List<String> list = [];
+                    try {
+                      if (rawLiked.startsWith('[')) {
+                        list = List<String>.from(jsonDecode(rawLiked) as List);
+                      } else if (rawLiked.isNotEmpty) {
+                        list = rawLiked.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+                      }
+                    } catch (_) {}
+
+                    final clean = userIdent.toLowerCase();
+                    final bool wasLiked = list.map((e) => e.toLowerCase()).contains(clean);
+
+                    setState(() {
+                      if (wasLiked) {
+                        list.removeWhere((e) => e.toLowerCase() == clean);
+                      } else {
+                        list.add(userIdent);
+                      }
+                      review['likedUserIds'] = jsonEncode(list);
+                      review['helpfulCount'] = '${list.length}';
+                    });
+
+                    // Sync to Supabase cloud across all accounts and devices
+                    final res = await RestaurantStoreService.toggleReviewHelpfulVote(
+                      restaurantId: rest.id,
+                      reviewIdOrKey: reviewKey,
+                      userIdentifier: userIdent,
+                      restaurantName: rest.name,
+                    );
+
+                    if (mounted) {
+                      setState(() {
+                        review['helpfulCount'] = '${res['helpfulCount']}';
+                      });
+                    }
+                  },
                 );
               }),
+
+              // Pagination Controls
+              if (totalPages > 1) ...[
+                const SizedBox(height: 8),
+                _buildPaginationControls(
+                  currentPage: currentPage,
+                  totalPages: totalPages,
+                  startIndex: startIndex,
+                  totalCount: totalCount,
+                  paginatedLength: paginatedReviews.length,
+                  isDark: isDark,
+                ),
+              ],
+            ],
             const SizedBox(height: 16),
 
             // Ultra-Premium Hygiene Risk Score Panel
@@ -1877,6 +2090,601 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
     );
   }
 
+  String _getCurrentUserIdentifier() {
+    final customer = CustomerStoreService.currentCustomer;
+    if (customer != null && customer.id.trim().isNotEmpty) {
+      return customer.id.trim();
+    }
+    if (customer != null && customer.email.trim().isNotEmpty) {
+      return customer.email.trim();
+    }
+    final authUser = SupabaseService.client.auth.currentUser;
+    if (authUser != null) {
+      if (authUser.email != null && authUser.email!.isNotEmpty) {
+        return authUser.email!.trim();
+      }
+      return authUser.id;
+    }
+    return 'customer_user';
+  }
+
+  bool _isReviewLikedByCurrentUser(Map<String, String> review) {
+    final userIdent = _getCurrentUserIdentifier().toLowerCase();
+    final customerEmail = (CustomerStoreService.currentCustomer?.email ?? '').toLowerCase().trim();
+    final rawLiked = review['likedUserIds'] ?? '[]';
+    List<String> list = [];
+    try {
+      if (rawLiked.startsWith('[')) {
+        list = List<String>.from(jsonDecode(rawLiked) as List);
+      } else if (rawLiked.isNotEmpty) {
+        list = rawLiked.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      }
+    } catch (_) {}
+
+    return list.map((e) => e.toLowerCase()).contains(userIdent) ||
+        (customerEmail.isNotEmpty && list.map((e) => e.toLowerCase()).contains(customerEmail));
+  }
+
+  String _getReviewKey(Map<String, String> review, int fallbackIndex) {
+    final user = review['userName'] ?? 'user';
+    final date = review['date'] ?? '';
+    final comment = review['comment'] ?? '';
+    return review['id'] ?? '$user-$date-${comment.hashCode}-$fallbackIndex';
+  }
+
+  int _getHelpfulCount(Map<String, String> review, int fallbackIndex) {
+    final rawLiked = review['likedUserIds'] ?? '[]';
+    List<String> list = [];
+    try {
+      if (rawLiked.startsWith('[')) {
+        list = List<String>.from(jsonDecode(rawLiked) as List);
+      } else if (rawLiked.isNotEmpty) {
+        list = rawLiked.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      }
+    } catch (_) {}
+
+    final parsedCount = int.tryParse(review['helpfulCount'] ?? '');
+    if (list.isNotEmpty) {
+      return list.length;
+    }
+    if (parsedCount != null && parsedCount > 0) {
+      return parsedCount;
+    }
+    return 0;
+  }
+
+  List<Map<String, String>> _getSortedAndFilteredReviews() {
+    // 1. Star Rating Filter
+    List<Map<String, String>> list = _selectedFilterStar == 0
+        ? List<Map<String, String>>.from(_reviews)
+        : _reviews.where((r) {
+            final s = int.tryParse(r['stars'] ?? '5') ?? 5;
+            if (_selectedFilterStar == 2) {
+              return s <= 2;
+            }
+            return s == _selectedFilterStar;
+          }).toList();
+
+    // Helper to extract true helpful thumbs up count
+    int getHelpfulCount(Map<String, String> r) {
+      final rawLiked = r['likedUserIds'] ?? '[]';
+      List<String> likedList = [];
+      try {
+        if (rawLiked.startsWith('[')) {
+          likedList = List<String>.from(jsonDecode(rawLiked) as List);
+        } else if (rawLiked.isNotEmpty) {
+          likedList = rawLiked.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        }
+      } catch (_) {}
+
+      final parsed = int.tryParse(r['helpfulCount'] ?? '');
+      if (likedList.isNotEmpty) return likedList.length;
+      if (parsed != null && parsed > 0) return parsed;
+      return 0;
+    }
+
+    // 2. Sorting: 5-Star with most helpful thumbs up displayed first on top
+    if (_selectedSortOption == 'helpful' || _selectedSortOption == 'highest') {
+      list.sort((a, b) {
+        final aStars = int.tryParse(a['stars'] ?? '5') ?? 5;
+        final bStars = int.tryParse(b['stars'] ?? '5') ?? 5;
+
+        // Primary: Highest Rating Star First (5-star on top, then 4, 3, 2, 1)
+        final starComp = bStars.compareTo(aStars);
+        if (starComp != 0) return starComp;
+
+        // Secondary: Most Helpful Thumbs Up votes on top
+        final aHelpful = getHelpfulCount(a);
+        final bHelpful = getHelpfulCount(b);
+        final helpfulComp = bHelpful.compareTo(aHelpful);
+        if (helpfulComp != 0) return helpfulComp;
+
+        // Tertiary: Owner response & constructive comment depth
+        final aHasReply = (a['ownerReply'] ?? '').isNotEmpty ? 10 : 0;
+        final bHasReply = (b['ownerReply'] ?? '').isNotEmpty ? 10 : 0;
+        final aDepth = aHasReply + (a['comment']?.length ?? 0);
+        final bDepth = bHasReply + (b['comment']?.length ?? 0);
+        return bDepth.compareTo(aDepth);
+      });
+    } else if (_selectedSortOption == 'lowest') {
+      list.sort((a, b) {
+        final aStars = int.tryParse(a['stars'] ?? '5') ?? 5;
+        final bStars = int.tryParse(b['stars'] ?? '5') ?? 5;
+
+        // Primary: Lowest Star Rating First (1 star on top)
+        final starComp = aStars.compareTo(bStars);
+        if (starComp != 0) return starComp;
+
+        // Secondary: Most Helpful Thumbs Up votes on top
+        final aHelpful = getHelpfulCount(a);
+        final bHelpful = getHelpfulCount(b);
+        return bHelpful.compareTo(aHelpful);
+      });
+    } else if (_selectedSortOption == 'recent') {
+      // Natural chronological order / timestamp
+    }
+
+    return list;
+  }
+
+  Widget _buildSortDropdown(bool isDark) {
+    return PopupMenuButton<String>(
+      initialValue: _selectedSortOption,
+      tooltip: 'Sort Reviews',
+      onSelected: (val) {
+        setState(() {
+          _selectedSortOption = val;
+          _currentReviewPage = 1;
+        });
+      },
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'helpful',
+          child: Row(
+            children: [
+              Icon(Icons.thumb_up_rounded, color: Color(0xFF0F766E), size: 18),
+              SizedBox(width: 8),
+              Text('Top Helpful', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'recent',
+          child: Row(
+            children: [
+              Icon(Icons.schedule_rounded, color: Color(0xFF0284C7), size: 18),
+              SizedBox(width: 8),
+              Text('Most Recent', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'highest',
+          child: Row(
+            children: [
+              Icon(Icons.star_rounded, color: Colors.amber, size: 18),
+              SizedBox(width: 8),
+              Text('Highest Star Rating', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'lowest',
+          child: Row(
+            children: [
+              Icon(Icons.star_outline_rounded, color: Colors.grey, size: 18),
+              SizedBox(width: 8),
+              Text('Critical Feedback', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0F766E).withValues(alpha: 0.2) : const Color(0xFFE6FFFA),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isDark ? const Color(0xFF14B8A6).withValues(alpha: 0.4) : const Color(0xFF99F6E4),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _selectedSortOption == 'helpful'
+                  ? Icons.thumb_up_rounded
+                  : (_selectedSortOption == 'highest'
+                      ? Icons.star_rounded
+                      : (_selectedSortOption == 'lowest' ? Icons.star_outline_rounded : Icons.schedule_rounded)),
+              size: 14,
+              color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF059669),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              _selectedSortOption == 'helpful'
+                  ? 'Top Helpful'
+                  : (_selectedSortOption == 'highest'
+                      ? 'Highest ★'
+                      : (_selectedSortOption == 'lowest' ? 'Critical' : 'Recent')),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF059669),
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 14,
+              color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF059669),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyReviewsState(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+      margin: const EdgeInsets.only(bottom: 16),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : const Color(0xFFFEF3C7),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.star_outline_rounded, size: 36, color: Colors.amber.shade700),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _selectedFilterStar == 0 ? 'No Customer Reviews Yet' : 'No $_selectedFilterStar Star Reviews',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              color: isDark ? Colors.white : AppTheme.navyColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _selectedFilterStar == 0
+                ? 'Be the first to leave a review for this outlet!'
+                : 'No reviews found matching this star rating filter.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: isDark ? Colors.white60 : Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewCard({
+    required Map<String, String> review,
+    required int starsCount,
+    required bool isLiked,
+    required int helpfulCount,
+    required bool isDark,
+    required VoidCallback onHelpfulTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              UserAvatar(
+                avatarUrl: review['avatarUrl'],
+                radius: 18,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          review['userName'] ?? 'Customer',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: isDark ? Colors.white : AppTheme.navyColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      review['date'] ?? '',
+                      style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade500),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                children: List.generate(5, (starIndex) {
+                  return Icon(
+                    starIndex < starsCount ? Icons.star_rounded : Icons.star_border_rounded,
+                    color: starIndex < starsCount ? Colors.amber : (isDark ? Colors.white24 : Colors.grey.shade400),
+                    size: 16,
+                  );
+                }),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            review['comment'] ?? '',
+            style: TextStyle(fontSize: 13, color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87, height: 1.4),
+          ),
+          if ((review['ownerReply'] ?? '').isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF121212) : const Color(0xFF0C2340).withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? const Color(0xFF0F766E).withValues(alpha: 0.5) : AppTheme.primaryColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.storefront_rounded, size: 14, color: AppTheme.primaryColor),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Official Response from Restaurant Owner',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? const Color(0xFF5EEAD4) : AppTheme.navyColor,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          review['ownerReply']!,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: isDark ? Colors.white70 : const Color(0xFF282828),
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '⭐ $starsCount/5 Rating',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.amber.shade700),
+              ),
+              InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: onHelpfulTap,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: isLiked
+                        ? (isDark ? const Color(0xFF0F766E).withValues(alpha: 0.28) : const Color(0xFFE6FFFA))
+                        : (isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F5F9)),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isLiked
+                          ? (isDark ? const Color(0xFF14B8A6) : const Color(0xFF0D9488))
+                          : (isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isLiked ? Icons.thumb_up_rounded : Icons.thumb_up_outlined,
+                        size: 13,
+                        color: isLiked
+                            ? (isDark ? const Color(0xFF2DD4BF) : const Color(0xFF0F766E))
+                            : (isDark ? Colors.white60 : Colors.grey.shade600),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        helpfulCount > 0 ? 'Helpful ($helpfulCount)' : 'Helpful',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: isLiked ? FontWeight.bold : FontWeight.w500,
+                          color: isLiked
+                              ? (isDark ? const Color(0xFF2DD4BF) : const Color(0xFF0F766E))
+                              : (isDark ? Colors.white70 : Colors.grey.shade700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaginationControls({
+    required int currentPage,
+    required int totalPages,
+    required int startIndex,
+    required int totalCount,
+    required int paginatedLength,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Previous Page Button
+              OutlinedButton.icon(
+                onPressed: currentPage > 1
+                    ? () {
+                        setState(() {
+                          _currentReviewPage = currentPage - 1;
+                        });
+                      }
+                    : null,
+                icon: const Icon(Icons.arrow_back_ios_rounded, size: 12),
+                label: const Text('Prev', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  side: BorderSide(
+                    color: currentPage > 1 ? const Color(0xFF0F766E) : (isDark ? Colors.white10 : Colors.grey.shade300),
+                  ),
+                  foregroundColor: const Color(0xFF0F766E),
+                  disabledForegroundColor: isDark ? Colors.white24 : Colors.grey.shade400,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+
+              // Page Number Buttons
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(totalPages, (idx) {
+                  final pageNum = idx + 1;
+                  final isCurrent = pageNum == currentPage;
+
+                  return GestureDetector(
+                    onTap: () {
+                      if (_currentReviewPage != pageNum) {
+                        setState(() {
+                          _currentReviewPage = pageNum;
+                        });
+                      }
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isCurrent ? const Color(0xFF0F766E) : (isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF1F5F9)),
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: isCurrent
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFF0F766E).withValues(alpha: 0.35),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Text(
+                        '$pageNum',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isCurrent ? Colors.white : (isDark ? Colors.white70 : const Color(0xFF334155)),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+
+              // Next Page Button
+              OutlinedButton(
+                onPressed: currentPage < totalPages
+                    ? () {
+                        setState(() {
+                          _currentReviewPage = currentPage + 1;
+                        });
+                      }
+                    : null,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  side: BorderSide(
+                    color: currentPage < totalPages ? const Color(0xFF0F766E) : (isDark ? Colors.white10 : Colors.grey.shade300),
+                  ),
+                  foregroundColor: const Color(0xFF0F766E),
+                  disabledForegroundColor: isDark ? Colors.white24 : Colors.grey.shade400,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Next', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 12),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Showing ${startIndex + 1}–${(startIndex + paginatedLength).clamp(0, totalCount)} of $totalCount verified reviews',
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? Colors.white54 : Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _filterChip(String label, int starVal) {
     final isSelected = _selectedFilterStar == starVal;
 
@@ -1895,6 +2703,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
         onSelected: (selected) {
           setState(() {
             _selectedFilterStar = selected ? starVal : 0;
+            _currentReviewPage = 1;
           });
         },
       ),

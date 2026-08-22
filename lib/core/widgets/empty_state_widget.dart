@@ -18,6 +18,11 @@ class EmptyStateWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleColor = isDark ? Colors.white : Colors.black87;
+    final msgColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+    final defaultIconColor = isDark ? Colors.grey.shade600 : Colors.grey.shade400;
+
     return Padding(
       padding: const EdgeInsets.all(32.0),
       child: Center(
@@ -25,17 +30,17 @@ class EmptyStateWidget extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(icon, size: 72, color: Colors.grey.shade400),
+            Icon(icon, size: 72, color: defaultIconColor),
             const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: titleColor),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               message,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 14, color: msgColor),
               textAlign: TextAlign.center,
             ),
             if (actionLabel != null && onAction != null) ...[

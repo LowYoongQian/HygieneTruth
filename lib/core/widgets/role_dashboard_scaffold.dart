@@ -45,6 +45,7 @@ class RoleDashboardScaffold extends StatefulWidget {
 class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
   late UserRole _currentRole;
   late int _selectedBottomTabIndex;
+  late PageController _userPageController;
   bool _hasCheckedProfileSetup = false;
   double _userLat = 3.1466;
   double _userLng = 101.6958;
@@ -62,6 +63,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
     super.initState();
     _currentRole = widget.initialRole;
     _selectedBottomTabIndex = widget.initialTabIndex;
+    _userPageController = PageController(initialPage: _selectedBottomTabIndex);
     BookmarkService.init();
     _fetchUserGpsLocation();
     _loadCurrentUserSession();
@@ -78,6 +80,24 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
       ComplaintStoreService.fetchAllComplaints(forceRefresh: true);
       RestaurantStoreService.fetchInspections();
     }
+  }
+
+  @override
+  void didUpdateWidget(covariant RoleDashboardScaffold oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTabIndex != oldWidget.initialTabIndex &&
+        widget.initialTabIndex != _selectedBottomTabIndex) {
+      _selectedBottomTabIndex = widget.initialTabIndex;
+      if (_userPageController.hasClients) {
+        _userPageController.jumpToPage(_selectedBottomTabIndex);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _userPageController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCurrentUserSession() async {
@@ -207,6 +227,7 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
   Widget _buildUserShell(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Text(_getUserTabTitle(_selectedBottomTabIndex)),
         actions: [
           IconButton(
@@ -219,7 +240,21 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
           const NotificationBell(),
         ],
       ),
-      body: _buildUserTabContent(_selectedBottomTabIndex),
+      body: PageView(
+        controller: _userPageController,
+        physics: const BouncingScrollPhysics(),
+        onPageChanged: (index) {
+          setState(() {
+            _selectedBottomTabIndex = index;
+          });
+        },
+        children: [
+          _buildUserHomePanel(context),
+          _buildUserMapPanel(context),
+          _buildUserSafeFoodPanel(context),
+          _buildUserProfilePanel(context),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedBottomTabIndex,
         type: BottomNavigationBarType.fixed,
@@ -231,6 +266,13 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
           setState(() {
             _selectedBottomTabIndex = index;
           });
+          if (_userPageController.hasClients) {
+            _userPageController.animateToPage(
+              index,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
         },
         items: [
           BottomNavigationBarItem(icon: const Icon(Icons.home_outlined), label: t('home')),
@@ -254,21 +296,6 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
         return t('my_profile');
       default:
         return t('app_title');
-    }
-  }
-
-  Widget _buildUserTabContent(int index) {
-    switch (index) {
-      case 0:
-        return _buildUserHomePanel(context);
-      case 1:
-        return _buildUserMapPanel(context);
-      case 2:
-        return _buildUserSafeFoodPanel(context);
-      case 3:
-        return _buildUserProfilePanel(context);
-      default:
-        return Container();
     }
   }
 
@@ -1123,9 +1150,8 @@ class _RoleDashboardScaffoldState extends State<RoleDashboardScaffold> {
             ),
             const SizedBox(height: 20),
 
-            // Dynamic Urgent Visit Carousel with Real Database Data & 5-Second Auto-Swipe
+            // Dynamic Urgent Visit Carousel with Real Database Data & 5-Second Auto-Swipe (Renders only if serious/important cases exist)
             const UrgentVisitCarousel(),
-            const SizedBox(height: 20),
 
             const Text('Officer Tools', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
@@ -1482,6 +1508,26 @@ class _UrgentVisitCarouselState extends State<UrgentVisitCarousel> {
     final List<MapEntry<ComplaintModel, double>> scoredList = [];
 
     for (final c in assignedComplaints) {
+      // Check if this case is SERIOUS or VERY IMPORTANT
+      final bool isHighSeverity = c.severity == SeverityLevel.high;
+      final bool isFlagged = c.isFlaggedForReview;
+
+      final combinedText = '${c.category} ${c.issues.join(" ")} ${c.description}'.toLowerCase();
+      const criticalKeywords = [
+        'pest', 'rat', 'rats', 'cockroach', 'cockroaches', 'maggot', 'maggots',
+        'poison', 'poisoning', 'vomit', 'vomiting', 'hospital', 'diarrhea',
+        'raw meat', 'contamination', 'sewage', 'foul', 'bacteria', 'dead'
+      ];
+      final bool hasCriticalKeyword = criticalKeywords.any((kw) => combinedText.contains(kw));
+
+      final r = restMap[c.restaurantId];
+      final bool isHighRiskRest = r != null && (r.riskCategory == RiskCategory.high || r.hygieneRiskScore >= 40.0 || r.violationCount > 0);
+
+      // ONLY include if it meets serious or very important criteria
+      if (!isHighSeverity && !isFlagged && !hasCriticalKeyword && !isHighRiskRest) {
+        continue;
+      }
+
       double score = 0.0;
 
       // 1. Severity Level weighting
@@ -1494,21 +1540,11 @@ class _UrgentVisitCarouselState extends State<UrgentVisitCarousel> {
       }
 
       // 2. Critical/High Health hazard keywords
-      final combinedText = '${c.category} ${c.issues.join(" ")} ${c.description}'.toLowerCase();
-      const criticalKeywords = [
-        'pest', 'rat', 'rats', 'cockroach', 'cockroaches', 'maggot', 'maggots',
-        'poison', 'poisoning', 'vomit', 'vomiting', 'hospital', 'diarrhea',
-        'raw meat', 'contamination', 'sewage', 'foul', 'bacteria', 'dead'
-      ];
-      for (final kw in criticalKeywords) {
-        if (combinedText.contains(kw)) {
-          score += 30.0;
-          break;
-        }
+      if (hasCriticalKeyword) {
+        score += 30.0;
       }
 
       // 3. Restaurant Risk & Past Violations
-      final r = restMap[c.restaurantId];
       if (r != null) {
         if (r.riskCategory == RiskCategory.high || r.hygieneRiskScore > 40.0) {
           score += 25.0;
@@ -1559,125 +1595,85 @@ class _UrgentVisitCarouselState extends State<UrgentVisitCarousel> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // 1. ALL-CLEAR STATE: When no cases have been assigned by Admin
+    // 1. HIDE COMPLETELY: When no serious/urgent cases exist, hide the section
     if (_urgentComplaints.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.25) : const Color(0xFFECFDF5),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isDark ? const Color(0xFF059669).withValues(alpha: 0.4) : const Color(0xFFA7F3D0),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.assignment_turned_in_rounded, color: Color(0xFF059669), size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'No Pending Field Cases',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13.5,
-                      color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF065F46),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'No inspection cases assigned by Admin yet. New cases will appear here once dispatched.',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: isDark ? Colors.grey.shade400 : const Color(0xFF047857),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     // 2. SINGLE VISIT CARD
     if (_urgentComplaints.length == 1) {
-      return _buildUrgentCard(_urgentComplaints.first, isDark, indexBadge: null);
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 20),
+        child: _buildUrgentCard(_urgentComplaints.first, isDark, indexBadge: null),
+      );
     }
 
     // 3. MULTI-CARD AUTO-SWIPING CAROUSEL CONTAINER (5-Sec Rotation)
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          height: 155,
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollStartNotification) {
-                // Pause timer while user is interacting manually
-                _autoSwipeTimer?.cancel();
-              } else if (notification is ScrollEndNotification) {
-                // Resume timer once user stops dragging
-                _resetTimer();
-              }
-              return false;
-            },
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: _urgentComplaints.length,
-              onPageChanged: (index) {
-                setState(() => _currentPageIndex = index);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 155,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is ScrollStartNotification) {
+                  // Pause timer while user is interacting manually
+                  _autoSwipeTimer?.cancel();
+                } else if (notification is ScrollEndNotification) {
+                  // Resume timer once user stops dragging
+                  _resetTimer();
+                }
+                return false;
               },
-              itemBuilder: (context, index) {
-                final complaint = _urgentComplaints[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: _buildUrgentCard(
-                    complaint,
-                    isDark,
-                    indexBadge: '${index + 1}/${_urgentComplaints.length}',
-                  ),
-                );
-              },
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: _urgentComplaints.length,
+                onPageChanged: (index) {
+                  setState(() => _currentPageIndex = index);
+                },
+                itemBuilder: (context, index) {
+                  final complaint = _urgentComplaints[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: _buildUrgentCard(
+                      complaint,
+                      isDark,
+                      indexBadge: '${index + 1}/${_urgentComplaints.length}',
+                    ),
+                  );
+                },
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 8),
+          const SizedBox(height: 8),
 
-        // Smooth Page Indicator Dots
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_urgentComplaints.length, (idx) {
-            final isSelected = idx == _currentPageIndex;
-            final item = _urgentComplaints[idx];
-            final Color dotColor = item.severity == SeverityLevel.high
-                ? const Color(0xFFDC2626)
-                : (item.severity == SeverityLevel.medium ? const Color(0xFFD97706) : const Color(0xFF0284C7));
+          // Smooth Page Indicator Dots
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_urgentComplaints.length, (idx) {
+              final isSelected = idx == _currentPageIndex;
+              final item = _urgentComplaints[idx];
+              final Color dotColor = item.severity == SeverityLevel.high
+                  ? const Color(0xFFDC2626)
+                  : (item.severity == SeverityLevel.medium ? const Color(0xFFD97706) : const Color(0xFF0284C7));
 
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              height: 5,
-              width: isSelected ? 20 : 6,
-              decoration: BoxDecoration(
-                color: isSelected ? dotColor : (isDark ? Colors.white24 : Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            );
-          }),
-        ),
-      ],
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: isSelected ? 18 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: isSelected ? dotColor : (isDark ? Colors.white24 : Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
     );
   }
 

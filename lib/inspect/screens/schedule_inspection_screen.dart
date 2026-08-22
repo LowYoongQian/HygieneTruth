@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/models/complaint_model.dart';
+import '../../core/models/inspection_model.dart';
 import '../../core/services/audit_log_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/restaurant_store_service.dart';
@@ -554,6 +555,64 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
 
                 final String scheduledStr = '${_formatDateDisplay(_selectedDate)} at ${_selectedTime.format(context)}';
 
+                // 1. Create and register InspectionModel in inspectionsNotifier
+                final inspectionId = 'insp_${DateTime.now().millisecondsSinceEpoch}';
+                final newInsp = InspectionModel(
+                  id: inspectionId,
+                  complaintId: c?.id ?? '',
+                  restaurantId: c?.restaurantId ?? '',
+                  restaurantName: restName,
+                  scheduledDate: _selectedDate.toIso8601String().split('T').first,
+                  conductedDate: null,
+                  officerName: 'Health Inspector (KKM)',
+                  outcome: InspectionOutcome.pending,
+                  findings: _notesCtrl.text.trim().isNotEmpty
+                      ? _notesCtrl.text.trim()
+                      : 'Scheduled official hygiene inspection: $_selectedInspectionType on $scheduledStr',
+                  recommendedAction: EnforcementType.warning,
+                  issuedAction: EnforcementType.warning,
+                  justification: 'Official hygiene audit scheduled for $scheduledStr.',
+                  fineAmount: 0.0,
+                  statutoryCitation: 'Food Act 1983 - Section 10',
+                  enforcementStatus: EnforcementStatus.inProgress,
+                );
+
+                final currentInspections = List<InspectionModel>.from(RestaurantStoreService.inspectionsNotifier.value);
+                final existingIdx = currentInspections.indexWhere((x) => x.complaintId.isNotEmpty && c != null && x.complaintId == c.id);
+                if (existingIdx != -1) {
+                  currentInspections[existingIdx] = newInsp;
+                } else {
+                  currentInspections.insert(0, newInsp);
+                }
+                RestaurantStoreService.inspectionsNotifier.value = currentInspections;
+
+                // 2. Update complaint status in ComplaintStoreService
+                if (c != null) {
+                  final nonNullC = c;
+                  final compIdx = ComplaintStoreService.complaintsNotifier.value.indexWhere((x) => x.id == nonNullC.id);
+                  if (compIdx != -1) {
+                    final currentComplaints = List<ComplaintModel>.from(ComplaintStoreService.complaintsNotifier.value);
+                    currentComplaints[compIdx] = ComplaintModel(
+                      id: nonNullC.id,
+                      restaurantId: nonNullC.restaurantId,
+                      restaurantName: nonNullC.restaurantName,
+                      userId: nonNullC.userId,
+                      userName: nonNullC.userName,
+                      issues: nonNullC.issues,
+                      description: nonNullC.description,
+                      category: nonNullC.category,
+                      submittedAt: nonNullC.submittedAt,
+                      status: ComplaintStatus.investigating,
+                      photoUrls: nonNullC.photoUrls,
+                      latitude: nonNullC.latitude,
+                      longitude: nonNullC.longitude,
+                      severity: nonNullC.severity,
+                      isFlaggedForReview: false,
+                    );
+                    ComplaintStoreService.complaintsNotifier.value = currentComplaints;
+                  }
+                }
+
                 // Log audit action
                 AuditLogService.logAction(
                   actionType: 'INSPECTION_SCHEDULED',
@@ -568,7 +627,7 @@ class _ScheduleInspectionScreenState extends State<ScheduleInspectionScreen> {
                     title: '📅 Scheduled Health Inspection Notice',
                     message: 'MOH Health Inspector has scheduled a $_selectedInspectionType on $scheduledStr for $restName.',
                     type: NotificationType.outlet,
-                    actionUrl: 'case_${c!.id}',
+                    actionUrl: c != null ? 'case_${c.id}' : 'notice',
                   );
                 }
 
